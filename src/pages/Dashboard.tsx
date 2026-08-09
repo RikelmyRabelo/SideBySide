@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { MatchingModal } from '../components/room/MatchingModal';
 
 export const Dashboard: React.FC = () => {
+  const navigate = useNavigate();
   const [mediaMode, setMediaMode] = useState<'video' | 'audio'>('video');
   const [expandedMatching, setExpandedMatching] = useState(true);
   const [isMatching, setIsMatching] = useState(false);
@@ -30,14 +32,20 @@ export const Dashboard: React.FC = () => {
             Reputação: 98/100
           </Badge>
 
-          <div className="flex items-center gap-2 border-l border-slate-200 pl-4">
-            <div className="w-8 h-8 rounded-full bg-slate-300 overflow-hidden">
-              <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80" alt="Lucas Silva" className="w-full h-full object-cover" />
+          <div
+            onClick={() => navigate('/profile')}
+            className="flex items-center gap-2 border-l border-slate-200 pl-4 cursor-pointer hover:opacity-80 transition-opacity"
+            title="Editar Perfil"
+          >
+            <div className="w-8 h-8 rounded-full bg-slate-300 overflow-hidden border border-slate-200">
+              <img
+                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
+                alt="Lucas Silva"
+                className="w-full h-full object-cover"
+              />
             </div>
             <span className="text-xs font-semibold text-slate-700">Lucas Silva</span>
-            <button type="button" className="text-slate-400 hover:text-slate-600 text-sm ml-1">
-              ➔
-            </button>
+            <span className="text-slate-400 text-xs">⚙️</span>
           </div>
         </div>
       </header>
