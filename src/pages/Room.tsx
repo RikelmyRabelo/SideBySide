@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ReportModal } from '../components/room/ReportModal';
 
 export const Room: React.FC = () => {
   const navigate = useNavigate();
   const [micActive, setMicActive] = useState(true);
   const [camActive, setCamActive] = useState(true);
   const [activeTab, setActiveTab] = useState<'vocab' | 'chat'>('vocab');
+  const [isReportOpen, setIsReportOpen] = useState(false);
 
   const vocabList = [
     {
@@ -33,6 +35,12 @@ export const Room: React.FC = () => {
       example: '"It took me three whole days to recover from the jet lag after flying from Tokyo."',
     },
   ];
+
+  const handleConfirmReport = (reason: string) => {
+    console.log('Denúncia enviada:', reason);
+    setIsReportOpen(false);
+    navigate('/dashboard');
+  };
 
   return (
     <div className="min-h-screen bg-[#0B1120] text-white flex flex-col font-sans h-screen overflow-hidden">
@@ -127,6 +135,7 @@ export const Room: React.FC = () => {
 
             <button
               type="button"
+              onClick={() => setIsReportOpen(true)}
               className="p-3 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded-xl transition-all text-xs font-bold"
               title="Denunciar Parceiro"
             >
@@ -214,6 +223,12 @@ export const Room: React.FC = () => {
           </div>
         </aside>
       </div>
+
+      <ReportModal
+        isOpen={isReportOpen}
+        onClose={() => setIsReportOpen(false)}
+        onConfirm={handleConfirmReport}
+      />
     </div>
   );
 };
