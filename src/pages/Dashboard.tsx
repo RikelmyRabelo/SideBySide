@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
+import { MatchingModal } from '../components/room/MatchingModal';
 
 export const Dashboard: React.FC = () => {
   const [mediaMode, setMediaMode] = useState<'video' | 'audio'>('video');
   const [expandedMatching, setExpandedMatching] = useState(true);
+  const [isMatching, setIsMatching] = useState(false);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
@@ -118,6 +120,7 @@ export const Dashboard: React.FC = () => {
           {/* CTA Principal */}
           <Button
             variant="primary"
+            onClick={() => setIsMatching(true)}
             className="w-full py-4 text-base font-bold tracking-wide bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
           >
             <span className="text-lg">▶</span> PROCURAR PAR DE CONVERSA
@@ -155,6 +158,12 @@ export const Dashboard: React.FC = () => {
           </div>
         </section>
       </main>
+
+      <MatchingModal
+        isOpen={isMatching}
+        onCancel={() => setIsMatching(false)}
+        userLevel="B1"
+      />
     </div>
   );
 };
