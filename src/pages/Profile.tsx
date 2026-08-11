@@ -60,6 +60,22 @@ export const Profile: React.FC = () => {
     },
   ];
 
+  // Dados SBS-38: Estatísticas Detalhadas & Relatório de Evolução
+  const evolutionStats = {
+    totalHours: '2.3h',
+    reputationScore: '98/100',
+    topicsDistribution: [
+      { name: 'Viagens & Culturas', percentage: 45, color: 'bg-emerald-500' },
+      { name: 'Trabalho & Tecnologia', percentage: 35, color: 'bg-amber-500' },
+      { name: 'Estilo de Vida & Hábitos', percentage: 20, color: 'bg-sky-500' },
+    ],
+    partnerLevels: [
+      { level: 'A2 (Básico)', count: 2 },
+      { level: 'B1 (Intermediário)', count: 8 },
+      { level: 'B2 (Avançado)', count: 2 },
+    ],
+  };
+
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
@@ -167,7 +183,7 @@ export const Profile: React.FC = () => {
             Meu Perfil
           </h1>
           <p className="text-xs sm:text-sm text-[#57534E] max-w-xl leading-relaxed font-medium">
-            Gerencie suas informações cadastrais, metas de aprendizado, conquistas e segurança.
+            Gerencie suas informações cadastrais, acompanhe sua evolução de fala e configure suas preferências de conta.
           </p>
         </section>
 
@@ -181,6 +197,61 @@ export const Profile: React.FC = () => {
           </div>
         )}
 
+        {/* SBS-38: Painel de Estatísticas Detalhadas & Evolução */}
+        <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
+          <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-4">
+            <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
+              Relatório de Evolução & Métricas
+            </h2>
+            <span className="text-xs font-bold text-[#78716C] uppercase">
+              Reputação: <strong className="text-[#1C1917]">{evolutionStats.reputationScore}</strong>
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Distribuição por Temas */}
+            <div className="bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl p-5 flex flex-col gap-4">
+              <span className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
+                Tempo por Tópico Praticado
+              </span>
+              <div className="flex flex-col gap-3">
+                {evolutionStats.topicsDistribution.map((item, idx) => (
+                  <div key={idx} className="flex flex-col gap-1">
+                    <div className="flex justify-between items-center text-xs font-bold text-[#1C1917]">
+                      <span>{item.name}</span>
+                      <span>{item.percentage}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-[#E7E5E4] rounded-full overflow-hidden">
+                      <div className={`h-full ${item.color} rounded-full`} style={{ width: `${item.percentage}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Nível dos Parceiros Pareados */}
+            <div className="bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl p-5 flex flex-col justify-between gap-4">
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
+                  Nível dos Parceiros Pareados
+                </span>
+                <span className="text-xs text-[#57534E] font-medium">
+                  Total de conversas com cada nível CEFR
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                {evolutionStats.partnerLevels.map((item, idx) => (
+                  <div key={idx} className="flex items-center justify-between bg-[#FFFFFF] border border-[#E7E5E4] px-3 py-2 rounded-lg text-xs font-bold">
+                    <span className="text-[#1C1917]">{item.level}</span>
+                    <span className="bg-[#F5F5F4] px-2 py-0.5 rounded text-[#78716C]">{item.count} conexões</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* SBS-37: Painel de Metas Semanais e Conquistas (Gamificação) */}
         <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
           <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-4">
@@ -192,7 +263,6 @@ export const Profile: React.FC = () => {
             </span>
           </div>
 
-          {/* Configuração de Meta */}
           <div className="flex flex-col gap-3">
             <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
               Sessões Desejadas por Semana
@@ -214,7 +284,6 @@ export const Profile: React.FC = () => {
               ))}
             </div>
 
-            {/* Barra de Progresso */}
             <div className="flex flex-col gap-1.5 mt-2">
               <div className="flex justify-between items-center text-xs font-bold text-[#1C1917]">
                 <span>Progresso Semanal</span>
@@ -229,7 +298,6 @@ export const Profile: React.FC = () => {
             </div>
           </div>
 
-          {/* Grade de Conquistas / Badges */}
           <div className="flex flex-col gap-3 pt-2">
             <span className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
               Conquistas Desbloqueadas
