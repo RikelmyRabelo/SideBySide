@@ -6,6 +6,7 @@ import { Input } from '../components/ui/Input';
 export const Login: React.FC = () => {
   const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -17,7 +18,6 @@ export const Login: React.FC = () => {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      // Variação orgânica entre -2 e +3 usuários online
       const delta = Math.floor(Math.random() * 6) - 2;
       setActiveUsers((prev) => Math.max(110, prev + delta));
     }, 4500);
@@ -25,8 +25,9 @@ export const Login: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Estado para validações e erros
+  // Estado para validações e mensagens
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showTooltip, setShowTooltip] = useState(false);
 
   // Lógica de cálculo da força da senha (largura e cor progressivas)
@@ -180,7 +181,19 @@ export const Login: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+    setSuccessMessage(null);
 
+    // Fluxo SBS-18: Recuperação de Senha
+    if (isForgotPassword) {
+      if (!email || !/\S+@\S+\.\S+/.test(email)) {
+        setErrorMessage('Por favor, informe um e-mail válido para a recuperação.');
+        return;
+      }
+      setSuccessMessage('Enviamos um link de redefinição de senha para o seu e-mail!');
+      return;
+    }
+
+    // Fluxo de Login / Cadastro
     if (!email || !password) {
       setErrorMessage('Por favor, preencha todos os campos obrigatórios.');
       return;
@@ -272,7 +285,6 @@ export const Login: React.FC = () => {
       <section className="relative min-h-screen w-full flex flex-col justify-between pt-36 pb-12 px-6 lg:px-12 border-b border-[#E7E5E4] overflow-hidden">
         <div className="relative z-10 max-w-5xl mx-auto my-auto text-center flex flex-col items-center gap-6">
           
-          {/* SBS-17: Badge Sinalizador de Atividade em Tempo Real */}
           <div className="inline-flex items-center gap-2.5 px-4 py-1.5 bg-[#FFFFFF] border border-[#E7E5E4] rounded-full shadow-sm">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -576,50 +588,73 @@ export const Login: React.FC = () => {
         </div>
       </section>
 
-      {/* FORMULÁRIO DE AUTENTICAÇÃO */}
+      {/* FORMULÁRIO DE AUTENTICAÇÃO E RECUPERAÇÃO DE SENHA (SBS-18) */}
       <section id="auth" className="py-28 px-6 max-w-md mx-auto w-full flex flex-col justify-center">
         <div className="bg-[#FFFFFF] rounded-2xl p-8 shadow-lg flex flex-col gap-6 text-[#1C1917] border border-[#E7E5E4]">
+          
           <div className="flex flex-col gap-1 text-center">
             <h2 className="text-2xl font-black tracking-tight uppercase text-[#1C1917]">
-              {isLogin ? 'Acessar Conta' : 'Criar Conta Grátis'}
+              {isForgotPassword
+                ? 'Recuperar Senha'
+                : isLogin
+                ? 'Acessar Conta'
+                : 'Criar Conta Grátis'}
             </h2>
             <p className="text-xs text-[#78716C]">
-              {isLogin
+              {isForgotPassword
+                ? 'Digite seu e-mail para receber o link de redefinição.'
+                : isLogin
                 ? 'Insira suas credenciais para entrar na plataforma.'
                 : 'Selecione seu nível CEFR inicial e comece hoje.'}
             </p>
           </div>
 
-          <div className="grid grid-cols-2 bg-[#F5F5F4] p-1 rounded-xl text-xs font-bold uppercase tracking-wider border border-[#E7E5E4]">
-            <button
-              type="button"
-              onClick={() => {
-                setIsLogin(true);
-                setErrorMessage(null);
-              }}
-              className={`py-2.5 rounded-lg transition-all ${isLogin ? 'bg-[#1C1917] text-[#FAF9F6]' : 'text-[#78716C]'}`}
-            >
-              Entrar
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setIsLogin(false);
-                setErrorMessage(null);
-              }}
-              className={`py-2.5 rounded-lg transition-all ${!isLogin ? 'bg-[#1C1917] text-[#FAF9F6]' : 'text-[#78716C]'}`}
-            >
-              Criar Conta
-            </button>
-          </div>
+          {!isForgotPassword && (
+            <div className="grid grid-cols-2 bg-[#F5F5F4] p-1 rounded-xl text-xs font-bold uppercase tracking-wider border border-[#E7E5E4]">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLogin(true);
+                  setIsForgotPassword(false);
+                  setErrorMessage(null);
+                  setSuccessMessage(null);
+                }}
+                className={`py-2.5 rounded-lg transition-all ${isLogin ? 'bg-[#1C1917] text-[#FAF9F6]' : 'text-[#78716C]'}`}
+              >
+                Entrar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLogin(false);
+                  setIsForgotPassword(false);
+                  setErrorMessage(null);
+                  setSuccessMessage(null);
+                }}
+                className={`py-2.5 rounded-lg transition-all ${!isLogin ? 'bg-[#1C1917] text-[#FAF9F6]' : 'text-[#78716C]'}`}
+              >
+                Criar Conta
+              </button>
+            </div>
+          )}
 
-          {/* Mensagem de Erro Estilizada com SVG */}
+          {/* Mensagem de Erro Estilizada */}
           {errorMessage && (
             <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold flex items-center gap-2.5 animate-fadeIn">
               <svg className="w-4 h-4 shrink-0 fill-current text-red-600" viewBox="0 0 20 20">
                 <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" />
               </svg>
               <p className="flex-1 leading-snug">{errorMessage}</p>
+            </div>
+          )}
+
+          {/* Mensagem de Sucesso (SBS-18) */}
+          {successMessage && (
+            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2.5 animate-fadeIn">
+              <svg className="w-4 h-4 shrink-0 fill-current text-emerald-600" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+              </svg>
+              <p className="flex-1 leading-snug">{successMessage}</p>
             </div>
           )}
 
@@ -636,56 +671,74 @@ export const Login: React.FC = () => {
               }}
             />
 
-            {/* Campo de Senha com Ícone SVG de Olho */}
-            <div className="flex flex-col gap-1.5">
-              <div className="relative w-full">
-                <Input
-                  label="Senha"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Sua senha secreta"
-                  value={password}
-                  className="bg-[#FAF9F6] border-[#E7E5E4] text-[#1C1917] placeholder:text-[#A8A29E] focus:border-[#1C1917]"
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                    setPassword(e.target.value);
-                    if (errorMessage) setErrorMessage(null);
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-[38px] text-[#78716C] hover:text-[#1C1917] transition-colors p-0.5"
-                  title={showPassword ? 'Ocultar senha' : 'Exibir senha'}
-                >
-                  {showPassword ? (
-                    <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
-                    </svg>
-                  ) : (
-                    <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                  )}
-                </button>
-              </div>
-
-              {/* Barra Única Progressiva de Força da Senha */}
-              {!isLogin && password.length > 0 && (
-                <div className="flex flex-col gap-1 mt-1">
-                  <div className="flex justify-between items-center text-[10px] font-bold text-[#78716C] uppercase">
-                    <span>Força da senha:</span>
-                    <span className={passwordStrength.score === 1 ? 'text-red-500' : passwordStrength.score === 2 ? 'text-amber-500' : 'text-emerald-600'}>
-                      {passwordStrength.label}
-                    </span>
-                  </div>
-                  <div className="w-full h-1.5 bg-[#F5F5F4] rounded-full overflow-hidden border border-[#E7E5E4]">
-                    <div className={`h-full rounded-full transition-all duration-500 ease-out ${passwordStrength.width} ${passwordStrength.color}`} />
-                  </div>
+            {!isForgotPassword && (
+              <div className="flex flex-col gap-1.5">
+                <div className="relative w-full">
+                  <Input
+                    label="Senha"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Sua senha secreta"
+                    value={password}
+                    className="bg-[#FAF9F6] border-[#E7E5E4] text-[#1C1917] placeholder:text-[#A8A29E] focus:border-[#1C1917]"
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      setPassword(e.target.value);
+                      if (errorMessage) setErrorMessage(null);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-[38px] text-[#78716C] hover:text-[#1C1917] transition-colors p-0.5"
+                    title={showPassword ? 'Ocultar senha' : 'Exibir senha'}
+                  >
+                    {showPassword ? (
+                      <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    )}
+                  </button>
                 </div>
-              )}
-            </div>
 
-            {!isLogin && (
+                {/* SBS-18: Link Esqueceu sua Senha */}
+                {isLogin && (
+                  <div className="flex justify-end mt-0.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsForgotPassword(true);
+                        setErrorMessage(null);
+                        setSuccessMessage(null);
+                      }}
+                      className="text-xs font-bold text-[#78716C] hover:text-[#1C1917] transition-colors"
+                    >
+                      Esqueceu sua senha?
+                    </button>
+                  </div>
+                )}
+
+                {/* Barra Única Progressiva de Força da Senha */}
+                {!isLogin && password.length > 0 && (
+                  <div className="flex flex-col gap-1 mt-1">
+                    <div className="flex justify-between items-center text-[10px] font-bold text-[#78716C] uppercase">
+                      <span>Força da senha:</span>
+                      <span className={passwordStrength.score === 1 ? 'text-red-500' : passwordStrength.score === 2 ? 'text-amber-500' : 'text-emerald-600'}>
+                        {passwordStrength.label}
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 bg-[#F5F5F4] rounded-full overflow-hidden border border-[#E7E5E4]">
+                      <div className={`h-full rounded-full transition-all duration-500 ease-out ${passwordStrength.width} ${passwordStrength.color}`} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!isLogin && !isForgotPassword && (
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
                   Nível CEFR Inicial
@@ -704,7 +757,7 @@ export const Login: React.FC = () => {
               </div>
             )}
 
-            {!isLogin && (
+            {!isLogin && !isForgotPassword && (
               <div className="flex flex-col gap-2 mt-1">
                 <label className="flex items-start gap-2 text-xs text-[#78716C] cursor-pointer">
                   <input
@@ -758,53 +811,76 @@ export const Login: React.FC = () => {
             )}
 
             <Button variant="primary" className="w-full py-3.5 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-bold text-xs uppercase tracking-widest rounded-xl transition-all">
-              {isLogin ? 'Entrar' : 'Cadastrar Gratuitamente'}
+              {isForgotPassword
+                ? 'Enviar E-mail de Recuperação'
+                : isLogin
+                ? 'Entrar'
+                : 'Cadastrar Gratuitamente'}
             </Button>
+
+            {/* SBS-18: Retornar ao Login quando no fluxo de recuperação */}
+            {isForgotPassword && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsForgotPassword(false);
+                  setErrorMessage(null);
+                  setSuccessMessage(null);
+                }}
+                className="w-full text-center text-xs font-bold text-[#78716C] hover:text-[#1C1917] transition-colors mt-1"
+              >
+                ← Voltar para o Login
+              </button>
+            )}
           </form>
 
-          <div className="relative flex py-0.5 items-center">
-            <div className="flex-grow border-t border-[#E7E5E4]"></div>
-            <span className="flex-shrink mx-4 text-[10px] font-bold text-[#A8A29E] uppercase tracking-widest">
-              OU ENTRE COM
-            </span>
-            <div className="flex-grow border-t border-[#E7E5E4]"></div>
-          </div>
+          {!isForgotPassword && (
+            <>
+              <div className="relative flex py-0.5 items-center">
+                <div className="flex-grow border-t border-[#E7E5E4]"></div>
+                <span className="flex-shrink mx-4 text-[10px] font-bold text-[#A8A29E] uppercase tracking-widest">
+                  OU ENTRE COM
+                </span>
+                <div className="flex-grow border-t border-[#E7E5E4]"></div>
+              </div>
 
-          {/* Botões Sociais com Ícones SVG Integrados */}
-          <div className="grid grid-cols-3 gap-2.5">
-            <button
-              type="button"
-              className="py-2.5 border border-[#E7E5E4] bg-[#FAF9F6] rounded-xl text-xs font-bold text-[#1C1917] hover:bg-[#F5F5F4] flex items-center justify-center gap-2 transition-all"
-            >
-              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
-                <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.23v3.15C3.25 21.37 7.34 24 12 24z"/>
-                <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.23C.44 8.16 0 9.99 0 12s.44 3.84 1.23 5.42l4.05-3.15z"/>
-                <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.25 2.63 1.23 6.58l4.05 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
-              </svg>
-              Google
-            </button>
+              <div className="grid grid-cols-3 gap-2.5">
+                <button
+                  type="button"
+                  className="py-2.5 border border-[#E7E5E4] bg-[#FAF9F6] rounded-xl text-xs font-bold text-[#1C1917] hover:bg-[#F5F5F4] flex items-center justify-center gap-2 transition-all"
+                >
+                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
+                    <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.23v3.15C3.25 21.37 7.34 24 12 24z"/>
+                    <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.23C.44 8.16 0 9.99 0 12s.44 3.84 1.23 5.42l4.05-3.15z"/>
+                    <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.25 2.63 1.23 6.58l4.05 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+                  </svg>
+                  Google
+                </button>
 
-            <button
-              type="button"
-              className="py-2.5 border border-[#E7E5E4] bg-[#FAF9F6] rounded-xl text-xs font-bold text-[#1C1917] hover:bg-[#F5F5F4] flex items-center justify-center gap-2 transition-all"
-            >
-              <svg className="w-4 h-4 shrink-0 fill-[#1877F2]" viewBox="0 0 24 24">
-                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-              </svg>
-              Facebook
-            </button>
+                <button
+                  type="button"
+                  className="py-2.5 border border-[#E7E5E4] bg-[#FAF9F6] rounded-xl text-xs font-bold text-[#1C1917] hover:bg-[#F5F5F4] flex items-center justify-center gap-2 transition-all"
+                >
+                  <svg className="w-4 h-4 shrink-0 fill-[#1877F2]" viewBox="0 0 24 24">
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                  </svg>
+                  Facebook
+                </button>
 
-            <button
-              type="button"
-              className="py-2.5 border border-[#E7E5E4] bg-[#FAF9F6] rounded-xl text-xs font-bold text-[#1C1917] hover:bg-[#F5F5F4] flex items-center justify-center gap-2 transition-all"
-            >
-              <svg className="w-4 h-4 shrink-0 stroke-[#1C1917] fill-none stroke-2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-              </svg>
-              E-mail
-            </button>
-          </div>
+                <button
+                  type="button"
+                  className="py-2.5 border border-[#E7E5E4] bg-[#FAF9F6] rounded-xl text-xs font-bold text-[#1C1917] hover:bg-[#F5F5F4] flex items-center justify-center gap-2 transition-all"
+                >
+                  <svg className="w-4 h-4 shrink-0 stroke-[#1C1917] fill-none stroke-2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                  </svg>
+                  E-mail
+                </button>
+              </div>
+            </>
+          )}
+
         </div>
       </section>
 
