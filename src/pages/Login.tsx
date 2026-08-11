@@ -13,7 +13,7 @@ export const Login: React.FC = () => {
   const [cefrLevel, setCefrLevel] = useState('B1');
   const [agreeTerms, setAgreeTerms] = useState(false);
 
-  // SBS-19: Estado de Consentimento de Cookies e LGPD
+  // Estado de Consentimento de Cookies e LGPD
   const [showCookieBanner, setShowCookieBanner] = useState(false);
 
   useEffect(() => {
@@ -28,7 +28,7 @@ export const Login: React.FC = () => {
     setShowCookieBanner(false);
   };
 
-  // SBS-17: Estado do indicador de atividade ao vivo
+  // Estado do indicador de atividade ao vivo
   const [activeUsers, setActiveUsers] = useState(142);
 
   useEffect(() => {
@@ -45,7 +45,7 @@ export const Login: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showTooltip, setShowTooltip] = useState(false);
 
-  // Lógica de cálculo da força da senha (largura e cor progressivas)
+  // Lógica de cálculo da força da senha
   const getPasswordStrength = (pass: string) => {
     if (!pass) return { score: 0, label: '', color: 'bg-[#E7E5E4]', width: 'w-0' };
     let score = 0;
@@ -68,7 +68,7 @@ export const Login: React.FC = () => {
     setOpenFaq(openFaq === index ? null : index);
   };
 
-  // Hero: Alternância PT/EN estática
+  // Hero: Alternância PT/EN
   const [isEnglish, setIsEnglish] = useState(false);
 
   useEffect(() => {
@@ -254,7 +254,7 @@ export const Login: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen w-full bg-[#FAF9F6] text-[#1C1917] font-sans selection:bg-[#1C1917] selection:text-[#FAF9F6] overflow-x-hidden relative">
+    <div className="h-screen w-full bg-[#FAF9F6] text-[#1C1917] font-sans selection:bg-[#1C1917] selection:text-[#FAF9F6] overflow-x-hidden overflow-y-scroll snap-y snap-mandatory relative scroll-smooth">
       
       {/* Cursor Solido Neutro */}
       <div
@@ -266,10 +266,10 @@ export const Login: React.FC = () => {
         }}
       />
 
-      {/* Header com Bloco Sólido */}
+      {/* Header Fixo */}
       <div className="fixed top-6 left-0 right-0 w-full flex justify-center z-40 px-4">
         <header className="w-full max-w-5xl px-6 py-3.5 flex items-center justify-between bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl shadow-sm">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => scrollToSection('hero')}>
             <div className="w-8 h-8 bg-[#1C1917] flex items-center justify-center font-black text-[#FAF9F6] text-base rounded-md">
               S
             </div>
@@ -281,7 +281,6 @@ export const Login: React.FC = () => {
             <button type="button" onClick={() => scrollToSection('features')} className="hover:text-[#1C1917] transition-colors">Pilares</button>
             <button type="button" onClick={() => scrollToSection('testimonials')} className="hover:text-[#1C1917] transition-colors">Comunidade</button>
             <button type="button" onClick={() => scrollToSection('faq')} className="hover:text-[#1C1917] transition-colors">FAQ</button>
-            <button type="button" onClick={() => scrollToSection('auth')} className="hover:text-[#1C1917] transition-colors">Entrar</button>
           </nav>
 
           <button
@@ -295,7 +294,7 @@ export const Login: React.FC = () => {
       </div>
 
       {/* HERO SECTION */}
-      <section className="relative min-h-screen w-full flex flex-col justify-between pt-36 pb-12 px-6 lg:px-12 border-b border-[#E7E5E4] overflow-hidden">
+      <section id="hero" className="relative h-screen w-full flex flex-col justify-between pt-36 pb-12 px-6 lg:px-12 border-b border-[#E7E5E4] overflow-hidden snap-start shrink-0">
         <div className="relative z-10 max-w-5xl mx-auto my-auto text-center flex flex-col items-center gap-6">
           
           <div className="inline-flex items-center gap-2.5 px-4 py-1.5 bg-[#FFFFFF] border border-[#E7E5E4] rounded-full shadow-sm">
@@ -346,21 +345,9 @@ export const Login: React.FC = () => {
       </section>
 
       {/* SEÇÃO STATEMENT */}
-      <section id="about" className="py-28 px-6 lg:px-12 max-w-6xl mx-auto flex flex-col gap-14 border-b border-[#E7E5E4]">
-        <h2 className="text-3xl sm:text-5xl lg:text-6xl font-black uppercase tracking-tight text-[#1C1917] leading-[1.25] text-center sm:text-left">
-          AQUI NÃO HÁ TEORIA OU EXERCÍCIOS PASSIVOS. NOSSO FOCO É{" "}
-          <span className="inline-block text-[#FAF9F6] px-4 py-1.5 bg-[#1C1917] font-black rounded-lg">
-            100% PRÁTICO
-          </span>{" "}
-          PARA VOCÊ{" "}
-          <span className="inline-block text-[#1C1917] px-4 py-1.5 bg-[#E7E5E4] font-black rounded-lg">
-            OUVIR MELHOR
-          </span>{" "}
-          E FALAR COM{" "}
-          <span className="inline-block text-[#1C1917] px-4 py-1.5 border-2 border-[#1C1917] font-black rounded-lg">
-            TOTAL CONFIANÇA
-          </span>{" "}
-          EM INGLÊS.
+      <section id="about" className="h-screen w-full px-6 lg:px-12 max-w-6xl mx-auto flex flex-col justify-center gap-10 border-b border-[#E7E5E4] snap-start shrink-0">
+        <h2 className="text-3xl sm:text-5xl lg:text-6xl font-black uppercase tracking-tight text-[#1C1917] leading-[1.2] text-center sm:text-left">
+          SEM TEORIA OU EXERCÍCIOS PASSIVOS. FOCO 100% PARA VOCÊ OUVIR E FALAR INGLÊS COM TOTAL CONFIANÇA
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -395,7 +382,7 @@ export const Login: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center pt-8 border-t border-[#E7E5E4]">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center pt-6 border-t border-[#E7E5E4]">
           <p className="text-[#57534E] text-sm leading-relaxed">
             No SideBySide, você não perde tempo memorizando regras decoradas. Você entra diretamente em salas ao vivo de áudio e vídeo pareadas no seu nível de fluência.
           </p>
@@ -412,7 +399,7 @@ export const Login: React.FC = () => {
       </section>
 
       {/* SEÇÃO PILARES */}
-      <section id="features" ref={featuresRef} className="py-28 px-6 lg:px-12 max-w-7xl mx-auto flex flex-col gap-12 border-b border-[#E7E5E4] overflow-hidden">
+      <section id="features" ref={featuresRef} className="h-screen w-full px-6 lg:px-12 max-w-7xl mx-auto flex flex-col justify-center gap-12 border-b border-[#E7E5E4] snap-start shrink-0 overflow-hidden">
         <div className="flex flex-col gap-2">
           <span className="text-xs font-bold text-[#78716C] uppercase tracking-widest">Estrutura e Garantias</span>
           <h2 className="text-3xl sm:text-4xl font-black uppercase tracking-tight text-[#1C1917]">
@@ -420,13 +407,13 @@ export const Login: React.FC = () => {
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 w-full min-h-[400px] items-stretch pt-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 w-full items-stretch pt-2">
           <div
             className={`w-full transition-all duration-[1800ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
               isCardsVisible ? 'translate-x-0 opacity-100' : '-translate-x-[100vw] opacity-0'
             }`}
           >
-            <div className="w-full h-full min-h-[380px] rounded-2xl bg-[#FFFFFF] border border-[#E7E5E4] p-8 shadow-xl flex flex-col justify-between cursor-pointer group transition-all duration-500 hover:border-[#1C1917] hover:-translate-y-2">
+            <div className="w-full h-full min-h-[360px] rounded-2xl bg-[#FFFFFF] border border-[#E7E5E4] p-8 shadow-xl flex flex-col justify-between cursor-pointer group transition-all duration-500 hover:border-[#1C1917] hover:-translate-y-2">
               <div className="flex flex-col gap-3">
                 <span className="text-xs font-bold text-[#78716C] uppercase tracking-widest">01 / PAREAMENTO CEFR</span>
                 <h3 className="text-2xl font-black uppercase text-[#1C1917]">Nível Equivalente</h3>
@@ -446,7 +433,7 @@ export const Login: React.FC = () => {
             }`}
             style={{ transitionDelay: isCardsVisible ? '300ms' : '0ms' }}
           >
-            <div className="w-full h-full min-h-[380px] rounded-2xl bg-[#FFFFFF] border border-[#E7E5E4] p-8 shadow-xl flex flex-col justify-between cursor-pointer group transition-all duration-500 hover:border-[#1C1917] hover:-translate-y-2">
+            <div className="w-full h-full min-h-[360px] rounded-2xl bg-[#FFFFFF] border border-[#E7E5E4] p-8 shadow-xl flex flex-col justify-between cursor-pointer group transition-all duration-500 hover:border-[#1C1917] hover:-translate-y-2">
               <div className="flex flex-col gap-3">
                 <span className="text-xs font-bold text-[#78716C] uppercase tracking-widest">02 / MODERAÇÃO POR IA</span>
                 <h3 className="text-2xl font-black uppercase text-[#1C1917]">Ambiente Protegido</h3>
@@ -466,7 +453,7 @@ export const Login: React.FC = () => {
             }`}
             style={{ transitionDelay: isCardsVisible ? '600ms' : '0ms' }}
           >
-            <div className="w-full h-full min-h-[380px] rounded-2xl bg-[#FFFFFF] border border-[#E7E5E4] p-8 shadow-xl flex flex-col justify-between cursor-pointer group transition-all duration-500 hover:border-[#1C1917] hover:-translate-y-2">
+            <div className="w-full h-full min-h-[360px] rounded-2xl bg-[#FFFFFF] border border-[#E7E5E4] p-8 shadow-xl flex flex-col justify-between cursor-pointer group transition-all duration-500 hover:border-[#1C1917] hover:-translate-y-2">
               <div className="flex flex-col gap-3">
                 <span className="text-xs font-bold text-[#78716C] uppercase tracking-widest">03 / SUPORTE VISUAL</span>
                 <h3 className="text-2xl font-black uppercase text-[#1C1917]">Guia na Tela</h3>
@@ -483,7 +470,7 @@ export const Login: React.FC = () => {
       </section>
 
       {/* SEÇÃO PROVA SOCIAL */}
-      <section id="testimonials" className="py-28 px-6 lg:px-12 max-w-5xl mx-auto flex flex-col gap-16 border-b border-[#E7E5E4]">
+      <section id="testimonials" className="h-screen w-full px-6 lg:px-12 max-w-5xl mx-auto flex flex-col justify-center gap-12 border-b border-[#E7E5E4] snap-start shrink-0">
         <div className="flex flex-col gap-2 text-center items-center">
           <span className="text-xs font-bold text-[#78716C] uppercase tracking-widest">Comunidade em Ação</span>
           <h2 className="text-4xl sm:text-6xl font-black uppercase tracking-tight text-[#1C1917]">
@@ -568,7 +555,7 @@ export const Login: React.FC = () => {
       </section>
 
       {/* SEÇÃO FAQ */}
-      <section id="faq" className="py-28 px-6 lg:px-12 max-w-4xl mx-auto flex flex-col gap-12 border-b border-[#E7E5E4]">
+      <section id="faq" className="h-screen w-full px-6 lg:px-12 max-w-4xl mx-auto flex flex-col justify-center gap-10 border-b border-[#E7E5E4] snap-start shrink-0">
         <div className="flex flex-col gap-2 text-center items-center">
           <span className="text-xs font-bold text-[#78716C] uppercase tracking-widest">Tire suas dúvidas</span>
           <h2 className="text-3xl sm:text-5xl font-black uppercase tracking-tight text-[#1C1917]">
@@ -602,7 +589,7 @@ export const Login: React.FC = () => {
       </section>
 
       {/* FORMULÁRIO DE AUTENTICAÇÃO */}
-      <section id="auth" className="py-28 px-6 max-w-md mx-auto w-full flex flex-col justify-center">
+      <section id="auth" className="h-screen w-full px-6 max-w-md mx-auto flex flex-col justify-center snap-start shrink-0">
         <div className="bg-[#FFFFFF] rounded-2xl p-8 shadow-lg flex flex-col gap-6 text-[#1C1917] border border-[#E7E5E4]">
           
           <div className="flex flex-col gap-1 text-center">
@@ -894,7 +881,7 @@ export const Login: React.FC = () => {
         </div>
       </section>
 
-      {/* SBS-19: Banner de Cookies / LGPD Fixo */}
+      {/* Banner de Cookies / LGPD Fixo */}
       {showCookieBanner && (
         <div className="fixed bottom-6 left-6 right-6 md:left-auto md:right-6 md:max-w-md bg-[#1C1917] text-[#FAF9F6] p-6 rounded-2xl shadow-2xl border border-[#292524] z-50 flex flex-col gap-4 animate-fadeIn">
           <div className="flex flex-col gap-1.5">
@@ -926,8 +913,8 @@ export const Login: React.FC = () => {
       )}
 
       {/* FOOTER */}
-      <footer className="w-full bg-[#1C1917] border-t border-[#292524] pt-16 pb-12 px-6 lg:px-12 text-[#FAF9F6]">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+      <footer className="h-screen w-full bg-[#1C1917] border-t border-[#292524] px-6 lg:px-12 text-[#FAF9F6] flex flex-col justify-between pt-28 pb-12 snap-start shrink-0">
+        <div className="max-w-7xl mx-auto w-full grid grid-cols-1 md:grid-cols-2 gap-12 items-center my-auto">
           <div className="flex flex-col gap-4">
             <h2 className="text-4xl sm:text-6xl font-black uppercase tracking-tighter text-[#FAF9F6] leading-none">
               SIDEBYSIDE <br />
@@ -945,7 +932,7 @@ export const Login: React.FC = () => {
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto mt-12 pt-6 border-t border-[#292524] flex flex-col sm:flex-row items-center justify-between text-xs text-[#A8A29E] gap-4">
+        <div className="max-w-7xl mx-auto w-full pt-6 border-t border-[#292524] flex flex-col sm:flex-row items-center justify-between text-xs text-[#A8A29E] gap-4">
           <p>© 2026 SideBySide. Todos os direitos reservados.</p>
           <div className="flex gap-6">
             <button type="button" onClick={() => navigate('/Terms')} className="hover:text-[#FAF9F6] transition-colors">Termos de Uso</button>
