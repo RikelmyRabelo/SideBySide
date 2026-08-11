@@ -98,9 +98,6 @@ export const Profile: React.FC = () => {
     },
   ]);
 
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [tempNoteText, setSaveTempNoteText] = useState('');
-
   // Estados SBS-40: Calendário de Disponibilidade
   const timeSlots = ['Manhã (08h - 12h)', 'Tarde (12h - 18h)', 'Noite (18h - 22h)'];
   const weekDays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
@@ -130,20 +127,6 @@ export const Profile: React.FC = () => {
     { code: 'C1', label: 'Avançado', desc: 'Expressa-se de forma fluida e bem estruturada.' },
   ];
 
-  const getPasswordStrength = (pass: string) => {
-    if (!pass) return { label: '', color: 'bg-[#E7E5E4]', width: 'w-0' };
-    let score = 0;
-    if (pass.length >= 6) score += 1;
-    if (pass.length >= 8) score += 1;
-    if (/[A-Z]/.test(pass)) score += 1;
-    if (/[0-9]/.test(pass) || /[^A-Za-z0-9]/.test(pass)) score += 1;
-
-    if (score <= 1) return { label: 'Fraca', color: 'bg-red-500', width: 'w-1/3' };
-    if (score <= 3) return { label: 'Média', color: 'bg-amber-500', width: 'w-2/3' };
-    return { label: 'Forte', color: 'bg-emerald-500', width: 'w-full' };
-  };
-
-  const passwordStrength = getPasswordStrength(newPassword);
   const goalProgressPercentage = Math.min(100, Math.round((weeklyGoalCompleted / weeklyGoalTarget) * 100));
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -193,15 +176,6 @@ export const Profile: React.FC = () => {
     }
   };
 
-  const handleSaveNote = (partnerId: string) => {
-    setFavoritePartners((prev) =>
-      prev.map((partner) =>
-        partner.id === partnerId ? { ...partner, note: tempNoteText } : partner
-      )
-    );
-    setEditingNoteId(null);
-  };
-
   return (
     <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col font-sans selection:bg-[#1C1917] selection:text-[#FAF9F6]">
       {/* Header Bar */}
@@ -216,9 +190,12 @@ export const Profile: React.FC = () => {
         <button
           type="button"
           onClick={() => navigate('/dashboard')}
-          className="px-4 py-2 bg-[#F5F5F4] hover:bg-[#E7E5E4] border border-[#E7E5E4] text-[#1C1917] font-bold text-xs uppercase tracking-wider rounded-xl transition-all"
+          className="px-4 py-2 bg-[#F5F5F4] hover:bg-[#E7E5E4] border border-[#E7E5E4] text-[#1C1917] font-bold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center gap-2"
         >
-          ← Voltar para Dashboard
+          <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-[2.5]" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+          </svg>
+          Voltar
         </button>
       </header>
 
@@ -227,9 +204,18 @@ export const Profile: React.FC = () => {
         {/* Top Header Card */}
         <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-[#E7E5E4] bg-[#F5F5F4] shrink-0">
+            {/* Foto de Perfil com botão de alteração integrado */}
+            <div className="relative group w-16 h-16 rounded-2xl overflow-hidden border-2 border-[#E7E5E4] bg-[#F5F5F4] shrink-0">
               <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
+              <label className="absolute inset-0 bg-[#1C1917]/60 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
+                <svg className="w-5 h-5 stroke-[#FAF9F6] fill-none stroke-2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+                </svg>
+                <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+              </label>
             </div>
+
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-black uppercase text-[#1C1917]">{name}</h1>
@@ -288,7 +274,7 @@ export const Profile: React.FC = () => {
               activeTab === 'security' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C] hover:text-[#1C1917]'
             }`}
           >
-            Segurança & LGPD
+            Segurança
           </button>
         </div>
 
@@ -532,7 +518,7 @@ export const Profile: React.FC = () => {
           </div>
         )}
 
-        {/* CONTEÚDO DA ABA 4: SEGURANÇA & LGPD */}
+        {/* CONTEÚDO DA ABA 4: SEGURANÇA */}
         {activeTab === 'security' && (
           <div className="flex flex-col gap-6 animate-in fade-in duration-150">
             <form onSubmit={handlePasswordChange} className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-4">
@@ -573,7 +559,7 @@ export const Profile: React.FC = () => {
             </form>
 
             <section className="bg-[#FFFFFF] border border-red-200 rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-3">
-              <h2 className="text-base font-black uppercase text-red-600">Exclusão Definitiva da Conta (LGPD)</h2>
+              <h2 className="text-base font-black uppercase text-red-600">Exclusão Definitiva da Conta</h2>
               <p className="text-xs text-[#57534E]">Ação irreversível de remoção permanente de todos os seus dados cadastrais.</p>
               <button
                 type="button"
