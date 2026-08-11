@@ -6,6 +6,9 @@ export const Profile: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'general' | 'social' | 'stats' | 'security'>('general');
 
+  // Estado do Modal de Perfil Público
+  const [showPublicPreview, setShowPublicPreview] = useState(false);
+
   // Estados SBS-34: Dados Pessoais e Nível CEFR
   const [name, setName] = useState('Lucas Silva');
   const [email, setEmail] = useState('lucas.silva@email.com');
@@ -204,7 +207,6 @@ export const Profile: React.FC = () => {
         {/* Top Header Card */}
         <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            {/* Foto de Perfil com botão de alteração integrado */}
             <div className="relative group w-16 h-16 rounded-2xl overflow-hidden border-2 border-[#E7E5E4] bg-[#F5F5F4] shrink-0">
               <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
               <label className="absolute inset-0 bg-[#1C1917]/60 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
@@ -227,7 +229,19 @@ export const Profile: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex gap-2 w-full sm:w-auto">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => setShowPublicPreview(true)}
+              className="py-2.5 px-4 bg-[#F5F5F4] hover:bg-[#E7E5E4] border border-[#E7E5E4] text-[#1C1917] font-bold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center gap-2"
+            >
+              <svg className="w-4 h-4 stroke-current fill-none stroke-2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Ver Perfil Público
+            </button>
+
             <Button
               variant="primary"
               onClick={handleSubmit}
@@ -603,6 +617,77 @@ export const Profile: React.FC = () => {
                 Confirmar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Visualização do Perfil Público */}
+      {showPublicPreview && (
+        <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-3">
+              <span className="text-[10px] font-black uppercase tracking-widest bg-[#F5F5F4] text-[#78716C] px-2.5 py-1 rounded border border-[#E7E5E4]">
+                COMO OS OUTROS TE VEEM
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowPublicPreview(false)}
+                className="text-sm font-bold text-[#78716C] hover:text-[#1C1917]"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex flex-col items-center text-center gap-3">
+              <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-[#E7E5E4] bg-[#F5F5F4]">
+                <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
+              </div>
+
+              <div className="flex flex-col items-center gap-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-black uppercase text-[#1C1917]">{name}</h3>
+                  <span className="px-2 py-0.5 bg-[#1C1917] text-[#FAF9F6] font-black text-[10px] rounded uppercase">
+                    {cefrLevel}
+                  </span>
+                </div>
+                {showEmailInProfile && (
+                  <span className="text-xs font-bold text-[#78716C]">{email}</span>
+                )}
+                <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 mt-1">
+                  Reputação: {evolutionStats.reputationScore}
+                </span>
+              </div>
+
+              <p className="text-xs text-[#57534E] font-medium leading-relaxed italic bg-[#FAF9F6] p-3 rounded-xl border border-[#E7E5E4] w-full">
+                "{bio || 'Sem biografia informada.'}"
+              </p>
+
+              {selectedInterests.length > 0 && (
+                <div className="flex flex-col gap-1.5 w-full pt-2">
+                  <span className="text-[10px] font-bold uppercase text-[#78716C] text-left">
+                    Interesses de Conversa:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedInterests.map((interest) => (
+                      <span
+                        key={interest}
+                        className="text-[10px] font-bold px-2.5 py-1 bg-[#F5F5F4] border border-[#E7E5E4] text-[#1C1917] rounded-md"
+                      >
+                        {interest}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowPublicPreview(false)}
+              className="w-full py-3 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-bold text-xs uppercase tracking-widest rounded-xl transition-all"
+            >
+              Fechar Visualização
+            </button>
           </div>
         </div>
       )}
