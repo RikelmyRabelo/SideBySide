@@ -62,7 +62,6 @@ export const Profile: React.FC = () => {
 
   // Dados SBS-38: Estatísticas Detalhadas & Relatório de Evolução
   const evolutionStats = {
-    totalHours: '2.3h',
     reputationScore: '98/100',
     topicsDistribution: [
       { name: 'Viagens & Culturas', percentage: 45, color: 'bg-emerald-500' },
@@ -75,6 +74,30 @@ export const Profile: React.FC = () => {
       { level: 'B2 (Avançado)', count: 2 },
     ],
   };
+
+  // Estados SBS-39: Parceiros Favoritos & Notas Privadas
+  const [favoriteSearch, setFavoriteSearch] = useState('');
+  const [favoritePartners, setFavoritePartners] = useState([
+    {
+      id: '1',
+      name: 'Elena Rostova',
+      avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&auto=format&fit=crop&q=80',
+      level: 'B1',
+      isOnline: true,
+      note: 'Engenheira de Software. Excelente pronúncia e fala calma.',
+    },
+    {
+      id: '2',
+      name: 'Mateo Rossi',
+      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
+      level: 'B2',
+      isOnline: false,
+      note: 'Gosta de falar sobre tecnologia e viagens na Europa.',
+    },
+  ]);
+
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [tempNoteText, setSaveTempNoteText] = useState('');
 
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
@@ -152,6 +175,23 @@ export const Profile: React.FC = () => {
     }
   };
 
+  const handleSaveNote = (partnerId: string) => {
+    setFavoritePartners((prev) =>
+      prev.map((partner) =>
+        partner.id === partnerId ? { ...partner, note: tempNoteText } : partner
+      )
+    );
+    setEditingNoteId(null);
+  };
+
+  const handleRemoveFavorite = (partnerId: string) => {
+    setFavoritePartners((prev) => prev.filter((p) => p.id !== partnerId));
+  };
+
+  const filteredPartners = favoritePartners.filter((p) =>
+    p.name.toLowerCase().includes(favoriteSearch.toLowerCase())
+  );
+
   return (
     <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col font-sans selection:bg-[#1C1917] selection:text-[#FAF9F6]">
       {/* Header Bar */}
@@ -183,7 +223,7 @@ export const Profile: React.FC = () => {
             Meu Perfil
           </h1>
           <p className="text-xs sm:text-sm text-[#57534E] max-w-xl leading-relaxed font-medium">
-            Gerencie suas informações cadastrais, acompanhe sua evolução de fala e configure suas preferências de conta.
+            Gerencie suas informações cadastrais, parceiros favoritos, evolução de fala e privacidade.
           </p>
         </section>
 
@@ -197,7 +237,131 @@ export const Profile: React.FC = () => {
           </div>
         )}
 
-        {/* SBS-38: Painel de Estatísticas Detalhadas & Evolução */}
+        {/* SBS-39: Parceiros Favoritos & Notas Privadas */}
+        <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E7E5E4] pb-4">
+            <div>
+              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
+                Parceiros Favoritos
+              </h2>
+              <p className="text-xs text-[#78716C] font-medium">
+                Gerencie suas conexões salvas e mantenha anotações privadas pós-conversa.
+              </p>
+            </div>
+
+            <input
+              type="text"
+              placeholder="Buscar parceiro..."
+              value={favoriteSearch}
+              onChange={(e) => setFavoriteSearch(e.target.value)}
+              className="px-3.5 py-2 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] w-full sm:w-48"
+            />
+          </div>
+
+          {filteredPartners.length > 0 ? (
+            <div className="flex flex-col gap-4">
+              {filteredPartners.map((partner) => (
+                <div
+                  key={partner.id}
+                  className="bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl p-4 flex flex-col gap-3"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="relative w-11 h-11 rounded-xl overflow-hidden border border-[#D6D3D1] bg-[#E7E5E4] shrink-0">
+                        <img src={partner.avatar} alt={partner.name} className="w-full h-full object-cover" />
+                        <span
+                          className={`absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full border-2 border-white ${
+                            partner.isOnline ? 'bg-emerald-500' : 'bg-stone-300'
+                          }`}
+                        />
+                      </div>
+
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-[#1C1917]">{partner.name}</span>
+                          <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-[#E7E5E4] text-[#1C1917] rounded-md">
+                            {partner.level}
+                          </span>
+                        </div>
+                        <span className="text-[11px] font-medium text-[#78716C]">
+                          {partner.isOnline ? 'Disponível agora' : 'Offline'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFavorite(partner.id)}
+                        className="px-3 py-1.5 text-[#78716C] hover:text-red-600 text-xs font-bold uppercase transition-colors"
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Campo de Nota Privada */}
+                  <div className="bg-[#FFFFFF] border border-[#E7E5E4] p-3 rounded-lg flex flex-col gap-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-bold uppercase text-[#78716C]">
+                        Sua Nota Privada
+                      </span>
+                      {editingNoteId !== partner.id && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingNoteId(partner.id);
+                            setSaveTempNoteText(partner.note);
+                          }}
+                          className="text-[10px] font-bold uppercase text-[#1C1917] underline"
+                        >
+                          Editar Nota
+                        </button>
+                      )}
+                    </div>
+
+                    {editingNoteId === partner.id ? (
+                      <div className="flex flex-col gap-2">
+                        <textarea
+                          rows={2}
+                          value={tempNoteText}
+                          onChange={(e) => setSaveTempNoteText(e.target.value)}
+                          className="w-full p-2 bg-[#FAF9F6] border border-[#E7E5E4] rounded-md text-xs font-medium text-[#1C1917] outline-none focus:border-[#1C1917] resize-none"
+                        />
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setEditingNoteId(null)}
+                            className="px-3 py-1 bg-[#F5F5F4] text-[#78716C] rounded text-xs font-bold uppercase"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSaveNote(partner.id)}
+                            className="px-3 py-1 bg-[#1C1917] text-[#FAF9F6] rounded text-xs font-bold uppercase"
+                          >
+                            Salvar
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-[#57534E] font-medium italic">
+                        "{partner.note || 'Nenhuma nota gravada.'}"
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-8 text-center text-xs font-bold text-[#78716C] bg-[#FAF9F6] border border-dashed border-[#D6D3D1] rounded-xl">
+              Nenhum parceiro favorito encontrado.
+            </div>
+          )}
+        </section>
+
+        {/* SBS-38: Relatório de Evolução */}
         <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
           <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-4">
             <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
@@ -209,7 +373,6 @@ export const Profile: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Distribuição por Temas */}
             <div className="bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl p-5 flex flex-col gap-4">
               <span className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
                 Tempo por Tópico Praticado
@@ -229,7 +392,6 @@ export const Profile: React.FC = () => {
               </div>
             </div>
 
-            {/* Nível dos Parceiros Pareados */}
             <div className="bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl p-5 flex flex-col justify-between gap-4">
               <div className="flex flex-col gap-1">
                 <span className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
@@ -252,7 +414,7 @@ export const Profile: React.FC = () => {
           </div>
         </section>
 
-        {/* SBS-37: Painel de Metas Semanais e Conquistas (Gamificação) */}
+        {/* SBS-37: Painel de Metas Semanais */}
         <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
           <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-4">
             <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
