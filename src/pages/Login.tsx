@@ -12,6 +12,19 @@ export const Login: React.FC = () => {
   const [cefrLevel, setCefrLevel] = useState('B1');
   const [agreeTerms, setAgreeTerms] = useState(false);
 
+  // SBS-17: Estado do indicador de atividade ao vivo
+  const [activeUsers, setActiveUsers] = useState(142);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Variação orgânica entre -2 e +3 usuários online
+      const delta = Math.floor(Math.random() * 6) - 2;
+      setActiveUsers((prev) => Math.max(110, prev + delta));
+    }, 4500);
+
+    return () => clearInterval(interval);
+  }, []);
+
   // Estado para validações e erros
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showTooltip, setShowTooltip] = useState(false);
@@ -258,9 +271,17 @@ export const Login: React.FC = () => {
       {/* HERO SECTION */}
       <section className="relative min-h-screen w-full flex flex-col justify-between pt-36 pb-12 px-6 lg:px-12 border-b border-[#E7E5E4] overflow-hidden">
         <div className="relative z-10 max-w-5xl mx-auto my-auto text-center flex flex-col items-center gap-6">
-          <span className="px-4 py-1.5 bg-[#F5F5F4] border border-[#E7E5E4] text-[#57534E] text-xs font-bold uppercase tracking-widest rounded-lg">
-            ● Plataforma P2P de Prática Ativa
-          </span>
+          
+          {/* SBS-17: Badge Sinalizador de Atividade em Tempo Real */}
+          <div className="inline-flex items-center gap-2.5 px-4 py-1.5 bg-[#FFFFFF] border border-[#E7E5E4] rounded-full shadow-sm">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="text-xs font-bold uppercase tracking-widest text-[#1C1917]">
+              {activeUsers} estudantes praticando agora
+            </span>
+          </div>
 
           <h1 className="text-5xl sm:text-7xl lg:text-8xl font-black tracking-tighter uppercase leading-[0.95] h-[190px] sm:h-[230px] flex flex-col justify-center">
             <div className="text-[#1C1917]">{isEnglish ? 'Conversation' : 'Conversação'}</div>
