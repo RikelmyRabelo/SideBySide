@@ -8,8 +8,10 @@ export const Room: React.FC = () => {
   const [camActive, setCamActive] = useState(true);
   const [activeTab, setActiveTab] = useState<'vocab' | 'chat'>('vocab');
   const [isReportOpen, setIsReportOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Referência para o elemento de vídeo da câmera local
+  // Referência para o container de vídeo
+  const videoContainerRef = useRef<HTMLDivElement>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [mediaError, setMediaError] = useState<string | null>(null);
@@ -62,6 +64,31 @@ export const Room: React.FC = () => {
     animationFrameId = requestAnimationFrame(updateFollower);
     return () => cancelAnimationFrame(animationFrameId);
   }, [mousePos]);
+
+  // Sincroniza estado de tela cheia com eventos nativos do navegador
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  // Alternar modo Fullscreen no container de vídeo
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        if (videoContainerRef.current) {
+          await videoContainerRef.current.requestFullscreen();
+        }
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.error('Erro ao alternar modo tela cheia:', err);
+    }
+  };
 
   // Função para inicializar mídia com suporte a fallback de áudio
   const startMedia = async (videoConstraint = true) => {
@@ -172,37 +199,39 @@ export const Room: React.FC = () => {
       />
 
       {/* Header Bar */}
-      <header className="bg-[#FFFFFF] border-b border-[#E7E5E4] px-6 py-3 flex items-center justify-between shrink-0 z-30 shadow-sm">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/dashboard')}>
-            <div className="w-8 h-8 rounded-md bg-[#1C1917] flex items-center justify-center font-black text-[#FAF9F6] text-base">
-              S
+      {!isFullscreen && (
+        <header className="bg-[#FFFFFF] border-b border-[#E7E5E4] px-6 py-3 flex items-center justify-between shrink-0 z-30 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/dashboard')}>
+              <div className="w-8 h-8 rounded-md bg-[#1C1917] flex items-center justify-center font-black text-[#FAF9F6] text-base">
+                S
+              </div>
+              <span className="text-lg font-black tracking-tight text-[#1C1917] uppercase">SideBySide</span>
             </div>
-            <span className="text-lg font-black tracking-tight text-[#1C1917] uppercase">SideBySide</span>
+
+            <div className="flex items-center gap-2 bg-[#FAF9F6] border border-[#E7E5E4] px-3 py-1 rounded-xl text-xs font-black text-[#1C1917] uppercase">
+              <span>⏱️</span>
+              <span>12:45</span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 bg-[#FAF9F6] border border-[#E7E5E4] px-3 py-1 rounded-xl text-xs font-black text-[#1C1917] uppercase">
-            <span>⏱️</span>
-            <span>12:45</span>
+          {/* Tema da Conversa */}
+          <div className="bg-[#FAF9F6] border border-[#E7E5E4] px-4 py-1.5 rounded-xl text-xs font-black uppercase text-[#1C1917]">
+            <span>Tema: Experiences & Travel ✈️</span>
           </div>
-        </div>
 
-        {/* Tema da Conversa */}
-        <div className="bg-[#FAF9F6] border border-[#E7E5E4] px-4 py-1.5 rounded-xl text-xs font-black uppercase text-[#1C1917]">
-          <span>Tema: Experiences & Travel ✈️</span>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => navigate('/dashboard')}
-          className="bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
-        >
-          Encerrar e Sair
-        </button>
-      </header>
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard')}
+            className="bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
+          >
+            Encerrar e Sair
+          </button>
+        </header>
+      )}
 
       {/* Banner de Erro de Permissão de Mídia */}
-      {mediaError && (
+      {mediaError && !isFullscreen && (
         <div className="bg-amber-50 border-b border-amber-200 text-amber-800 px-6 py-2.5 text-xs font-bold flex items-center justify-between z-40">
           <span>⚠️ {mediaError}</span>
           <div className="flex items-center gap-3">
@@ -225,10 +254,14 @@ export const Room: React.FC = () => {
       )}
 
       {/* Main Container */}
-      <div className="flex-1 flex overflow-hidden p-4 gap-4">
+      <div className={`flex-1 flex overflow-hidden ${isFullscreen ? 'p-0' : 'p-4 gap-4'}`}>
         {/* Area do Vídeo */}
-        <div className="flex-1 bg-[#FFFFFF] rounded-2xl border border-[#E7E5E4] relative flex flex-col justify-between overflow-hidden shadow-sm">
-          
+        <div
+          ref={videoContainerRef}
+          className={`flex-1 bg-[#FFFFFF] relative flex flex-col justify-between overflow-hidden ${
+            isFullscreen ? 'rounded-none border-none' : 'rounded-2xl border border-[#E7E5E4] shadow-sm'
+          }`}
+        >
           {/* Status Conexão Topo Direita */}
           <div className="absolute top-4 right-4 z-20 flex items-center gap-2 bg-[#FFFFFF]/90 backdrop-blur-md px-3 py-1.5 rounded-xl text-[10px] font-black uppercase text-emerald-700 border border-[#E7E5E4] shadow-sm">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -319,6 +352,24 @@ export const Room: React.FC = () => {
               )}
             </button>
 
+            {/* Botão de Fullscreen */}
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className="p-3 bg-[#FAF9F6] border border-[#E7E5E4] hover:bg-[#F5F5F4] text-[#1C1917] rounded-xl transition-all"
+              title={isFullscreen ? "Sair da Tela Cheia" : "Modo Tela Cheia"}
+            >
+              {isFullscreen ? (
+                <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 9L4.5 4.5m0 0H9m-4.5 0V9m10.5 0l4.5-4.5m0 0H15m4.5 0V9M9 15l-4.5 4.5m0 0H9m-4.5 0v-4.5m10.5 4.5l4.5 4.5m0 0H15m4.5 0v-4.5" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+                </svg>
+              )}
+            </button>
+
             <div className="w-px h-6 bg-[#E7E5E4]" />
 
             <button
@@ -340,76 +391,78 @@ export const Room: React.FC = () => {
         </div>
 
         {/* Sidebar Direita (Vocabulário / Chat) */}
-        <aside className="w-80 bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl flex flex-col overflow-hidden shrink-0 shadow-sm">
-          {/* Abas */}
-          <div className="grid grid-cols-2 bg-[#F5F5F4] p-1 border-b border-[#E7E5E4] text-xs font-black uppercase tracking-wider">
-            <button
-              type="button"
-              onClick={() => setActiveTab('vocab')}
-              className={`py-2.5 rounded-lg transition-all ${
-                activeTab === 'vocab' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C]'
-              }`}
-            >
-              Vocabulário
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('chat')}
-              className={`py-2.5 rounded-lg transition-all ${
-                activeTab === 'chat' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C]'
-              }`}
-            >
-              Chat (2)
-            </button>
-          </div>
+        {!isFullscreen && (
+          <aside className="w-80 bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl flex flex-col overflow-hidden shrink-0 shadow-sm">
+            {/* Abas */}
+            <div className="grid grid-cols-2 bg-[#F5F5F4] p-1 border-b border-[#E7E5E4] text-xs font-black uppercase tracking-wider">
+              <button
+                type="button"
+                onClick={() => setActiveTab('vocab')}
+                className={`py-2.5 rounded-lg transition-all ${
+                  activeTab === 'vocab' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C]'
+                }`}
+              >
+                Vocabulário
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('chat')}
+                className={`py-2.5 rounded-lg transition-all ${
+                  activeTab === 'chat' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C]'
+                }`}
+              >
+                Chat (2)
+              </button>
+            </div>
 
-          {/* Conteúdo das Abas */}
-          <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
-            {activeTab === 'vocab' ? (
-              vocabList.map((item, index) => (
-                <div
-                  key={index}
-                  className="bg-[#FAF9F6] border border-[#E7E5E4] p-3 rounded-xl flex flex-col gap-1"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-black text-[#1C1917] uppercase">{item.term}</span>
-                    <span className="text-[10px] text-[#78716C] italic font-medium">{item.phonetic}</span>
+            {/* Conteúdo das Abas */}
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+              {activeTab === 'vocab' ? (
+                vocabList.map((item, index) => (
+                  <div
+                    key={index}
+                    className="bg-[#FAF9F6] border border-[#E7E5E4] p-3 rounded-xl flex flex-col gap-1"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-[#1C1917] uppercase">{item.term}</span>
+                      <span className="text-[10px] text-[#78716C] italic font-medium">{item.phonetic}</span>
+                    </div>
+                    <span className="text-[10px] font-bold text-[#1C1917] bg-[#E7E5E4] px-2 py-0.5 rounded-md w-fit uppercase">
+                      {item.translation}
+                    </span>
+                    <p className="text-[11px] text-[#57534E] mt-1 leading-relaxed font-medium">
+                      {item.example}
+                    </p>
                   </div>
-                  <span className="text-[10px] font-bold text-[#1C1917] bg-[#E7E5E4] px-2 py-0.5 rounded-md w-fit uppercase">
-                    {item.translation}
-                  </span>
-                  <p className="text-[11px] text-[#57534E] mt-1 leading-relaxed font-medium">
-                    {item.example}
-                  </p>
-                </div>
-              ))
-            ) : (
-              <div className="flex flex-col h-full justify-between gap-3">
-                <div className="flex flex-col gap-2">
-                  <div className="bg-[#FAF9F6] p-2.5 rounded-xl border border-[#E7E5E4] text-xs">
-                    <span className="font-black text-[#1C1917] text-[10px] uppercase">Alex: </span>
-                    <span className="text-[#57534E] font-medium">Hi! How is it going?</span>
+                ))
+              ) : (
+                <div className="flex flex-col h-full justify-between gap-3">
+                  <div className="flex flex-col gap-2">
+                    <div className="bg-[#FAF9F6] p-2.5 rounded-xl border border-[#E7E5E4] text-xs">
+                      <span className="font-black text-[#1C1917] text-[10px] uppercase">Alex: </span>
+                      <span className="text-[#57534E] font-medium">Hi! How is it going?</span>
+                    </div>
+                    <div className="bg-[#1C1917] p-2.5 rounded-xl text-xs self-end text-[#FAF9F6]">
+                      <span className="font-black text-[#FAF9F6] text-[10px] uppercase">Você: </span>
+                      <span className="font-medium">Hey! All good, ready to practice!</span>
+                    </div>
                   </div>
-                  <div className="bg-[#1C1917] p-2.5 rounded-xl text-xs self-end text-[#FAF9F6]">
-                    <span className="font-black text-[#FAF9F6] text-[10px] uppercase">Você: </span>
-                    <span className="font-medium">Hey! All good, ready to practice!</span>
-                  </div>
-                </div>
 
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Digite uma mensagem..."
-                    className="flex-1 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl px-3 py-2 text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
-                  />
-                  <button type="button" className="bg-[#1C1917] hover:bg-[#292524] px-3 py-2 rounded-xl text-xs font-bold text-[#FAF9F6]">
-                    ➔
-                  </button>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Digite uma mensagem..."
+                      className="flex-1 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl px-3 py-2 text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+                    />
+                    <button type="button" className="bg-[#1C1917] hover:bg-[#292524] px-3 py-2 rounded-xl text-xs font-bold text-[#FAF9F6]">
+                      ➔
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-        </aside>
+              )}
+            </div>
+          </aside>
+        )}
       </div>
 
       <ReportModal
