@@ -16,6 +16,17 @@ export const Dashboard: React.FC = () => {
   // Estados dos Modais Rápidos
   const [activeModal, setActiveModal] = useState<'goals' | 'reminders' | null>(null);
 
+  // Estado do Feedback da Última Sessão
+  const [lastSessionFeedback] = useState({
+    partnerName: 'Elena Rostova',
+    partnerAvatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&auto=format&fit=crop&q=80',
+    date: 'Hoje, às 10:30',
+    duration: '15 min',
+    topic: 'Travel & Cultures',
+    userNote: 'Ótima conversa! Preciso praticar mais os verbos no passado simples.',
+    vocabLearned: ['Wanderlust', 'Jet lag', 'Off the beaten path'],
+  });
+
   // Estado de Lembretes Diários
   const [reminderEnabled, setReminderEnabled] = useState(true);
   const [reminderTime, setReminderTime] = useState('19:00');
@@ -60,7 +71,7 @@ export const Dashboard: React.FC = () => {
   // Métricas Principais com verificação de prática diária
   const userMetrics = {
     currentStreak: 5,
-    hasPracticedToday: true, // Se for false, o ícone do streak vira gelo congelado
+    hasPracticedToday: true,
     totalMinutes: 140,
     totalSessions: 12,
   };
@@ -254,13 +265,69 @@ export const Dashboard: React.FC = () => {
           </p>
         </section>
 
+        {/* Widget de Feedback da Última Sessão */}
+        <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 shadow-sm flex flex-col gap-4">
+          <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-3">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <h2 className="text-xs font-black uppercase tracking-wider text-[#1C1917]">
+                Resumo da Última Sessão
+              </h2>
+            </div>
+            <span className="text-[11px] font-bold text-[#78716C]">
+              {lastSessionFeedback.date} ({lastSessionFeedback.duration})
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+            {/* Parceiro */}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl overflow-hidden border border-[#D6D3D1] bg-[#E7E5E4] shrink-0">
+                <img
+                  src={lastSessionFeedback.partnerAvatar}
+                  alt={lastSessionFeedback.partnerName}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs font-bold text-[#1C1917]">{lastSessionFeedback.partnerName}</span>
+                <span className="text-[10px] font-medium text-[#78716C] uppercase">
+                  Tema: {lastSessionFeedback.topic}
+                </span>
+              </div>
+            </div>
+
+            {/* Nota Pessoal */}
+            <div className="bg-[#FAF9F6] border border-[#E7E5E4] p-3 rounded-xl flex flex-col gap-1">
+              <span className="text-[10px] font-bold text-[#78716C] uppercase">Sua Nota Pós-Chamada</span>
+              <p className="text-xs text-[#1C1917] font-medium italic line-clamp-2">
+                "{lastSessionFeedback.userNote}"
+              </p>
+            </div>
+
+            {/* Vocabulário Praticado */}
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-bold text-[#78716C] uppercase">Vocabulário Utilizado</span>
+              <div className="flex flex-wrap gap-1.5">
+                {lastSessionFeedback.vocabLearned.map((word, idx) => (
+                  <span
+                    key={idx}
+                    className="text-[10px] font-bold px-2 py-0.5 bg-[#F5F5F4] border border-[#E7E5E4] text-[#1C1917] rounded-md"
+                  >
+                    {word}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Métricas e Sequência com Animações no Hover e Estado de Gelo */}
         <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* Card 1: Streak (Fogo / Gelo) */}
           <div className="group bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 flex items-center gap-4 shadow-sm hover:border-[#1C1917] transition-all hover:shadow-md cursor-default">
             <div className="w-12 h-12 rounded-xl bg-[#F5F5F4] border border-[#E7E5E4] text-[#1C1917] flex items-center justify-center shrink-0 group-hover:bg-[#1C1917] group-hover:text-[#FAF9F6] transition-colors">
               {userMetrics.hasPracticedToday ? (
-                /* Ícone de Fogo (Praticou hoje) - Animação de tremor/chama no hover */
                 <svg
                   className="w-6 h-6 fill-none stroke-current stroke-2 group-hover:animate-bounce transition-transform duration-300"
                   viewBox="0 0 24 24"
@@ -269,7 +336,6 @@ export const Dashboard: React.FC = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 18a3.75 3.75 0 00.495-7.467 5.99 5.99 0 00-1.925 3.546 5.974 5.974 0 01-2.133-1.001A3.75 3.75 0 0012 18z" />
                 </svg>
               ) : (
-                /* Ícone de Gelo (Não praticou hoje) - Floco de Neve / Cubo de gelo com balanço */
                 <svg
                   className="w-6 h-6 fill-none stroke-current stroke-2 text-sky-500 group-hover:text-[#FAF9F6] group-hover:rotate-12 transition-transform duration-300"
                   viewBox="0 0 24 24"
@@ -286,7 +352,7 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Card 2: Minutos Praticados - Ponteiro/Relógio Giratório no Hover */}
+          {/* Card 2: Minutos Praticados */}
           <div className="group bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 flex items-center gap-4 shadow-sm hover:border-[#1C1917] transition-all hover:shadow-md cursor-default">
             <div className="w-12 h-12 rounded-xl bg-[#F5F5F4] border border-[#E7E5E4] text-[#1C1917] flex items-center justify-center shrink-0 group-hover:bg-[#1C1917] group-hover:text-[#FAF9F6] transition-colors">
               <svg
@@ -302,7 +368,7 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Card 3: Sessões e Conexões - Efeito Pulse/Escala no Hover */}
+          {/* Card 3: Sessões e Conexões */}
           <div className="group bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 flex items-center gap-4 shadow-sm hover:border-[#1C1917] transition-all hover:shadow-md cursor-default">
             <div className="w-12 h-12 rounded-xl bg-[#F5F5F4] border border-[#E7E5E4] text-[#1C1917] flex items-center justify-center shrink-0 group-hover:bg-[#1C1917] group-hover:text-[#FAF9F6] transition-colors">
               <svg
@@ -400,7 +466,6 @@ export const Dashboard: React.FC = () => {
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Modo de Mídia */}
             <div className="flex flex-col gap-2">
               <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
                 Modo de Mídia
@@ -433,7 +498,6 @@ export const Dashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Pareamento Ampliado */}
             <div className="flex flex-col gap-2">
               <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
                 Pareamento Ampliado
