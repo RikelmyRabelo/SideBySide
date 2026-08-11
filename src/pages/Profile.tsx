@@ -19,7 +19,16 @@ export const Profile: React.FC = () => {
   const [showEmailInProfile, setShowEmailInProfile] = useState(false);
   const [allowDirectReconnect, setAllowDirectReconnect] = useState(true);
 
+  // Estados SBS-36: Segurança (Troca de Senha e Exclusão)
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
+
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
 
   const cefrLevelsInfo = [
     { code: 'A1', label: 'Iniciante', desc: 'Compreende frases simples do dia a dia.' },
@@ -28,6 +37,22 @@ export const Profile: React.FC = () => {
     { code: 'B2', label: 'Intermediário Avançado', desc: 'Fala com fluência e espontaneidade.' },
     { code: 'C1', label: 'Avançado', desc: 'Expressa-se de forma fluida e bem estruturada.' },
   ];
+
+  // Cálculo de Força da Nova Senha
+  const getPasswordStrength = (pass: string) => {
+    if (!pass) return { label: '', color: 'bg-[#E7E5E4]', width: 'w-0' };
+    let score = 0;
+    if (pass.length >= 6) score += 1;
+    if (pass.length >= 8) score += 1;
+    if (/[A-Z]/.test(pass)) score += 1;
+    if (/[0-9]/.test(pass) || /[^A-Za-z0-9]/.test(pass)) score += 1;
+
+    if (score <= 1) return { label: 'Fraca', color: 'bg-red-500', width: 'w-1/3' };
+    if (score <= 3) return { label: 'Média', color: 'bg-amber-500', width: 'w-2/3' };
+    return { label: 'Forte', color: 'bg-emerald-500', width: 'w-full' };
+  };
+
+  const passwordStrength = getPasswordStrength(newPassword);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -41,6 +66,40 @@ export const Profile: React.FC = () => {
     e.preventDefault();
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
+  };
+
+  const handlePasswordChange = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError(null);
+    setPasswordSuccess(null);
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordError('Preencha todos os campos de senha.');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setPasswordError('A nova senha deve ter no mínimo 6 caracteres.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError('A confirmação da nova senha não confere.');
+      return;
+    }
+
+    setPasswordSuccess('Senha alterada com sucesso!');
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setTimeout(() => setPasswordSuccess(null), 3000);
+  };
+
+  const handleDeleteAccount = () => {
+    if (deleteConfirmationText === 'EXCLUIR') {
+      alert('Sua conta e dados foram removidos permanentemente.');
+      navigate('/login');
+    }
   };
 
   return (
@@ -74,11 +133,11 @@ export const Profile: React.FC = () => {
             Meu Perfil
           </h1>
           <p className="text-xs sm:text-sm text-[#57534E] max-w-xl leading-relaxed font-medium">
-            Gerencie suas informações cadastrais e ajuste seu nível de proficiência e preferências de privacidade.
+            Gerencie suas informações cadastrais, privacidade, segurança e dados da conta.
           </p>
         </section>
 
-        {/* Mensagem de Sucesso */}
+        {/* Mensagem de Sucesso Geral */}
         {saveSuccess && (
           <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2.5 animate-in fade-in duration-150">
             <svg className="w-4 h-4 shrink-0 fill-current text-emerald-600" viewBox="0 0 20 20">
@@ -265,7 +324,7 @@ export const Profile: React.FC = () => {
           </div>
 
           {/* SBS-35: Opções de Privacidade */}
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 border-b border-[#E7E5E4] pb-6">
             <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
               Privacidade da Conta
             </h2>
@@ -325,7 +384,161 @@ export const Profile: React.FC = () => {
             Salvar Alterações
           </Button>
         </form>
+
+        {/* SBS-36: Bloco de Segurança - Troca de Senha */}
+        <form onSubmit={handlePasswordChange} className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
+          <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
+            Segurança da Conta & Alteração de Senha
+          </h2>
+
+          {passwordError && (
+            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold">
+              {passwordError}
+            </div>
+          )}
+
+          {passwordSuccess && (
+            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
+              {passwordSuccess}
+            </div>
+          )}
+
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
+                Senha Atual
+              </label>
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="••••••••"
+                className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] w-full"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
+                  Nova Senha
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] w-full"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
+                  Confirmar Nova Senha
+                </label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] w-full"
+                />
+              </div>
+            </div>
+
+            {newPassword.length > 0 && (
+              <div className="flex flex-col gap-1 mt-1">
+                <div className="flex justify-between items-center text-[10px] font-bold text-[#78716C] uppercase">
+                  <span>Força da senha:</span>
+                  <span className={passwordStrength.label === 'Fraca' ? 'text-red-500' : passwordStrength.label === 'Média' ? 'text-amber-500' : 'text-emerald-600'}>
+                    {passwordStrength.label}
+                  </span>
+                </div>
+                <div className="w-full h-1.5 bg-[#F5F5F4] rounded-full overflow-hidden border border-[#E7E5E4]">
+                  <div className={`h-full rounded-full transition-all duration-500 ease-out ${passwordStrength.width} ${passwordStrength.color}`} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <Button
+            variant="primary"
+            type="submit"
+            className="w-full py-3.5 text-xs font-bold uppercase tracking-widest bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl transition-all"
+          >
+            Atualizar Senha
+          </Button>
+        </form>
+
+        {/* SBS-36: Zona de Perigo / Exclusão de Conta (LGPD) */}
+        <section className="bg-[#FFFFFF] border border-red-200 rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-base font-black uppercase tracking-tight text-red-600">
+              Exclusão Definitiva de Conta (LGPD)
+            </h2>
+            <p className="text-xs text-[#57534E] leading-relaxed font-medium">
+              Conforme a Lei Geral de Proteção de Dados, você pode solicitar o encerramento permanente da sua conta e remoção imediata do seu histórico.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowDeleteModal(true)}
+            className="w-full sm:w-fit px-6 py-3 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-bold text-xs uppercase tracking-wider rounded-xl transition-all"
+          >
+            Encerrar Minha Conta
+          </button>
+        </section>
       </main>
+
+      {/* Modal Destrutivo de Confirmação de Exclusão */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-[#1C1917]/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#FFFFFF] border border-red-200 rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex flex-col gap-2">
+              <h3 className="text-lg font-black uppercase tracking-tight text-red-600">
+                Excluir Conta Permanentemente?
+              </h3>
+              <p className="text-xs text-[#57534E] leading-relaxed font-medium">
+                Esta ação é irreversível. Seu perfil, métricas de ofensiva, histórico de conversas e dados cadastrais serão completamente apagados.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-[11px] font-bold text-[#78716C] uppercase">
+                Digite "EXCLUIR" para confirmar:
+              </label>
+              <input
+                type="text"
+                value={deleteConfirmationText}
+                onChange={(e) => setDeleteConfirmationText(e.target.value)}
+                placeholder="EXCLUIR"
+                className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-red-500 w-full"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setDeleteConfirmationText('');
+                }}
+                className="flex-1 py-3 bg-[#F5F5F4] hover:bg-[#E7E5E4] border border-[#E7E5E4] text-[#1C1917] font-bold text-xs uppercase tracking-wider rounded-xl transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={deleteConfirmationText !== 'EXCLUIR'}
+                onClick={handleDeleteAccount}
+                className="flex-1 py-3 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
