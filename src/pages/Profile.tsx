@@ -13,6 +13,35 @@ export const Profile: React.FC = () => {
     'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80'
   );
 
+  // Estados SBS-41: Biografia e Interesses ("Sobre Mim")
+  const [bio, setBio] = useState(
+    'Desenvolvedor de software focado em evoluir no inglês para entrevistas e reuniões internacionais. Adoro conversar sobre tecnologia, viagens e música.'
+  );
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([
+    'Tecnologia',
+    'Viagens',
+    'Carreira & Negócios',
+    'Música',
+  ]);
+  const availableInterests = [
+    'Tecnologia',
+    'Viagens',
+    'Carreira & Negócios',
+    'Cinema & Séries',
+    'Música',
+    'Esportes',
+    'Leitura',
+    'Culinária',
+  ];
+
+  const toggleInterest = (interest: string) => {
+    if (selectedInterests.includes(interest)) {
+      setSelectedInterests(selectedInterests.filter((i) => i !== interest));
+    } else {
+      setSelectedInterests([...selectedInterests, interest]);
+    }
+  };
+
   // Estados SBS-35: Conexão e Privacidade
   const [defaultMediaMode, setDefaultMediaMode] = useState<'video' | 'audio'>('video');
   const [expandedMatching, setExpandedMatching] = useState(true);
@@ -241,7 +270,7 @@ export const Profile: React.FC = () => {
             Meu Perfil
           </h1>
           <p className="text-xs sm:text-sm text-[#57534E] max-w-xl leading-relaxed font-medium">
-            Gerencie suas informações cadastrais, agenda de estudos, parceiros favoritos e privacidade.
+            Gerencie suas informações cadastrais, biografia, agenda de estudos, parceiros favoritos e privacidade.
           </p>
         </section>
 
@@ -254,6 +283,58 @@ export const Profile: React.FC = () => {
             <span>Preferências salvas com sucesso!</span>
           </div>
         )}
+
+        {/* SBS-41: Seção "Sobre Mim" e Interesses */}
+        <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
+          <div className="border-b border-[#E7E5E4] pb-4">
+            <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
+              Sobre Mim & Interesses
+            </h2>
+            <p className="text-xs text-[#78716C] font-medium">
+              Sua biografia e tópicos ajudam a quebrar o gelo nas primeiras frases das chamadas.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
+                Mini Biografia
+              </label>
+              <textarea
+                rows={3}
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                placeholder="Escreva uma breve introdução sobre você e seus objetivos no inglês..."
+                className="w-full p-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] resize-none"
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
+                Tópicos de Interesse
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {availableInterests.map((interest) => {
+                  const isSelected = selectedInterests.includes(interest);
+                  return (
+                    <button
+                      key={interest}
+                      type="button"
+                      onClick={() => toggleInterest(interest)}
+                      className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${
+                        isSelected
+                          ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]'
+                          : 'bg-[#FAF9F6] text-[#78716C] border-[#E7E5E4] hover:border-[#1C1917]'
+                      }`}
+                    >
+                      {isSelected ? `✓ ${interest}` : `+ ${interest}`}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* SBS-40: Calendário de Disponibilidade Diária & Horários de Pico */}
         <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
