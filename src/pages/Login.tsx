@@ -28,6 +28,53 @@ export const Login: React.FC = () => {
     setShowCookieBanner(false);
   };
 
+  // Lista ordenada das seções para a transição de slide via wheel
+  const sectionIds = ['hero', 'about', 'features', 'testimonials', 'faq', 'auth', 'footer'];
+  const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
+  const isScrollingRef = useRef(false);
+
+  useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      // Bloqueia múltiplos disparos enquanto a animação ocorre
+      if (isScrollingRef.current) return;
+
+      if (e.deltaY > 30) {
+        // Scroll para baixo
+        setCurrentSectionIndex((prevIndex) => {
+          const nextIndex = Math.min(prevIndex + 1, sectionIds.length - 1);
+          scrollToSection(sectionIds[nextIndex]);
+          return nextIndex;
+        });
+      } else if (e.deltaY < -30) {
+        // Scroll para cima
+        setCurrentSectionIndex((prevIndex) => {
+          const nextIndex = Math.max(prevIndex - 1, 0);
+          scrollToSection(sectionIds[nextIndex]);
+          return nextIndex;
+        });
+      }
+    };
+
+    window.addEventListener('wheel', handleWheel, { passive: true });
+    return () => window.removeEventListener('wheel', handleWheel);
+  }, []);
+
+  const scrollToSection = (id: string) => {
+    isScrollingRef.current = true;
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+
+    // Atualiza o índice caso a chamada venha de um botão
+    const targetIdx = sectionIds.indexOf(id);
+    if (targetIdx !== -1) {
+      setCurrentSectionIndex(targetIdx);
+    }
+
+    // Libera a rolagem após o término da animação suave
+    setTimeout(() => {
+      isScrollingRef.current = false;
+    }, 850);
+  };
+
   // Estado do indicador de atividade ao vivo
   const [activeUsers, setActiveUsers] = useState(142);
 
@@ -230,10 +277,6 @@ export const Login: React.FC = () => {
     alert(isLogin ? 'Login realizado com sucesso!' : 'Conta criada com sucesso!');
   };
 
-  const scrollToSection = (id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
-  };
-
   const faqItems = [
     {
       question: 'A plataforma é realmente gratuita?',
@@ -254,7 +297,7 @@ export const Login: React.FC = () => {
   ];
 
   return (
-    <div className="h-screen w-full bg-[#FAF9F6] text-[#1C1917] font-sans selection:bg-[#1C1917] selection:text-[#FAF9F6] overflow-x-hidden overflow-y-scroll snap-y snap-mandatory scroll-smooth duration-700 ease-out relative">
+    <div className="min-h-screen w-full bg-[#FAF9F6] text-[#1C1917] font-sans selection:bg-[#1C1917] selection:text-[#FAF9F6] overflow-x-hidden relative">
       
       {/* Cursor Solido Neutro */}
       <div
@@ -286,15 +329,18 @@ export const Login: React.FC = () => {
           <button
             type="button"
             onClick={() => scrollToSection('auth')}
-            className="px-6 py-2.5 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-bold text-xs uppercase tracking-wider rounded-xl transition-all hover:scale-105 active:scale-95"
+            className="px-6 py-2.5 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-bold text-xs uppercase tracking-wider rounded-xl transition-all hover:scale-105 active:scale-95 flex items-center gap-2"
           >
-            Acessar →
+            Acessar
+            <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-[2.5]" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+            </svg>
           </button>
         </header>
       </div>
 
-      {/* HERO SECTION */}
-      <section id="hero" className="relative h-screen w-full flex flex-col justify-between pt-36 pb-12 px-6 lg:px-12 border-b border-[#E7E5E4] overflow-hidden snap-start shrink-0">
+      {/* HERO SLIDE */}
+      <section id="hero" className="relative min-h-screen w-full flex flex-col justify-between pt-32 pb-10 px-6 lg:px-12 border-b border-[#E7E5E4] overflow-hidden">
         <div className="relative z-10 max-w-5xl mx-auto my-auto text-center flex flex-col items-center gap-6">
           
           <div className="inline-flex items-center gap-2.5 px-4 py-1.5 bg-[#FFFFFF] border border-[#E7E5E4] rounded-full shadow-sm">
@@ -318,13 +364,16 @@ export const Login: React.FC = () => {
             A forma mais rápida de destravar o inglês é conversando com pessoas do seu mesmo nível em salas de áudio e vídeo seguras e moderadas por IA.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center gap-4 mt-6">
+          <div className="flex flex-col sm:flex-row items-center gap-4 mt-4">
             <button
               type="button"
               onClick={() => scrollToSection('auth')}
-              className="px-9 py-4 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-bold text-xs uppercase tracking-widest rounded-xl transition-all hover:scale-105 active:scale-95 shadow-md"
+              className="px-9 py-4 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-bold text-xs uppercase tracking-widest rounded-xl transition-all hover:scale-105 active:scale-95 shadow-md flex items-center gap-2.5"
             >
-              Praticar Agora Gratuitamente →
+              Praticar Agora Gratuitamente
+              <svg className="w-4 h-4 fill-none stroke-current stroke-[2.5]" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+              </svg>
             </button>
             <button
               type="button"
@@ -338,32 +387,35 @@ export const Login: React.FC = () => {
 
         <div className="relative z-10 flex justify-between items-end text-xs font-bold tracking-widest text-[#A8A29E] uppercase">
           <span>SideBySide © 2026</span>
-          <button type="button" onClick={() => scrollToSection('about')} className="text-[#1C1917] hover:underline">
-            Explorar Método ↓
+          <button type="button" onClick={() => scrollToSection('about')} className="text-[#1C1917] hover:underline flex items-center gap-1.5">
+            Explorar Método
+            <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-[2.5]" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3" />
+            </svg>
           </button>
         </div>
       </section>
 
-      {/* SEÇÃO STATEMENT */}
-      <section id="about" className="h-screen w-full px-6 lg:px-12 max-w-6xl mx-auto flex flex-col justify-center gap-10 border-b border-[#E7E5E4] snap-start shrink-0">
-        <h2 className="text-3xl sm:text-5xl lg:text-6xl font-black uppercase tracking-tight text-[#1C1917] leading-[1.25] text-center sm:text-left">
+      {/* STATEMENT SLIDE */}
+      <section id="about" className="min-h-screen w-full pt-20 pb-8 px-6 lg:px-12 max-w-6xl mx-auto flex flex-col justify-center gap-8 border-b border-[#E7E5E4]">
+        <h2 className="text-2xl sm:text-4xl lg:text-5xl font-black uppercase tracking-tight text-[#1C1917] leading-[1.2] text-center sm:text-left">
           SEM TEORIA OU EXERCÍCIOS PASSIVOS. NOSSO FOCO É{" "}
-          <span className="inline-block text-[#FAF9F6] px-4 py-1.5 bg-[#1C1917] font-black rounded-lg">
+          <span className="inline-block text-[#FAF9F6] px-3.5 py-1 bg-[#1C1917] font-black rounded-lg">
             100% PRÁTICO
           </span>{" "}
           PARA VOCÊ{" "}
-          <span className="inline-block text-[#1C1917] px-4 py-1.5 bg-[#E7E5E4] font-black rounded-lg">
+          <span className="inline-block text-[#1C1917] px-3.5 py-1 bg-[#E7E5E4] font-black rounded-lg">
             OUVIR MELHOR
           </span>{" "}
           E FALAR COM{" "}
-          <span className="inline-block text-[#1C1917] px-4 py-1.5 border-2 border-[#1C1917] font-black rounded-lg">
+          <span className="inline-block text-[#1C1917] px-3.5 py-1 border-2 border-[#1C1917] font-black rounded-lg">
             TOTAL CONFIANÇA
           </span>{" "}
           EM INGLÊS.
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="bg-[#FFFFFF] border border-[#E7E5E4] p-8 rounded-2xl flex flex-col justify-between gap-6 hover:border-[#1C1917] transition-colors shadow-sm">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-[#FFFFFF] border border-[#E7E5E4] p-6 sm:p-8 rounded-2xl flex flex-col justify-between gap-4 hover:border-[#1C1917] transition-colors shadow-sm">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-widest text-[#1C1917] bg-[#F5F5F4] px-3 py-1 rounded-md border border-[#E7E5E4]">
                 TREINO DE ESCUTA (LISTENING)
@@ -371,14 +423,14 @@ export const Login: React.FC = () => {
               <span className="w-2.5 h-2.5 rounded-full bg-[#1C1917]" />
             </div>
             <div className="flex flex-col gap-2">
-              <h3 className="text-2xl font-black uppercase text-[#1C1917]">Sotaques & Ritmo Real</h3>
+              <h3 className="text-xl font-black uppercase text-[#1C1917]">Sotaques & Ritmo Real</h3>
               <p className="text-xs text-[#57534E] leading-relaxed">
                 Treine seu ouvido para compreender falantes reais em diferentes velocidades, superando o bloqueio de escutar diálogos fora dos livros acadêmicos.
               </p>
             </div>
           </div>
 
-          <div className="bg-[#FFFFFF] border border-[#E7E5E4] p-8 rounded-2xl flex flex-col justify-between gap-6 hover:border-[#1C1917] transition-colors shadow-sm">
+          <div className="bg-[#FFFFFF] border border-[#E7E5E4] p-6 sm:p-8 rounded-2xl flex flex-col justify-between gap-4 hover:border-[#1C1917] transition-colors shadow-sm">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-widest text-[#1C1917] bg-[#F5F5F4] px-3 py-1 rounded-md border border-[#E7E5E4]">
                 TREINO DE FALA (SPEAKING)
@@ -386,7 +438,7 @@ export const Login: React.FC = () => {
               <span className="w-2.5 h-2.5 rounded-full bg-[#1C1917]" />
             </div>
             <div className="flex flex-col gap-2">
-              <h3 className="text-2xl font-black uppercase text-[#1C1917]">Formulações Instantâneas</h3>
+              <h3 className="text-xl font-black uppercase text-[#1C1917]">Formulações Instantâneas</h3>
               <p className="text-xs text-[#57534E] leading-relaxed">
                 Pratique a construção rápida de frases no seu próprio nível CEFR, construindo confiança e fluência sem a ansiedade de ser avaliado.
               </p>
@@ -394,24 +446,27 @@ export const Login: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center pt-6 border-t border-[#E7E5E4]">
-          <p className="text-[#57534E] text-sm leading-relaxed">
-            No SideBySide, você não perde tempo memorizando regras decoradas. Você entra diretamente em salas ao vivo de áudio e vídeo pareadas no seu nível de fluência.
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center pt-4 border-t border-[#E7E5E4]">
+          <p className="text-[#57534E] text-xs sm:text-sm leading-relaxed">
+            No SideBySide, você entra diretamente em salas ao vivo de áudio e vídeo pareadas no seu nível de fluência.
           </p>
           <div className="flex sm:justify-end">
             <button
               type="button"
               onClick={() => scrollToSection('features')}
-              className="px-8 py-3.5 bg-[#FAF9F6] border border-[#1C1917] text-[#1C1917] hover:bg-[#1C1917] hover:text-[#FAF9F6] font-bold text-xs uppercase tracking-widest rounded-xl transition-all"
+              className="px-8 py-3 bg-[#FAF9F6] border border-[#1C1917] text-[#1C1917] hover:bg-[#1C1917] hover:text-[#FAF9F6] font-bold text-xs uppercase tracking-widest rounded-xl transition-all flex items-center gap-2"
             >
-              Conhecer Nossos Pilares →
+              Conhecer Nossos Pilares
+              <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-[2.5]" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+              </svg>
             </button>
           </div>
         </div>
       </section>
 
-      {/* SEÇÃO PILARES */}
-      <section id="features" ref={featuresRef} className="h-screen w-full px-6 lg:px-12 max-w-7xl mx-auto flex flex-col justify-center gap-12 border-b border-[#E7E5E4] snap-start shrink-0 overflow-hidden">
+      {/* PILARES SLIDE */}
+      <section id="features" ref={featuresRef} className="min-h-screen w-full pt-20 pb-8 px-6 lg:px-12 max-w-7xl mx-auto flex flex-col justify-center gap-10 border-b border-[#E7E5E4] overflow-hidden">
         <div className="flex flex-col gap-2">
           <span className="text-xs font-bold text-[#78716C] uppercase tracking-widest">Estrutura e Garantias</span>
           <h2 className="text-3xl sm:text-4xl font-black uppercase tracking-tight text-[#1C1917]">
@@ -419,13 +474,13 @@ export const Login: React.FC = () => {
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 w-full items-stretch pt-2">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 w-full items-stretch">
           <div
             className={`w-full transition-all duration-[1800ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
               isCardsVisible ? 'translate-x-0 opacity-100' : '-translate-x-[100vw] opacity-0'
             }`}
           >
-            <div className="w-full h-full min-h-[360px] rounded-2xl bg-[#FFFFFF] border border-[#E7E5E4] p-8 shadow-xl flex flex-col justify-between cursor-pointer group transition-all duration-500 hover:border-[#1C1917] hover:-translate-y-2">
+            <div className="w-full h-full min-h-[320px] rounded-2xl bg-[#FFFFFF] border border-[#E7E5E4] p-6 sm:p-8 shadow-xl flex flex-col justify-between cursor-pointer group transition-all duration-500 hover:border-[#1C1917] hover:-translate-y-2">
               <div className="flex flex-col gap-3">
                 <span className="text-xs font-bold text-[#78716C] uppercase tracking-widest">01 / PAREAMENTO CEFR</span>
                 <h3 className="text-2xl font-black uppercase text-[#1C1917]">Nível Equivalente</h3>
@@ -433,8 +488,11 @@ export const Login: React.FC = () => {
                   Conecte-se com pessoas do A1 ao C2. Fale de igual para igual com quem está no mesmo patamar de aprendizado.
                 </p>
               </div>
-              <div className="pt-4 border-t border-[#F5F5F4] text-[11px] text-[#1C1917] font-bold uppercase">
-                ✓ Comunicação fluida sem assimetria
+              <div className="pt-4 border-t border-[#F5F5F4] text-[11px] text-[#1C1917] font-bold uppercase flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5 fill-none stroke-emerald-600 stroke-[3]" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+                Comunicação fluida sem assimetria
               </div>
             </div>
           </div>
@@ -445,7 +503,7 @@ export const Login: React.FC = () => {
             }`}
             style={{ transitionDelay: isCardsVisible ? '300ms' : '0ms' }}
           >
-            <div className="w-full h-full min-h-[360px] rounded-2xl bg-[#FFFFFF] border border-[#E7E5E4] p-8 shadow-xl flex flex-col justify-between cursor-pointer group transition-all duration-500 hover:border-[#1C1917] hover:-translate-y-2">
+            <div className="w-full h-full min-h-[320px] rounded-2xl bg-[#FFFFFF] border border-[#E7E5E4] p-6 sm:p-8 shadow-xl flex flex-col justify-between cursor-pointer group transition-all duration-500 hover:border-[#1C1917] hover:-translate-y-2">
               <div className="flex flex-col gap-3">
                 <span className="text-xs font-bold text-[#78716C] uppercase tracking-widest">02 / MODERAÇÃO POR IA</span>
                 <h3 className="text-2xl font-black uppercase text-[#1C1917]">Ambiente Protegido</h3>
@@ -453,8 +511,11 @@ export const Login: React.FC = () => {
                   Análise contínua em tempo real contra comportamentos abusivos ou desrespeitosos para uma prática 100% segura.
                 </p>
               </div>
-              <div className="pt-4 border-t border-[#F5F5F4] text-[11px] text-[#1C1917] font-bold uppercase">
-                ✓ Banimento instantâneo de abusos
+              <div className="pt-4 border-t border-[#F5F5F4] text-[11px] text-[#1C1917] font-bold uppercase flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5 fill-none stroke-emerald-600 stroke-[3]" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+                Banimento instantâneo de abusos
               </div>
             </div>
           </div>
@@ -465,7 +526,7 @@ export const Login: React.FC = () => {
             }`}
             style={{ transitionDelay: isCardsVisible ? '600ms' : '0ms' }}
           >
-            <div className="w-full h-full min-h-[360px] rounded-2xl bg-[#FFFFFF] border border-[#E7E5E4] p-8 shadow-xl flex flex-col justify-between cursor-pointer group transition-all duration-500 hover:border-[#1C1917] hover:-translate-y-2">
+            <div className="w-full h-full min-h-[320px] rounded-2xl bg-[#FFFFFF] border border-[#E7E5E4] p-6 sm:p-8 shadow-xl flex flex-col justify-between cursor-pointer group transition-all duration-500 hover:border-[#1C1917] hover:-translate-y-2">
               <div className="flex flex-col gap-3">
                 <span className="text-xs font-bold text-[#78716C] uppercase tracking-widest">03 / SUPORTE VISUAL</span>
                 <h3 className="text-2xl font-black uppercase text-[#1C1917]">Guia na Tela</h3>
@@ -473,16 +534,19 @@ export const Login: React.FC = () => {
                   Sugestões de temas, perguntas quebra-gelo e dicas de vocabulário aparecem no painel lateral durante a chamada.
                 </p>
               </div>
-              <div className="pt-4 border-t border-[#F5F5F4] text-[11px] text-[#1C1917] font-bold uppercase">
-                ✓ Nunca fique sem saber o que dizer
+              <div className="pt-4 border-t border-[#F5F5F4] text-[11px] text-[#1C1917] font-bold uppercase flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5 fill-none stroke-emerald-600 stroke-[3]" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+                Nunca fique sem saber o que dizer
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* SEÇÃO PROVA SOCIAL */}
-      <section id="testimonials" className="h-screen w-full px-6 lg:px-12 max-w-5xl mx-auto flex flex-col justify-center gap-12 border-b border-[#E7E5E4] snap-start shrink-0">
+      {/* DEPOIMENTOS SLIDE */}
+      <section id="testimonials" className="min-h-screen w-full pt-20 pb-8 px-6 lg:px-12 max-w-5xl mx-auto flex flex-col justify-center gap-10 border-b border-[#E7E5E4]">
         <div className="flex flex-col gap-2 text-center items-center">
           <span className="text-xs font-bold text-[#78716C] uppercase tracking-widest">Comunidade em Ação</span>
           <h2 className="text-4xl sm:text-6xl font-black uppercase tracking-tight text-[#1C1917]">
@@ -493,32 +557,32 @@ export const Login: React.FC = () => {
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-8 shadow-sm text-center">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm text-center">
           <div className="flex flex-col gap-1">
-            <span className="text-4xl font-black text-[#1C1917]">+15.000</span>
+            <span className="text-3xl sm:text-4xl font-black text-[#1C1917]">+15.000</span>
             <span className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Conversas Realizadas</span>
           </div>
           <div className="flex flex-col gap-1 border-y sm:border-y-0 sm:border-x border-[#E7E5E4] py-4 sm:py-0">
-            <span className="text-4xl font-black text-[#1C1917]">98.4%</span>
+            <span className="text-3xl sm:text-4xl font-black text-[#1C1917]">98.4%</span>
             <span className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Avaliações Positivas</span>
           </div>
           <div className="flex flex-col gap-1">
-            <span className="text-4xl font-black text-[#1C1917]">4.9 / 5★</span>
+            <span className="text-3xl sm:text-4xl font-black text-[#1C1917]">4.9 / 5</span>
             <span className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Nota Média de Segurança</span>
           </div>
         </div>
 
-        <div className="relative bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-8 sm:p-12 shadow-sm min-h-[220px] flex flex-col justify-between transition-all duration-500">
+        <div className="relative bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-10 shadow-sm min-h-[200px] flex flex-col justify-between transition-all duration-500">
           <div className="flex flex-col gap-4">
             <span className="text-3xl font-black text-[#A8A29E] leading-none">“</span>
-            <p className="text-base sm:text-xl font-medium text-[#1C1917] leading-relaxed italic -mt-4">
+            <p className="text-sm sm:text-lg font-medium text-[#1C1917] leading-relaxed italic -mt-4">
               {testimonials[currentTestimonial].quote}
             </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-6 border-t border-[#F5F5F4] mt-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4 border-t border-[#F5F5F4] mt-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-[#1C1917] text-[#FAF9F6] font-black text-xs flex items-center justify-center uppercase">
+              <div className="w-9 h-9 rounded-full bg-[#1C1917] text-[#FAF9F6] font-black text-xs flex items-center justify-center uppercase">
                 {testimonials[currentTestimonial].initials}
               </div>
               <div className="flex flex-col">
@@ -547,18 +611,22 @@ export const Login: React.FC = () => {
                   onClick={() =>
                     setCurrentTestimonial((prev) => (prev === 0 ? testimonials.length - 1 : prev - 1))
                   }
-                  className="w-8 h-8 rounded-lg border border-[#E7E5E4] hover:bg-[#F5F5F4] text-[#1C1917] font-bold flex items-center justify-center text-xs transition-colors"
+                  className="w-8 h-8 rounded-lg border border-[#E7E5E4] hover:bg-[#F5F5F4] text-[#1C1917] font-bold flex items-center justify-center transition-colors"
                 >
-                  ←
+                  <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-[2.5]" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                  </svg>
                 </button>
                 <button
                   type="button"
                   onClick={() =>
                     setCurrentTestimonial((prev) => (prev + 1) % testimonials.length)
                   }
-                  className="w-8 h-8 rounded-lg border border-[#E7E5E4] hover:bg-[#F5F5F4] text-[#1C1917] font-bold flex items-center justify-center text-xs transition-colors"
+                  className="w-8 h-8 rounded-lg border border-[#E7E5E4] hover:bg-[#F5F5F4] text-[#1C1917] font-bold flex items-center justify-center transition-colors"
                 >
-                  →
+                  <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-[2.5]" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                  </svg>
                 </button>
               </div>
             </div>
@@ -566,8 +634,8 @@ export const Login: React.FC = () => {
         </div>
       </section>
 
-      {/* SEÇÃO FAQ */}
-      <section id="faq" className="h-screen w-full px-6 lg:px-12 max-w-4xl mx-auto flex flex-col justify-center gap-10 border-b border-[#E7E5E4] snap-start shrink-0">
+      {/* FAQ SLIDE */}
+      <section id="faq" className="min-h-screen w-full pt-20 pb-8 px-6 lg:px-12 max-w-4xl mx-auto flex flex-col justify-center gap-8 border-b border-[#E7E5E4]">
         <div className="flex flex-col gap-2 text-center items-center">
           <span className="text-xs font-bold text-[#78716C] uppercase tracking-widest">Tire suas dúvidas</span>
           <h2 className="text-3xl sm:text-5xl font-black uppercase tracking-tight text-[#1C1917]">
@@ -575,23 +643,23 @@ export const Login: React.FC = () => {
           </h2>
         </div>
 
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3.5">
           {faqItems.map((item, index) => (
             <div
               key={index}
-              className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 transition-all shadow-sm cursor-pointer hover:border-[#1C1917]"
+              className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-5 sm:p-6 transition-all shadow-sm cursor-pointer hover:border-[#1C1917]"
               onClick={() => toggleFaq(index)}
             >
               <div className="flex justify-between items-center">
-                <h3 className="text-base font-bold text-[#1C1917] uppercase tracking-tight">
+                <h3 className="text-sm sm:text-base font-bold text-[#1C1917] uppercase tracking-tight">
                   {item.question}
                 </h3>
-                <span className="text-lg font-black text-[#1C1917] ml-4">
+                <span className="text-base font-black text-[#1C1917] ml-4">
                   {openFaq === index ? '−' : '+'}
                 </span>
               </div>
               {openFaq === index && (
-                <p className="text-xs text-[#57534E] leading-relaxed mt-4 pt-4 border-t border-[#F5F5F4]">
+                <p className="text-xs text-[#57534E] leading-relaxed mt-3 pt-3 border-t border-[#F5F5F4]">
                   {item.answer}
                 </p>
               )}
@@ -600,12 +668,12 @@ export const Login: React.FC = () => {
         </div>
       </section>
 
-      {/* FORMULÁRIO DE AUTENTICAÇÃO */}
-      <section id="auth" className="h-screen w-full px-6 max-w-md mx-auto flex flex-col justify-center snap-start shrink-0">
-        <div className="bg-[#FFFFFF] rounded-2xl p-8 shadow-lg flex flex-col gap-6 text-[#1C1917] border border-[#E7E5E4]">
+      {/* AUTH SLIDE */}
+      <section id="auth" className="min-h-screen w-full pt-16 pb-8 px-6 max-w-md mx-auto flex flex-col justify-center">
+        <div className="bg-[#FFFFFF] rounded-2xl p-7 shadow-lg flex flex-col gap-5 text-[#1C1917] border border-[#E7E5E4]">
           
           <div className="flex flex-col gap-1 text-center">
-            <h2 className="text-2xl font-black tracking-tight uppercase text-[#1C1917]">
+            <h2 className="text-xl sm:text-2xl font-black tracking-tight uppercase text-[#1C1917]">
               {isForgotPassword
                 ? 'Recuperar Senha'
                 : isLogin
@@ -631,7 +699,7 @@ export const Login: React.FC = () => {
                   setErrorMessage(null);
                   setSuccessMessage(null);
                 }}
-                className={`py-2.5 rounded-lg transition-all ${isLogin ? 'bg-[#1C1917] text-[#FAF9F6]' : 'text-[#78716C]'}`}
+                className={`py-2 rounded-lg transition-all ${isLogin ? 'bg-[#1C1917] text-[#FAF9F6]' : 'text-[#78716C]'}`}
               >
                 Entrar
               </button>
@@ -643,7 +711,7 @@ export const Login: React.FC = () => {
                   setErrorMessage(null);
                   setSuccessMessage(null);
                 }}
-                className={`py-2.5 rounded-lg transition-all ${!isLogin ? 'bg-[#1C1917] text-[#FAF9F6]' : 'text-[#78716C]'}`}
+                className={`py-2 rounded-lg transition-all ${!isLogin ? 'bg-[#1C1917] text-[#FAF9F6]' : 'text-[#78716C]'}`}
               >
                 Criar Conta
               </button>
@@ -652,7 +720,7 @@ export const Login: React.FC = () => {
 
           {/* Mensagem de Erro Estilizada */}
           {errorMessage && (
-            <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold flex items-center gap-2.5 animate-fadeIn">
+            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold flex items-center gap-2.5 animate-fadeIn">
               <svg className="w-4 h-4 shrink-0 fill-current text-red-600" viewBox="0 0 20 20">
                 <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" />
               </svg>
@@ -662,7 +730,7 @@ export const Login: React.FC = () => {
 
           {/* Mensagem de Sucesso */}
           {successMessage && (
-            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2.5 animate-fadeIn">
+            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2.5 animate-fadeIn">
               <svg className="w-4 h-4 shrink-0 fill-current text-emerald-600" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
               </svg>
@@ -670,7 +738,7 @@ export const Login: React.FC = () => {
             </div>
           )}
 
-          <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+          <form className="flex flex-col gap-3.5" onSubmit={handleSubmit}>
             <Input
               label="E-mail"
               type="email"
@@ -836,9 +904,12 @@ export const Login: React.FC = () => {
                   setErrorMessage(null);
                   setSuccessMessage(null);
                 }}
-                className="w-full text-center text-xs font-bold text-[#78716C] hover:text-[#1C1917] transition-colors mt-1"
+                className="w-full text-center text-xs font-bold text-[#78716C] hover:text-[#1C1917] transition-colors mt-1 flex items-center justify-center gap-1.5"
               >
-                ← Voltar para o Login
+                <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-[2.5]" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                </svg>
+                Voltar para o Login
               </button>
             )}
           </form>
@@ -924,8 +995,8 @@ export const Login: React.FC = () => {
         </div>
       )}
 
-      {/* FOOTER */}
-      <footer className="h-screen w-full bg-[#1C1917] border-t border-[#292524] px-6 lg:px-12 text-[#FAF9F6] flex flex-col justify-between pt-28 pb-12 snap-start shrink-0">
+      {/* FOOTER SLIDE */}
+      <footer id="footer" className="min-h-screen w-full bg-[#1C1917] border-t border-[#292524] px-6 lg:px-12 text-[#FAF9F6] flex flex-col justify-between pt-24 pb-12">
         <div className="max-w-7xl mx-auto w-full grid grid-cols-1 md:grid-cols-2 gap-12 items-center my-auto">
           <div className="flex flex-col gap-4">
             <h2 className="text-4xl sm:text-6xl font-black uppercase tracking-tighter text-[#FAF9F6] leading-none">
