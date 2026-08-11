@@ -9,3 +9,12 @@
     @apply bg-brand-light text-brand-dark font-sans antialiased;
   }
 }
+
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.05); }
+}
+
+.animate-pulse-slow {
+  animation: pulseGlow 4s infinite ease-in-out;
+}
