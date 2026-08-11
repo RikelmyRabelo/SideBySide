@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { MatchingModal } from '../components/room/MatchingModal';
@@ -9,7 +9,7 @@ export const Dashboard: React.FC = () => {
   const [expandedMatching, setExpandedMatching] = useState(true);
   const [isMatching, setIsMatching] = useState(false);
 
-  // SBS-24: Dados do Streak e Métricas
+  // SBS-24: Métricas do Estudante
   const userMetrics = {
     currentStreak: 5,
     totalMinutes: 140,
@@ -47,7 +47,7 @@ export const Dashboard: React.FC = () => {
     },
   ]);
 
-  // SBS-26: Tópicos Diários e Perguntas Quebra-gelo
+  // SBS-26: Tópicos Diários
   const dailyTopics = [
     {
       id: 'travel',
@@ -73,6 +73,23 @@ export const Dashboard: React.FC = () => {
   ];
 
   const [selectedTopic, setSelectedTopic] = useState(dailyTopics[0]);
+
+  // SBS-27: Estado do Teste de Dispositivos
+  const [isTestingDevices, setIsTestingDevices] = useState(false);
+  const [audioLevel, setAudioLevel] = useState(0);
+  const [deviceStatus, setDeviceStatus] = useState({ mic: 'ok', cam: 'ok' });
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isTestingDevices) {
+      interval = setInterval(() => {
+        setAudioLevel(Math.floor(Math.random() * 85) + 15);
+      }, 200);
+    } else {
+      setAudioLevel(0);
+    }
+    return () => clearInterval(interval);
+  }, [isTestingDevices]);
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col font-sans selection:bg-[#1C1917] selection:text-[#FAF9F6]">
@@ -112,7 +129,7 @@ export const Dashboard: React.FC = () => {
             </div>
             <span className="text-xs font-bold text-[#1C1917] hidden md:inline-block">Lucas Silva</span>
             <svg className="w-4 h-4 stroke-[#78716C] fill-none stroke-2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l.546.947c.275.476.17.1.082-.218.794l-.927.927a1.125 1.125 0 01-.225 1.186m0 0a1.125 1.125 0 011.186.225l.927.928c.418.419.508 1.05.218 1.566l-.546.948a1.125 1.125 0 01-1.37.491l-1.216-.456c-.356-.133-.751-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-1.094c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-.546-.947a1.125 1.125 0 012.18-1.567l.927-.927a1.125 1.125 0 01.225-1.186m0 0a1.125 1.125 0 01-1.186-.225l-.927-.928a1.125 1.125 0 01-.218-1.566l.546-.948a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l.546.947c.275.476.17.1.082-.218.794l-.927.927a1.125 1.125 0 01-.225 1.186m0 0a1.125 1.125 0 011.186.225l.927.928c.418.419.508 1.05.218 1.566l-.546.948a1.125 1.125 0 01-1.37.491l-1.216-.456c-.356-.133-.751-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-1.094c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-.546-.947a1.125 1.125 0 01.218-1.567l.927-.927a1.125 1.125 0 01.225-1.186m0 0a1.125 1.125 0 01-1.186-.225l-.927-.928a1.125 1.125 0 01-.218-1.566l.546-.948a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           </div>
@@ -174,7 +191,89 @@ export const Dashboard: React.FC = () => {
           </div>
         </section>
 
-        {/* SBS-26: Sugestões de Tópicos Diários (Daily Topics) */}
+        {/* SBS-27: Checagem Prévia de Dispositivos (Equipamento) */}
+        <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
+          <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-4">
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
+                Teste de Equipamento
+              </h2>
+              <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 bg-[#F5F5F4] border border-[#E7E5E4] text-[#78716C] rounded-md">
+                Pré-chamada
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsTestingDevices(!isTestingDevices)}
+              className="px-4 py-2 bg-[#F5F5F4] hover:bg-[#E7E5E4] border border-[#E7E5E4] text-[#1C1917] font-bold text-xs uppercase tracking-wider rounded-xl transition-all"
+            >
+              {isTestingDevices ? 'Encerrar Teste' : 'Testar Câmera & Mic'}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+            {/* Prévia da Câmera */}
+            <div className="relative w-full h-44 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl overflow-hidden flex flex-col items-center justify-center">
+              {isTestingDevices && mediaMode === 'video' ? (
+                <div className="relative w-full h-full">
+                  <img
+                    src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&auto=format&fit=crop&q=80"
+                    alt="Prévia da Câmera"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute top-3 left-3 bg-[#1C1917]/80 text-[#FAF9F6] text-[10px] font-bold uppercase px-2.5 py-1 rounded-md backdrop-blur-sm">
+                    Vídeo em Tempo Real
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-[#78716C]">
+                  <svg className="w-8 h-8 stroke-current fill-none stroke-2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
+                  </svg>
+                  <span className="text-xs font-bold uppercase">
+                    {mediaMode === 'audio' ? 'Modo Apenas Áudio Ativo' : 'Câmera Desativada'}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Teste e Feedback Visual de Sinal do Microfone */}
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between items-center text-xs font-bold uppercase tracking-wider text-[#78716C]">
+                  <span>Nível do Microfone</span>
+                  <span className="text-[#1C1917]">{isTestingDevices ? `${audioLevel}%` : 'Inativo'}</span>
+                </div>
+                <div className="w-full h-3 bg-[#F5F5F4] border border-[#E7E5E4] rounded-full overflow-hidden p-0.5">
+                  <div
+                    className="h-full bg-[#1C1917] rounded-full transition-all duration-150"
+                    style={{ width: `${audioLevel}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <div className="p-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl flex items-center gap-2.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-bold text-[#78716C] uppercase">Microfone</span>
+                    <span className="text-xs font-bold text-[#1C1917]">Conectado</span>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl flex items-center gap-2.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-bold text-[#78716C] uppercase">Câmera HD</span>
+                    <span className="text-xs font-bold text-[#1C1917]">Pronta</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Sugestões de Tópicos Diários (Daily Topics) */}
         <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
           <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-4">
             <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
@@ -220,7 +319,6 @@ export const Dashboard: React.FC = () => {
             ))}
           </div>
 
-          {/* Prévia do Tema Selecionado (Quebra-gelo + Vocabulário) */}
           <div className="bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl p-5 flex flex-col gap-4">
             <div className="flex flex-col gap-1">
               <span className="text-[10px] font-bold uppercase tracking-widest text-[#78716C]">
@@ -379,7 +477,6 @@ export const Dashboard: React.FC = () => {
               ))}
             </div>
           ) : (
-            /* Empty State */
             <div className="py-12 flex flex-col items-center justify-center text-center gap-3 bg-[#FAF9F6] border border-dashed border-[#D6D3D1] rounded-xl">
               <div className="w-12 h-12 rounded-full bg-[#E7E5E4] flex items-center justify-center text-[#78716C]">
                 <svg className="w-6 h-6 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
