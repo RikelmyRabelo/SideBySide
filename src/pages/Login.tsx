@@ -13,6 +13,21 @@ export const Login: React.FC = () => {
   const [cefrLevel, setCefrLevel] = useState('B1');
   const [agreeTerms, setAgreeTerms] = useState(false);
 
+  // SBS-19: Estado de Consentimento de Cookies e LGPD
+  const [showCookieBanner, setShowCookieBanner] = useState(false);
+
+  useEffect(() => {
+    const consent = localStorage.getItem('cookieConsent');
+    if (!consent) {
+      setShowCookieBanner(true);
+    }
+  }, []);
+
+  const handleAcceptCookies = () => {
+    localStorage.setItem('cookieConsent', 'accepted');
+    setShowCookieBanner(false);
+  };
+
   // SBS-17: Estado do indicador de atividade ao vivo
   const [activeUsers, setActiveUsers] = useState(142);
 
@@ -183,7 +198,6 @@ export const Login: React.FC = () => {
     setErrorMessage(null);
     setSuccessMessage(null);
 
-    // Fluxo SBS-18: Recuperação de Senha
     if (isForgotPassword) {
       if (!email || !/\S+@\S+\.\S+/.test(email)) {
         setErrorMessage('Por favor, informe um e-mail válido para a recuperação.');
@@ -193,7 +207,6 @@ export const Login: React.FC = () => {
       return;
     }
 
-    // Fluxo de Login / Cadastro
     if (!email || !password) {
       setErrorMessage('Por favor, preencha todos os campos obrigatórios.');
       return;
@@ -588,7 +601,7 @@ export const Login: React.FC = () => {
         </div>
       </section>
 
-      {/* FORMULÁRIO DE AUTENTICAÇÃO E RECUPERAÇÃO DE SENHA (SBS-18) */}
+      {/* FORMULÁRIO DE AUTENTICAÇÃO */}
       <section id="auth" className="py-28 px-6 max-w-md mx-auto w-full flex flex-col justify-center">
         <div className="bg-[#FFFFFF] rounded-2xl p-8 shadow-lg flex flex-col gap-6 text-[#1C1917] border border-[#E7E5E4]">
           
@@ -648,7 +661,7 @@ export const Login: React.FC = () => {
             </div>
           )}
 
-          {/* Mensagem de Sucesso (SBS-18) */}
+          {/* Mensagem de Sucesso */}
           {successMessage && (
             <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2.5 animate-fadeIn">
               <svg className="w-4 h-4 shrink-0 fill-current text-emerald-600" viewBox="0 0 20 20">
@@ -664,7 +677,7 @@ export const Login: React.FC = () => {
               type="email"
               placeholder="seu@email.com"
               value={email}
-              className="bg-[#FAF9F6] border-[#E7E5E4] text-[#1C1917] placeholder:text-[#A8A29E] focus:border-[#1C1917]"
+              className="bg-[#FFFFFF] border-[#E7E5E4] text-[#1C1917] placeholder:text-[#A8A29E] focus:border-[#1C1917] focus:bg-[#FFFFFF]"
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                 setEmail(e.target.value);
                 if (errorMessage) setErrorMessage(null);
@@ -677,9 +690,9 @@ export const Login: React.FC = () => {
                   <Input
                     label="Senha"
                     type={showPassword ? 'text' : 'password'}
-                    placeholder="Sua senha secreta"
+                    placeholder="Sua senha"
                     value={password}
-                    className="bg-[#FAF9F6] border-[#E7E5E4] text-[#1C1917] placeholder:text-[#A8A29E] focus:border-[#1C1917]"
+                    className="bg-[#FFFFFF] border-[#E7E5E4] text-[#1C1917] placeholder:text-[#A8A29E] focus:border-[#1C1917] focus:bg-[#FFFFFF]"
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                       setPassword(e.target.value);
                       if (errorMessage) setErrorMessage(null);
@@ -704,7 +717,6 @@ export const Login: React.FC = () => {
                   </button>
                 </div>
 
-                {/* SBS-18: Link Esqueceu sua Senha */}
                 {isLogin && (
                   <div className="flex justify-end mt-0.5">
                     <button
@@ -721,7 +733,6 @@ export const Login: React.FC = () => {
                   </div>
                 )}
 
-                {/* Barra Única Progressiva de Força da Senha */}
                 {!isLogin && password.length > 0 && (
                   <div className="flex flex-col gap-1 mt-1">
                     <div className="flex justify-between items-center text-[10px] font-bold text-[#78716C] uppercase">
@@ -746,7 +757,7 @@ export const Login: React.FC = () => {
                 <select
                   value={cefrLevel}
                   onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCefrLevel(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-[#FAF9F6] border border-[#E7E5E4] text-[#1C1917] text-xs rounded-xl outline-none focus:border-[#1C1917] font-bold"
+                  className="w-full px-4 py-2.5 bg-[#FFFFFF] border border-[#E7E5E4] text-[#1C1917] text-xs rounded-xl outline-none focus:border-[#1C1917] font-bold"
                 >
                   <option value="A1">A1 - Iniciante</option>
                   <option value="A2">A2 - Básico</option>
@@ -818,7 +829,6 @@ export const Login: React.FC = () => {
                 : 'Cadastrar Gratuitamente'}
             </Button>
 
-            {/* SBS-18: Retornar ao Login quando no fluxo de recuperação */}
             {isForgotPassword && (
               <button
                 type="button"
@@ -847,7 +857,7 @@ export const Login: React.FC = () => {
               <div className="grid grid-cols-3 gap-2.5">
                 <button
                   type="button"
-                  className="py-2.5 border border-[#E7E5E4] bg-[#FAF9F6] rounded-xl text-xs font-bold text-[#1C1917] hover:bg-[#F5F5F4] flex items-center justify-center gap-2 transition-all"
+                  className="py-2.5 border border-[#E7E5E4] bg-[#FFFFFF] rounded-xl text-xs font-bold text-[#1C1917] hover:bg-[#F5F5F4] flex items-center justify-center gap-2 transition-all"
                 >
                   <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                     <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
@@ -860,7 +870,7 @@ export const Login: React.FC = () => {
 
                 <button
                   type="button"
-                  className="py-2.5 border border-[#E7E5E4] bg-[#FAF9F6] rounded-xl text-xs font-bold text-[#1C1917] hover:bg-[#F5F5F4] flex items-center justify-center gap-2 transition-all"
+                  className="py-2.5 border border-[#E7E5E4] bg-[#FFFFFF] rounded-xl text-xs font-bold text-[#1C1917] hover:bg-[#F5F5F4] flex items-center justify-center gap-2 transition-all"
                 >
                   <svg className="w-4 h-4 shrink-0 fill-[#1877F2]" viewBox="0 0 24 24">
                     <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
@@ -870,7 +880,7 @@ export const Login: React.FC = () => {
 
                 <button
                   type="button"
-                  className="py-2.5 border border-[#E7E5E4] bg-[#FAF9F6] rounded-xl text-xs font-bold text-[#1C1917] hover:bg-[#F5F5F4] flex items-center justify-center gap-2 transition-all"
+                  className="py-2.5 border border-[#E7E5E4] bg-[#FFFFFF] rounded-xl text-xs font-bold text-[#1C1917] hover:bg-[#F5F5F4] flex items-center justify-center gap-2 transition-all"
                 >
                   <svg className="w-4 h-4 shrink-0 stroke-[#1C1917] fill-none stroke-2" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
@@ -883,6 +893,37 @@ export const Login: React.FC = () => {
 
         </div>
       </section>
+
+      {/* SBS-19: Banner de Cookies / LGPD Fixo */}
+      {showCookieBanner && (
+        <div className="fixed bottom-6 left-6 right-6 md:left-auto md:right-6 md:max-w-md bg-[#1C1917] text-[#FAF9F6] p-6 rounded-2xl shadow-2xl border border-[#292524] z-50 flex flex-col gap-4 animate-fadeIn">
+          <div className="flex flex-col gap-1.5">
+            <h4 className="text-sm font-black uppercase tracking-wider text-[#FAF9F6]">
+              Privacidade e Cookies (LGPD)
+            </h4>
+            <p className="text-xs text-[#A8A29E] leading-relaxed">
+              Utilizamos cookies estritamente necessários para otimizar sua experiência de navegação e garantir conexões P2P seguras.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between gap-3 pt-2 border-t border-[#292524]">
+            <button
+              type="button"
+              onClick={() => navigate('/Privacy')}
+              className="text-xs font-bold text-[#A8A29E] hover:text-[#FAF9F6] underline transition-colors"
+            >
+              Saiba mais
+            </button>
+            <button
+              type="button"
+              onClick={handleAcceptCookies}
+              className="px-5 py-2.5 bg-[#FAF9F6] hover:bg-[#E7E5E4] text-[#1C1917] font-bold text-xs uppercase tracking-widest rounded-xl transition-all"
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* FOOTER */}
       <footer className="w-full bg-[#1C1917] border-t border-[#292524] pt-16 pb-12 px-6 lg:px-12 text-[#FAF9F6]">
