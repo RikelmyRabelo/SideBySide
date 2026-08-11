@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { MatchingModal } from '../components/room/MatchingModal';
@@ -8,6 +8,54 @@ export const Dashboard: React.FC = () => {
   const [mediaMode, setMediaMode] = useState<'video' | 'audio'>('video');
   const [expandedMatching, setExpandedMatching] = useState(true);
   const [isMatching, setIsMatching] = useState(false);
+
+  // Estado do Menu Dropdown do Usuário
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // Estados dos Modais Rápidos
+  const [activeModal, setActiveModal] = useState<'goals' | 'reminders' | null>(null);
+
+  // Estado de Lembretes Diários
+  const [reminderEnabled, setReminderEnabled] = useState(true);
+  const [reminderTime, setReminderTime] = useState('19:00');
+  const [selectedDays, setSelectedDays] = useState<string[]>(['Seg', 'Ter', 'Qua', 'Qui', 'Sex']);
+  const weekDaysList = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+
+  const toggleDaySelection = (day: string) => {
+    if (selectedDays.includes(day)) {
+      setSelectedDays(selectedDays.filter((d) => d !== day));
+    } else {
+      setSelectedDays([...selectedDays, day]);
+    }
+  };
+
+  // Meta Semanal
+  const weeklyGoal = {
+    target: 5,
+    completed: 3,
+    days: [
+      { day: 'Seg', completed: true },
+      { day: 'Ter', completed: true },
+      { day: 'Qua', completed: true },
+      { day: 'Qui', completed: false },
+      { day: 'Sex', completed: false },
+      { day: 'Sáb', completed: false },
+      { day: 'Dom', completed: false },
+    ],
+  };
+  const goalPercentage = Math.min(100, Math.round((weeklyGoal.completed / weeklyGoal.target) * 100));
+
+  // Fechar o menu ao clicar fora dele
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Métricas Principais
   const userMetrics = {
@@ -98,23 +146,94 @@ export const Dashboard: React.FC = () => {
             Reputação: 98/100
           </div>
 
-          <div
-            onClick={() => navigate('/profile')}
-            className="flex items-center gap-2.5 border-l border-[#E7E5E4] pl-4 cursor-pointer hover:opacity-80 transition-opacity"
-            title="Editar Perfil"
-          >
-            <div className="w-8 h-8 rounded-lg bg-[#E7E5E4] overflow-hidden border border-[#D6D3D1]">
-              <img
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
-                alt="Lucas Silva"
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <span className="text-xs font-bold text-[#1C1917] hidden md:inline-block">Lucas Silva</span>
-            <svg className="w-4 h-4 stroke-[#78716C] fill-none stroke-2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l.546.947c.275.476.17.1.082-.218.794l-.927.927a1.125 1.125 0 01-.225 1.186m0 0a1.125 1.125 0 011.186.225l.927.928c.418.419.508 1.05.218 1.566l-.546.948a1.125 1.125 0 01-1.37.491l-1.216-.456c-.356-.133-.751-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-1.094c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-.546-.947a1.125 1.125 0 01.218-1.567l.927-.927a1.125 1.125 0 01.225-1.186m0 0a1.125 1.125 0 01-1.186-.225l-.927-.928a1.125 1.125 0 01-.218-1.566l.546-.948a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
+          {/* Menu do Usuário */}
+          <div className="relative" ref={userMenuRef}>
+            <button
+              type="button"
+              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+              className="flex items-center gap-2.5 border-l border-[#E7E5E4] pl-4 cursor-pointer hover:opacity-80 transition-opacity outline-none"
+            >
+              <div className="w-8 h-8 rounded-lg bg-[#E7E5E4] overflow-hidden border border-[#D6D3D1]">
+                <img
+                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
+                  alt="Lucas Silva"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <span className="text-xs font-bold text-[#1C1917] hidden md:inline-block">Lucas Silva</span>
+              <svg
+                className={`w-4 h-4 stroke-[#78716C] fill-none stroke-2 transition-transform duration-200 ${
+                  isUserMenuOpen ? 'rotate-180' : 'rotate-0'
+                }`}
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+              </svg>
+            </button>
+
+            {/* Dropdown Menu Vertical */}
+            {isUserMenuOpen && (
+              <div className="absolute right-0 mt-3 w-64 bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl shadow-xl py-2 z-50 flex flex-col gap-1 animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="px-4 py-2 border-b border-[#E7E5E4] flex flex-col">
+                  <span className="text-xs font-black text-[#1C1917]">Lucas Silva</span>
+                  <span className="text-[10px] font-bold text-[#78716C] uppercase">lucas.silva@email.com</span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsUserMenuOpen(false);
+                    setActiveModal('goals');
+                  }}
+                  className="px-4 py-2.5 hover:bg-[#FAF9F6] text-left flex items-center justify-between transition-colors group"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <svg className="w-4 h-4 stroke-[#57534E] group-hover:stroke-[#1C1917] fill-none stroke-2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+                    </svg>
+                    <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Metas & Gamificação</span>
+                  </div>
+                  <span className="text-[10px] font-black bg-[#F5F5F4] px-2 py-0.5 rounded text-[#1C1917]">
+                    {weeklyGoal.completed}/{weeklyGoal.target}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsUserMenuOpen(false);
+                    setActiveModal('reminders');
+                  }}
+                  className="px-4 py-2.5 hover:bg-[#FAF9F6] text-left flex items-center justify-between transition-colors group"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <svg className="w-4 h-4 stroke-[#57534E] group-hover:stroke-[#1C1917] fill-none stroke-2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.257 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                    </svg>
+                    <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Lembretes Diários</span>
+                  </div>
+                  <span className="text-[10px] font-bold text-[#78716C] uppercase">
+                    {reminderEnabled ? reminderTime : 'Off'}
+                  </span>
+                </button>
+
+                <div className="border-t border-[#E7E5E4] mt-1 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsUserMenuOpen(false);
+                      navigate('/profile');
+                    }}
+                    className="w-full px-4 py-2.5 hover:bg-[#FAF9F6] text-left flex items-center gap-2.5 transition-colors group"
+                  >
+                    <svg className="w-4 h-4 stroke-[#57534E] group-hover:stroke-[#1C1917] fill-none stroke-2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                    </svg>
+                    <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Meu Perfil</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -428,6 +547,159 @@ export const Dashboard: React.FC = () => {
           </div>
         </section>
       </main>
+
+      {/* Modal de Metas Semanais */}
+      {activeModal === 'goals' && (
+        <div className="fixed inset-0 bg-[#1C1917]/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-4">
+              <h3 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
+                Meta Semanal de Prática
+              </h3>
+              <button
+                type="button"
+                onClick={() => setActiveModal(null)}
+                className="text-[#78716C] hover:text-[#1C1917] text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-4">
+              <div className="flex justify-between items-center text-xs font-bold text-[#1C1917]">
+                <span>Progresso Atual</span>
+                <span>
+                  {weeklyGoal.completed} de {weeklyGoal.target} conversas ({goalPercentage}%)
+                </span>
+              </div>
+
+              <div className="w-full h-3 bg-[#F5F5F4] border border-[#E7E5E4] rounded-full overflow-hidden p-0.5">
+                <div
+                  className="h-full bg-[#1C1917] rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${goalPercentage}%` }}
+                />
+              </div>
+
+              <div className="grid grid-cols-7 gap-2 pt-2">
+                {weeklyGoal.days.map((item, index) => (
+                  <div key={index} className="flex flex-col items-center gap-1.5">
+                    <div
+                      className={`w-9 h-9 rounded-xl border flex items-center justify-center font-bold text-xs transition-colors ${
+                        item.completed
+                          ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]'
+                          : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4]'
+                      }`}
+                    >
+                      {item.completed ? (
+                        <svg className="w-4 h-4 fill-none stroke-current stroke-[3]" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                        </svg>
+                      ) : (
+                        '•'
+                      )}
+                    </div>
+                    <span className="text-[10px] font-bold text-[#78716C] uppercase">{item.day}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <Button
+              variant="primary"
+              onClick={() => setActiveModal(null)}
+              className="w-full py-3 text-xs font-bold uppercase tracking-widest bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl"
+            >
+              Fechar
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Lembretes Diários */}
+      {activeModal === 'reminders' && (
+        <div className="fixed inset-0 bg-[#1C1917]/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-4">
+              <h3 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
+                Configuração de Lembretes
+              </h3>
+              <button
+                type="button"
+                onClick={() => setActiveModal(null)}
+                className="text-[#78716C] hover:text-[#1C1917] text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between bg-[#FAF9F6] border border-[#E7E5E4] p-4 rounded-xl">
+              <span className="text-xs font-bold text-[#1C1917]">Notificações Diárias</span>
+              <button
+                type="button"
+                onClick={() => setReminderEnabled(!reminderEnabled)}
+                className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors ${
+                  reminderEnabled ? 'bg-[#1C1917]' : 'bg-[#E7E5E4]'
+                }`}
+              >
+                <div
+                  className={`bg-[#FFFFFF] w-4 h-4 rounded-full shadow-md transform transition-transform ${
+                    reminderEnabled ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {reminderEnabled && (
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
+                    Horário Preferencial
+                  </label>
+                  <input
+                    type="time"
+                    value={reminderTime}
+                    onChange={(e) => setReminderTime(e.target.value)}
+                    className="px-4 py-2.5 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] w-full"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
+                    Dias Ativos
+                  </label>
+                  <div className="flex gap-1 justify-between">
+                    {weekDaysList.map((day) => {
+                      const isSelected = selectedDays.includes(day);
+                      return (
+                        <button
+                          key={day}
+                          type="button"
+                          onClick={() => toggleDaySelection(day)}
+                          className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase border transition-all ${
+                            isSelected
+                              ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]'
+                              : 'bg-[#FAF9F6] text-[#78716C] border-[#E7E5E4]'
+                          }`}
+                        >
+                          {day}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <Button
+              variant="primary"
+              onClick={() => setActiveModal(null)}
+              className="w-full py-3 text-xs font-bold uppercase tracking-widest bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl"
+            >
+              Salvar Preferências
+            </Button>
+          </div>
+        </div>
+      )}
 
       <MatchingModal
         isOpen={isMatching}
