@@ -10,6 +10,10 @@ export const Room: React.FC = () => {
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  // Avatar do usuário para exibição em modo Apenas Áudio
+  const userAvatarUrl =
+    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80';
+
   // Referência para o container de vídeo
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -255,7 +259,7 @@ export const Room: React.FC = () => {
 
       {/* Main Container */}
       <div className={`flex-1 flex overflow-hidden ${isFullscreen ? 'p-0' : 'p-4 gap-4'}`}>
-        {/* Area do Vídeo */}
+        {/* Area do Vídeo Principal */}
         <div
           ref={videoContainerRef}
           className={`flex-1 bg-[#FFFFFF] relative flex flex-col justify-between overflow-hidden ${
@@ -275,13 +279,13 @@ export const Room: React.FC = () => {
               alt="Alex (Parceiro de Conversa)"
               className="w-full h-full object-cover"
             />
-            <div className="absolute bottom-4 left-6 bg-[#1C1917]/80 backdrop-blur-md px-3 py-1.5 rounded-xl text-xs font-black text-[#FAF9F6] uppercase">
+            <div className="absolute bottom-4 left-6 bg-[#1C1917]/80 backdrop-blur-md px-3 py-1.5 rounded-xl text-xs font-black text-[#FAF9F6] uppercase z-10">
               Alex (Espanha)
             </div>
           </div>
 
-          {/* Feed PIP Local (Você) - Elemento de Vídeo Real da Câmera */}
-          <div className="absolute bottom-20 left-6 z-20 w-44 h-28 rounded-2xl overflow-hidden border-2 border-[#FFFFFF] shadow-xl bg-[#1C1917] relative">
+          {/* Feed PIP Local (Você) - Fixado no Canto Inferior Direito */}
+          <div className="absolute bottom-20 right-6 left-auto top-auto z-30 w-44 h-28 rounded-2xl overflow-hidden border-2 border-[#FFFFFF] shadow-2xl bg-[#1C1917]">
             <video
               ref={localVideoRef}
               autoPlay
@@ -293,21 +297,23 @@ export const Room: React.FC = () => {
             />
 
             {!camActive && (
-              <div className="w-full h-full bg-[#1C1917] flex flex-col items-center justify-center gap-1">
-                <svg className="w-6 h-6 stroke-[#FAF9F6] fill-none stroke-2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                </svg>
-                <span className="text-[9px] font-black uppercase text-[#A8A29E]">Câmera Desativada</span>
+              <div className="w-full h-full bg-[#1C1917] flex flex-col items-center justify-center relative overflow-hidden">
+                <img
+                  src={userAvatarUrl}
+                  alt="Sua Foto de Perfil"
+                  className="w-full h-full object-cover opacity-80"
+                />
+                <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px]" />
               </div>
             )}
 
-            <div className="absolute bottom-1.5 left-2 bg-[#1C1917]/80 px-2 py-0.5 rounded text-[9px] font-black uppercase text-[#FAF9F6]">
+            <div className="absolute bottom-1.5 left-2 bg-[#1C1917]/80 backdrop-blur-sm px-2 py-0.5 rounded text-[9px] font-black uppercase text-[#FAF9F6] z-10">
               Você {!micActive && '(Mudo)'}
             </div>
           </div>
 
           {/* Barra de Controles Flutuante Inferior */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 bg-[#FFFFFF] border border-[#E7E5E4] p-2 rounded-2xl flex items-center gap-3 shadow-lg">
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 bg-[#FFFFFF] border border-[#E7E5E4] p-2 rounded-2xl flex items-center gap-3 shadow-lg">
             <button
               type="button"
               onClick={toggleMicrophone}
