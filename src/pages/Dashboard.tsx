@@ -1,13 +1,97 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
-import { MatchingModal } from '../components/room/MatchingModal';
+
+// Banco de palavras com definições em português
+const FALLBACK_VOCAB_LIST = [
+  {
+    word: 'serendipity',
+    phonetic: '/ˌser.ənˈdɪp.ə.ti/',
+    definition: 'A ocorrência de acontecimentos afortunados por mero acaso ou sorte.',
+  },
+  {
+    word: 'eloquent',
+    phonetic: '/ˈel.ə.kwənt/',
+    definition: 'Capacidade de se expressar com fluência, clareza e persuasão.',
+  },
+  {
+    word: 'resilience',
+    phonetic: '/rɪˈzɪl.jəns/',
+    definition: 'A capacidade de se recuperar rapidamente de dificuldades ou desafios.',
+  },
+  {
+    word: 'empathy',
+    phonetic: '/ˈem.pə.θi/',
+    definition: 'A habilidade de compreender e compartilhar os sentimentos de outra pessoa.',
+  },
+  {
+    word: 'ephemeral',
+    phonetic: '/ɪˈfem.ər.əl/',
+    definition: 'Coisas passageiras, que duram por um período de tempo muito curto.',
+  },
+  {
+    word: 'pragmatic',
+    phonetic: '/præɡˈmæt.ɪk/',
+    definition: 'Maneira de tratar as coisas de forma prática e realista em vez de teórica.',
+  },
+  {
+    word: 'tenacity',
+    phonetic: '/təˈnæs.ə.ti/',
+    definition: 'A qualidade de ser muito determinado, firme e persistente.',
+  },
+  {
+    word: 'gregarious',
+    phonetic: '/ɡrɪˈɡeə.ri.əs/',
+    definition: 'Pessoa sociável que gosta do convívio e da companhia dos outros.',
+  },
+];
+
+interface VocabResult {
+  word: string;
+  phonetic?: string;
+  definition: string;
+}
 
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [mediaMode, setMediaMode] = useState<'video' | 'audio'>('video');
   const [expandedMatching, setExpandedMatching] = useState(true);
   const [isMatching, setIsMatching] = useState(false);
+
+  // Estado da Dica de Vocabulário Dinâmica
+  const [vocabTip, setVocabTip] = useState<VocabResult>(FALLBACK_VOCAB_LIST[0]);
+  const [isLoadingVocab, setIsLoadingVocab] = useState(false);
+
+  // Função para buscar vocabulário com tradução padronizada
+  const fetchDynamicVocab = async () => {
+    setIsLoadingVocab(true);
+    const randomFallback = FALLBACK_VOCAB_LIST[Math.floor(Math.random() * FALLBACK_VOCAB_LIST.length)];
+
+    try {
+      const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${randomFallback.word}`);
+      if (response.ok) {
+        const data = await response.json();
+        const entry = data[0];
+        setVocabTip({
+          word: entry.word,
+          phonetic: entry.phonetic || entry.phonetics?.find((p: { text?: string }) => p.text)?.text || randomFallback.phonetic,
+          definition: randomFallback.definition, // Mantém a definição em português padronizada
+        });
+      } else {
+        setVocabTip(randomFallback);
+      }
+    } catch {
+      setVocabTip(randomFallback);
+    } finally {
+      setIsLoadingVocab(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isMatching) {
+      fetchDynamicVocab();
+    }
+  }, [isMatching]);
 
   // Estado do Menu Dropdown do Usuário
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -57,7 +141,6 @@ export const Dashboard: React.FC = () => {
   };
   const goalPercentage = Math.min(100, Math.round((weeklyGoal.completed / weeklyGoal.target) * 100));
 
-  // Fechar o menu ao clicar fora dele
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
@@ -68,7 +151,7 @@ export const Dashboard: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Métricas Principais com verificação de prática diária
+  // Métricas Principais
   const userMetrics = {
     currentStreak: 5,
     hasPracticedToday: true,
@@ -280,7 +363,6 @@ export const Dashboard: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-            {/* Parceiro */}
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl overflow-hidden border border-[#D6D3D1] bg-[#E7E5E4] shrink-0">
                 <img
@@ -297,7 +379,6 @@ export const Dashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Nota Pessoal */}
             <div className="bg-[#FAF9F6] border border-[#E7E5E4] p-3 rounded-xl flex flex-col gap-1">
               <span className="text-[10px] font-bold text-[#78716C] uppercase">Sua Nota Pós-Chamada</span>
               <p className="text-xs text-[#1C1917] font-medium italic line-clamp-2">
@@ -305,7 +386,6 @@ export const Dashboard: React.FC = () => {
               </p>
             </div>
 
-            {/* Vocabulário Praticado */}
             <div className="flex flex-col gap-1">
               <span className="text-[10px] font-bold text-[#78716C] uppercase">Vocabulário Utilizado</span>
               <div className="flex flex-wrap gap-1.5">
@@ -322,9 +402,8 @@ export const Dashboard: React.FC = () => {
           </div>
         </section>
 
-        {/* Métricas e Sequência com Animações no Hover e Estado de Gelo */}
+        {/* Métricas e Sequência */}
         <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {/* Card 1: Streak (Fogo / Gelo) */}
           <div className="group bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 flex items-center gap-4 shadow-sm hover:border-[#1C1917] transition-all hover:shadow-md cursor-default">
             <div className="w-12 h-12 rounded-xl bg-[#F5F5F4] border border-[#E7E5E4] text-[#1C1917] flex items-center justify-center shrink-0 group-hover:bg-[#1C1917] group-hover:text-[#FAF9F6] transition-colors">
               {userMetrics.hasPracticedToday ? (
@@ -352,7 +431,6 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Card 2: Minutos Praticados */}
           <div className="group bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 flex items-center gap-4 shadow-sm hover:border-[#1C1917] transition-all hover:shadow-md cursor-default">
             <div className="w-12 h-12 rounded-xl bg-[#F5F5F4] border border-[#E7E5E4] text-[#1C1917] flex items-center justify-center shrink-0 group-hover:bg-[#1C1917] group-hover:text-[#FAF9F6] transition-colors">
               <svg
@@ -368,7 +446,6 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Card 3: Sessões e Conexões */}
           <div className="group bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 flex items-center gap-4 shadow-sm hover:border-[#1C1917] transition-all hover:shadow-md cursor-default">
             <div className="w-12 h-12 rounded-xl bg-[#F5F5F4] border border-[#E7E5E4] text-[#1C1917] flex items-center justify-center shrink-0 group-hover:bg-[#1C1917] group-hover:text-[#FAF9F6] transition-colors">
               <svg
@@ -638,6 +715,71 @@ export const Dashboard: React.FC = () => {
         </section>
       </main>
 
+      {/* Modal de Busca por Par */}
+      {isMatching && (
+        <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-8 sm:p-10 max-w-lg w-full shadow-2xl flex flex-col items-center gap-8 animate-in fade-in zoom-in-95 duration-150">
+            <div className="relative flex items-center justify-center">
+              <div className="w-24 h-24 rounded-full border-4 border-[#F5F5F4] border-t-[#1C1917] animate-spin" />
+              <div className="absolute w-12 h-12 rounded-full bg-[#1C1917] text-[#FAF9F6] font-black text-base flex items-center justify-center uppercase">
+                S
+              </div>
+            </div>
+
+            <div className="flex flex-col items-center text-center gap-2">
+              <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-[#1C1917]">
+                Buscando Par de Conversa...
+              </h3>
+              <p className="text-sm font-bold text-[#78716C]">
+                Procurando estudante no nível <span className="text-[#1C1917] underline">B1 Intermediário</span>
+              </p>
+            </div>
+
+            {/* Dica de Vocabulário em Português */}
+            <div className="w-full bg-[#FAF9F6] border border-[#E7E5E4] rounded-2xl p-6 flex flex-col gap-3 text-left">
+              <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-3">
+                <span className="text-xs font-black uppercase tracking-widest text-[#78716C]">
+                  Vocabulário para Praticar Hoje
+                </span>
+                <button
+                  type="button"
+                  onClick={fetchDynamicVocab}
+                  className="text-xs font-bold text-[#1C1917] hover:underline uppercase flex items-center gap-1"
+                >
+                  Nova Palavra ↻
+                </button>
+              </div>
+
+              {isLoadingVocab ? (
+                <div className="py-4 text-center text-sm font-bold text-[#78716C] animate-pulse">
+                  Atualizando sugestão de vocabulário...
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2 pt-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-lg font-black text-[#1C1917] capitalize">{vocabTip.word}</span>
+                    {vocabTip.phonetic && (
+                      <span className="text-xs font-bold text-[#78716C] italic">{vocabTip.phonetic}</span>
+                    )}
+                  </div>
+                  <p className="text-sm font-medium text-[#57534E] leading-relaxed">
+                    {vocabTip.definition}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsMatching(false)}
+              className="w-full py-4 bg-[#F5F5F4] hover:bg-[#E7E5E4] border border-[#E7E5E4] text-[#1C1917] font-bold text-xs uppercase tracking-widest rounded-xl transition-all"
+            >
+              Cancelar Busca
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Modal de Metas Semanais */}
       {activeModal === 'goals' && (
         <div className="fixed inset-0 bg-[#1C1917]/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -790,12 +932,6 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
       )}
-
-      <MatchingModal
-        isOpen={isMatching}
-        onCancel={() => setIsMatching(false)}
-        userLevel="B1"
-      />
     </div>
   );
 };
