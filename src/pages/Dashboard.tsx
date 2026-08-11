@@ -33,6 +33,21 @@ export const Dashboard: React.FC = () => {
 
   const goalPercentage = Math.min(100, Math.round((weeklyGoal.completed / weeklyGoal.target) * 100));
 
+  // SBS-29: Estado da Configuração de Lembretes Diários
+  const [reminderEnabled, setReminderEnabled] = useState(true);
+  const [reminderTime, setReminderTime] = useState('19:00');
+  const [selectedDays, setSelectedDays] = useState<string[]>(['Seg', 'Ter', 'Qua', 'Qui', 'Sex']);
+
+  const weekDaysList = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+
+  const toggleDaySelection = (day: string) => {
+    if (selectedDays.includes(day)) {
+      setSelectedDays(selectedDays.filter((d) => d !== day));
+    } else {
+      setSelectedDays([...selectedDays, day]);
+    }
+  };
+
   // SBS-25: Histórico de Conexões Recentes
   const [recentConnections] = useState([
     {
@@ -91,7 +106,7 @@ export const Dashboard: React.FC = () => {
 
   const [selectedTopic, setSelectedTopic] = useState(dailyTopics[0]);
 
-  // SBS-27: Teste de Dispositivos (Corrigida a tipagem de setInterval)
+  // SBS-27: Teste de Dispositivos
   const [isTestingDevices, setIsTestingDevices] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
 
@@ -207,7 +222,7 @@ export const Dashboard: React.FC = () => {
           </div>
         </section>
 
-        {/* SBS-28: Meta Semanal de Conversação e Gamificação */}
+        {/* SBS-28: Meta Semanal de Conversação */}
         <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#E7E5E4] pb-4 gap-2">
             <div className="flex items-center gap-2">
@@ -254,6 +269,79 @@ export const Dashboard: React.FC = () => {
               ))}
             </div>
           </div>
+        </section>
+
+        {/* SBS-29: Configuração de Lembretes Diários de Estudo */}
+        <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
+          <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-4">
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
+                Lembretes de Estudo
+              </h2>
+              <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 bg-[#F5F5F4] border border-[#E7E5E4] text-[#78716C] rounded-md">
+                Notificação
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setReminderEnabled(!reminderEnabled)}
+              className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors ${
+                reminderEnabled ? 'bg-[#1C1917]' : 'bg-[#E7E5E4]'
+              }`}
+            >
+              <div
+                className={`bg-[#FFFFFF] w-4 h-4 rounded-full shadow-md transform transition-transform ${
+                  reminderEnabled ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+
+          {reminderEnabled ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
+                  Horário Preferencial
+                </label>
+                <input
+                  type="time"
+                  value={reminderTime}
+                  onChange={(e) => setReminderTime(e.target.value)}
+                  className="px-4 py-2.5 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] w-full"
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
+                  Dias de Notificação
+                </label>
+                <div className="flex gap-1.5 justify-between">
+                  {weekDaysList.map((day) => {
+                    const isSelected = selectedDays.includes(day);
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => toggleDaySelection(day)}
+                        className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase border transition-all ${
+                          isSelected
+                            ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]'
+                            : 'bg-[#FAF9F6] text-[#78716C] border-[#E7E5E4]'
+                        }`}
+                      >
+                        {day}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-[#78716C] font-medium italic">
+              Lembretes desativados. Ative a chave acima para definir horários de treino diário.
+            </p>
+          )}
         </section>
 
         {/* Checagem Prévia de Dispositivos (Equipamento) */}
