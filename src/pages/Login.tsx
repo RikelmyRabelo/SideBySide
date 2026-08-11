@@ -254,7 +254,7 @@ export const Login: React.FC = () => {
   ];
 
   return (
-    <div className="h-screen w-full bg-[#FAF9F6] text-[#1C1917] font-sans selection:bg-[#1C1917] selection:text-[#FAF9F6] overflow-x-hidden overflow-y-scroll snap-y snap-mandatory relative scroll-smooth">
+    <div className="h-screen w-full bg-[#FAF9F6] text-[#1C1917] font-sans selection:bg-[#1C1917] selection:text-[#FAF9F6] overflow-x-hidden overflow-y-scroll snap-y snap-mandatory scroll-smooth duration-700 ease-out relative">
       
       {/* Cursor Solido Neutro */}
       <div
@@ -346,8 +346,20 @@ export const Login: React.FC = () => {
 
       {/* SEÇÃO STATEMENT */}
       <section id="about" className="h-screen w-full px-6 lg:px-12 max-w-6xl mx-auto flex flex-col justify-center gap-10 border-b border-[#E7E5E4] snap-start shrink-0">
-        <h2 className="text-3xl sm:text-5xl lg:text-6xl font-black uppercase tracking-tight text-[#1C1917] leading-[1.2] text-center sm:text-left">
-          SEM TEORIA OU EXERCÍCIOS PASSIVOS. FOCO 100% PARA VOCÊ OUVIR E FALAR INGLÊS COM TOTAL CONFIANÇA
+        <h2 className="text-3xl sm:text-5xl lg:text-6xl font-black uppercase tracking-tight text-[#1C1917] leading-[1.25] text-center sm:text-left">
+          SEM TEORIA OU EXERCÍCIOS PASSIVOS. NOSSO FOCO É{" "}
+          <span className="inline-block text-[#FAF9F6] px-4 py-1.5 bg-[#1C1917] font-black rounded-lg">
+            100% PRÁTICO
+          </span>{" "}
+          PARA VOCÊ{" "}
+          <span className="inline-block text-[#1C1917] px-4 py-1.5 bg-[#E7E5E4] font-black rounded-lg">
+            OUVIR MELHOR
+          </span>{" "}
+          E FALAR COM{" "}
+          <span className="inline-block text-[#1C1917] px-4 py-1.5 border-2 border-[#1C1917] font-black rounded-lg">
+            TOTAL CONFIANÇA
+          </span>{" "}
+          EM INGLÊS.
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
