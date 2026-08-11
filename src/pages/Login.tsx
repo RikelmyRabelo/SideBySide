@@ -8,8 +8,29 @@ export const Login: React.FC = () => {
   const [isLogin, setIsLogin] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [cefrLevel, setCefrLevel] = useState('B1');
   const [agreeTerms, setAgreeTerms] = useState(false);
+
+  // Estado para validações e erros
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  // Lógica de cálculo da força da senha (largura e cor progressivas)
+  const getPasswordStrength = (pass: string) => {
+    if (!pass) return { score: 0, label: '', color: 'bg-[#E7E5E4]', width: 'w-0' };
+    let score = 0;
+    if (pass.length >= 6) score += 1;
+    if (pass.length >= 8) score += 1;
+    if (/[A-Z]/.test(pass)) score += 1;
+    if (/[0-9]/.test(pass) || /[^A-Za-z0-9]/.test(pass)) score += 1;
+
+    if (score <= 1) return { score: 1, label: 'Fraca', color: 'bg-red-500', width: 'w-1/3' };
+    if (score <= 3) return { score: 2, label: 'Média', color: 'bg-amber-500', width: 'w-2/3' };
+    return { score: 3, label: 'Forte', color: 'bg-emerald-500', width: 'w-full' };
+  };
+
+  const passwordStrength = getPasswordStrength(password);
 
   // Estado do FAQ Interativo
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -122,7 +143,7 @@ export const Login: React.FC = () => {
     return () => cancelAnimationFrame(animationFrameId);
   }, [mousePos]);
 
-  // Observador para acionar a entrada dos cards vindos da borda esquerda da tela
+  // Observador para acionar a entrada dos cards
   const [isCardsVisible, setIsCardsVisible] = useState(false);
   const featuresRef = useRef<HTMLElement>(null);
 
@@ -145,6 +166,29 @@ export const Login: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
+
+    if (!email || !password) {
+      setErrorMessage('Por favor, preencha todos os campos obrigatórios.');
+      return;
+    }
+
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      setErrorMessage('Por favor, insira um e-mail válido.');
+      return;
+    }
+
+    if (!isLogin && password.length < 6) {
+      setErrorMessage('A senha precisa ter no mínimo 6 caracteres.');
+      return;
+    }
+
+    if (!isLogin && !agreeTerms) {
+      setErrorMessage('Você deve aceitar os Termos de Uso e a Política de Moderação para continuar.');
+      return;
+    }
+
+    alert(isLogin ? 'Login realizado com sucesso!' : 'Conta criada com sucesso!');
   };
 
   const scrollToSection = (id: string) => {
@@ -158,7 +202,7 @@ export const Login: React.FC = () => {
     },
     {
       question: 'Como funciona a segurança nas chamadas de vídeo?',
-      answer: 'Contamos com moderação ativa por Inteligência Artificial em tempo real que monitora desvios de condutas, além de botões de troca de par e denúncia instantânea.',
+      answer: 'Contamos com moderação ativa por Inteligência Artificial em tempo real que monitora desvios de conduta, além de botões de troca de par e denúncia instantânea.',
     },
     {
       question: 'E se meu nível de inglês for muito básico?',
@@ -183,7 +227,7 @@ export const Login: React.FC = () => {
         }}
       />
 
-      {/* Header com Bloco Sólido e Bordas Definidas */}
+      {/* Header com Bloco Sólido */}
       <div className="fixed top-6 left-0 right-0 w-full flex justify-center z-40 px-4">
         <header className="w-full max-w-5xl px-6 py-3.5 flex items-center justify-between bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl shadow-sm">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
@@ -211,9 +255,8 @@ export const Login: React.FC = () => {
         </header>
       </div>
 
-      {/* HERO SECTION - Minimalista & Editorial */}
+      {/* HERO SECTION */}
       <section className="relative min-h-screen w-full flex flex-col justify-between pt-36 pb-12 px-6 lg:px-12 border-b border-[#E7E5E4] overflow-hidden">
-        
         <div className="relative z-10 max-w-5xl mx-auto my-auto text-center flex flex-col items-center gap-6">
           <span className="px-4 py-1.5 bg-[#F5F5F4] border border-[#E7E5E4] text-[#57534E] text-xs font-bold uppercase tracking-widest rounded-lg">
             ● Plataforma P2P de Prática Ativa
@@ -256,9 +299,8 @@ export const Login: React.FC = () => {
         </div>
       </section>
 
-      {/* SEÇÃO STATEMENT - Neutra e Sofisticada */}
+      {/* SEÇÃO STATEMENT */}
       <section id="about" className="py-28 px-6 lg:px-12 max-w-6xl mx-auto flex flex-col gap-14 border-b border-[#E7E5E4]">
-        
         <h2 className="text-3xl sm:text-5xl lg:text-6xl font-black uppercase tracking-tight text-[#1C1917] leading-[1.25] text-center sm:text-left">
           AQUI NÃO HÁ TEORIA OU EXERCÍCIOS PASSIVOS. NOSSO FOCO É{" "}
           <span className="inline-block text-[#FAF9F6] px-4 py-1.5 bg-[#1C1917] font-black rounded-lg">
@@ -275,9 +317,7 @@ export const Login: React.FC = () => {
           EM INGLÊS.
         </h2>
 
-        {/* Pilares Neutros */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          
           <div className="bg-[#FFFFFF] border border-[#E7E5E4] p-8 rounded-2xl flex flex-col justify-between gap-6 hover:border-[#1C1917] transition-colors shadow-sm">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-widest text-[#1C1917] bg-[#F5F5F4] px-3 py-1 rounded-md border border-[#E7E5E4]">
@@ -307,7 +347,6 @@ export const Login: React.FC = () => {
               </p>
             </div>
           </div>
-
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center pt-8 border-t border-[#E7E5E4]">
@@ -326,7 +365,7 @@ export const Login: React.FC = () => {
         </div>
       </section>
 
-      {/* SEÇÃO PILARES - Entrada em Cascata Suave e Lenta (1.8s) */}
+      {/* SEÇÃO PILARES */}
       <section id="features" ref={featuresRef} className="py-28 px-6 lg:px-12 max-w-7xl mx-auto flex flex-col gap-12 border-b border-[#E7E5E4] overflow-hidden">
         <div className="flex flex-col gap-2">
           <span className="text-xs font-bold text-[#78716C] uppercase tracking-widest">Estrutura e Garantias</span>
@@ -335,17 +374,11 @@ export const Login: React.FC = () => {
           </h2>
         </div>
 
-        {/* Grid de 3 colunas com animação desacelerada */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 w-full min-h-[400px] items-stretch pt-4">
-          
-          {/* Card 1 - Posição Esquerda */}
           <div
             className={`w-full transition-all duration-[1800ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
-              isCardsVisible
-                ? 'translate-x-0 opacity-100'
-                : '-translate-x-[100vw] opacity-0'
+              isCardsVisible ? 'translate-x-0 opacity-100' : '-translate-x-[100vw] opacity-0'
             }`}
-            style={{ transitionDelay: isCardsVisible ? '0ms' : '0ms' }}
           >
             <div className="w-full h-full min-h-[380px] rounded-2xl bg-[#FFFFFF] border border-[#E7E5E4] p-8 shadow-xl flex flex-col justify-between cursor-pointer group transition-all duration-500 hover:border-[#1C1917] hover:-translate-y-2">
               <div className="flex flex-col gap-3">
@@ -361,12 +394,9 @@ export const Login: React.FC = () => {
             </div>
           </div>
 
-          {/* Card 2 - Posição Centro */}
           <div
             className={`w-full transition-all duration-[1800ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
-              isCardsVisible
-                ? 'translate-x-0 opacity-100'
-                : '-translate-x-[100vw] opacity-0'
+              isCardsVisible ? 'translate-x-0 opacity-100' : '-translate-x-[100vw] opacity-0'
             }`}
             style={{ transitionDelay: isCardsVisible ? '300ms' : '0ms' }}
           >
@@ -384,12 +414,9 @@ export const Login: React.FC = () => {
             </div>
           </div>
 
-          {/* Card 3 - Posição Direita */}
           <div
             className={`w-full transition-all duration-[1800ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
-              isCardsVisible
-                ? 'translate-x-0 opacity-100'
-                : '-translate-x-[100vw] opacity-0'
+              isCardsVisible ? 'translate-x-0 opacity-100' : '-translate-x-[100vw] opacity-0'
             }`}
             style={{ transitionDelay: isCardsVisible ? '600ms' : '0ms' }}
           >
@@ -406,25 +433,21 @@ export const Login: React.FC = () => {
               </div>
             </div>
           </div>
-
         </div>
       </section>
 
-      {/* SEÇÃO PROVA SOCIAL (CARROSSEL DE DEPOIMENTOS & MÉTRICAS) */}
+      {/* SEÇÃO PROVA SOCIAL */}
       <section id="testimonials" className="py-28 px-6 lg:px-12 max-w-5xl mx-auto flex flex-col gap-16 border-b border-[#E7E5E4]">
         <div className="flex flex-col gap-2 text-center items-center">
           <span className="text-xs font-bold text-[#78716C] uppercase tracking-widest">Comunidade em Ação</span>
-          
-          {/* Título com Texto Gradiente / Brilho Destacado */}
           <h2 className="text-4xl sm:text-6xl font-black uppercase tracking-tight text-[#1C1917]">
             Quem Pratica,{' '}
-            <span className="bg-gradient-to-r from-[#1C1917] via-[#78716C] to-[#1C1917] bg-[length:200%_auto] animate-gradient bg-clip-text text-transparent underline decoration-[#E7E5E4] underline-offset-8">
+            <span className="bg-gradient-to-r from-[#1C1917] via-[#78716C] to-[#1C1917] bg-[length:200%_auto] bg-clip-text text-transparent underline decoration-[#E7E5E4] underline-offset-8">
               Destrava
             </span>
           </h2>
         </div>
 
-        {/* Banner de Métricas */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-8 shadow-sm text-center">
           <div className="flex flex-col gap-1">
             <span className="text-4xl font-black text-[#1C1917]">+15.000</span>
@@ -440,9 +463,7 @@ export const Login: React.FC = () => {
           </div>
         </div>
 
-        {/* Carrossel de Depoimentos Destaque */}
         <div className="relative bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-8 sm:p-12 shadow-sm min-h-[220px] flex flex-col justify-between transition-all duration-500">
-          
           <div className="flex flex-col gap-4">
             <span className="text-3xl font-black text-[#A8A29E] leading-none">“</span>
             <p className="text-base sm:text-xl font-medium text-[#1C1917] leading-relaxed italic -mt-4">
@@ -461,7 +482,6 @@ export const Login: React.FC = () => {
               </div>
             </div>
 
-            {/* Controles do Carrossel */}
             <div className="flex items-center gap-4">
               <div className="flex gap-1.5">
                 {testimonials.map((_, idx) => (
@@ -501,7 +521,7 @@ export const Login: React.FC = () => {
         </div>
       </section>
 
-      {/* SEÇÃO FAQ (PERGUNTAS FREQUENTES INTERATIVAS) */}
+      {/* SEÇÃO FAQ */}
       <section id="faq" className="py-28 px-6 lg:px-12 max-w-4xl mx-auto flex flex-col gap-12 border-b border-[#E7E5E4]">
         <div className="flex flex-col gap-2 text-center items-center">
           <span className="text-xs font-bold text-[#78716C] uppercase tracking-widest">Tire suas dúvidas</span>
@@ -552,19 +572,35 @@ export const Login: React.FC = () => {
           <div className="grid grid-cols-2 bg-[#F5F5F4] p-1 rounded-xl text-xs font-bold uppercase tracking-wider border border-[#E7E5E4]">
             <button
               type="button"
-              onClick={() => setIsLogin(true)}
+              onClick={() => {
+                setIsLogin(true);
+                setErrorMessage(null);
+              }}
               className={`py-2.5 rounded-lg transition-all ${isLogin ? 'bg-[#1C1917] text-[#FAF9F6]' : 'text-[#78716C]'}`}
             >
               Entrar
             </button>
             <button
               type="button"
-              onClick={() => setIsLogin(false)}
+              onClick={() => {
+                setIsLogin(false);
+                setErrorMessage(null);
+              }}
               className={`py-2.5 rounded-lg transition-all ${!isLogin ? 'bg-[#1C1917] text-[#FAF9F6]' : 'text-[#78716C]'}`}
             >
               Criar Conta
             </button>
           </div>
+
+          {/* Mensagem de Erro Estilizada com SVG */}
+          {errorMessage && (
+            <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold flex items-center gap-2.5 animate-fadeIn">
+              <svg className="w-4 h-4 shrink-0 fill-current text-red-600" viewBox="0 0 20 20">
+                <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" />
+              </svg>
+              <p className="flex-1 leading-snug">{errorMessage}</p>
+            </div>
+          )}
 
           <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
             <Input
@@ -572,16 +608,61 @@ export const Login: React.FC = () => {
               type="email"
               placeholder="seu@email.com"
               value={email}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+              className="bg-[#FAF9F6] border-[#E7E5E4] text-[#1C1917] placeholder:text-[#A8A29E] focus:border-[#1C1917]"
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                setEmail(e.target.value);
+                if (errorMessage) setErrorMessage(null);
+              }}
             />
 
-            <Input
-              label="Senha"
-              type="password"
-              placeholder="Sua senha secreta"
-              value={password}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-            />
+            {/* Campo de Senha com Ícone SVG de Olho */}
+            <div className="flex flex-col gap-1.5">
+              <div className="relative w-full">
+                <Input
+                  label="Senha"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Sua senha secreta"
+                  value={password}
+                  className="bg-[#FAF9F6] border-[#E7E5E4] text-[#1C1917] placeholder:text-[#A8A29E] focus:border-[#1C1917]"
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                    setPassword(e.target.value);
+                    if (errorMessage) setErrorMessage(null);
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-[38px] text-[#78716C] hover:text-[#1C1917] transition-colors p-0.5"
+                  title={showPassword ? 'Ocultar senha' : 'Exibir senha'}
+                >
+                  {showPassword ? (
+                    <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+
+              {/* Barra Única Progressiva de Força da Senha */}
+              {!isLogin && password.length > 0 && (
+                <div className="flex flex-col gap-1 mt-1">
+                  <div className="flex justify-between items-center text-[10px] font-bold text-[#78716C] uppercase">
+                    <span>Força da senha:</span>
+                    <span className={passwordStrength.score === 1 ? 'text-red-500' : passwordStrength.score === 2 ? 'text-amber-500' : 'text-emerald-600'}>
+                      {passwordStrength.label}
+                    </span>
+                  </div>
+                  <div className="w-full h-1.5 bg-[#F5F5F4] rounded-full overflow-hidden border border-[#E7E5E4]">
+                    <div className={`h-full rounded-full transition-all duration-500 ease-out ${passwordStrength.width} ${passwordStrength.color}`} />
+                  </div>
+                </div>
+              )}
+            </div>
 
             {!isLogin && (
               <div className="flex flex-col gap-1.5">
@@ -591,7 +672,7 @@ export const Login: React.FC = () => {
                 <select
                   value={cefrLevel}
                   onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCefrLevel(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-[#FAF9F6] border border-[#D6D3D1] text-[#1C1917] text-xs rounded-xl outline-none focus:border-[#1C1917] font-bold"
+                  className="w-full px-4 py-2.5 bg-[#FAF9F6] border border-[#E7E5E4] text-[#1C1917] text-xs rounded-xl outline-none focus:border-[#1C1917] font-bold"
                 >
                   <option value="A1">A1 - Iniciante</option>
                   <option value="A2">A2 - Básico</option>
@@ -603,32 +684,56 @@ export const Login: React.FC = () => {
             )}
 
             {!isLogin && (
-              <label className="flex items-start gap-2 text-xs text-[#78716C] cursor-pointer mt-1">
-                <input
-                  type="checkbox"
-                  checked={agreeTerms}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAgreeTerms(e.target.checked)}
-                  className="mt-0.5 rounded border-[#D6D3D1] text-[#1C1917] focus:ring-[#1C1917]"
-                />
-                <span className="text-xs text-[#78716C]">
-                  Li e aceito os{' '}
-                  <button 
-                    type="button" 
-                    onClick={() => navigate('/Terms')} 
-                    className="text-[#1C1917] underline font-bold"
-                  >
-                    Termos de Uso
-                  </button>
-                  {' '}e a{' '}
-                  <button 
-                    type="button" 
-                    onClick={() => navigate('/Moderation')} 
-                    className="text-[#1C1917] underline font-bold"
-                  >
-                    Moderação de Vídeo
-                  </button>.
-                </span>
-              </label>
+              <div className="flex flex-col gap-2 mt-1">
+                <label className="flex items-start gap-2 text-xs text-[#78716C] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={agreeTerms}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      setAgreeTerms(e.target.checked);
+                      if (errorMessage) setErrorMessage(null);
+                    }}
+                    className="mt-0.5 rounded border-[#E7E5E4] text-[#1C1917] focus:ring-[#1C1917]"
+                  />
+                  <span className="text-xs text-[#78716C] leading-snug">
+                    Li e aceito os{' '}
+                    <button 
+                      type="button" 
+                      onClick={() => navigate('/Terms')} 
+                      className="text-[#1C1917] underline font-bold"
+                    >
+                      Termos de Uso
+                    </button>
+                    {' '}e a{' '}
+                    <button 
+                      type="button" 
+                      onClick={() => navigate('/Moderation')} 
+                      className="text-[#1C1917] underline font-bold"
+                    >
+                      Moderação de Vídeo
+                    </button>.
+                  </span>
+
+                  <div className="relative inline-block ml-1">
+                    <button
+                      type="button"
+                      onMouseEnter={() => setShowTooltip(true)}
+                      onMouseLeave={() => setShowTooltip(false)}
+                      onClick={() => setShowTooltip(!showTooltip)}
+                      className="w-4 h-4 rounded-full bg-[#E7E5E4] text-[#1C1917] font-bold text-[10px] flex items-center justify-center hover:bg-[#1C1917] hover:text-[#FAF9F6] transition-colors"
+                    >
+                      ?
+                    </button>
+
+                    {showTooltip && (
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-3 bg-[#1C1917] text-[#FAF9F6] text-[11px] rounded-xl shadow-xl z-50 leading-relaxed font-normal pointer-events-none">
+                        A moderação analisa condutas em tempo real por IA. Suas chamadas não são gravadas ou vendidas.
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#1C1917]" />
+                      </div>
+                    )}
+                  </div>
+                </label>
+              </div>
             )}
 
             <Button variant="primary" className="w-full py-3.5 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-bold text-xs uppercase tracking-widest rounded-xl transition-all">
@@ -644,14 +749,38 @@ export const Login: React.FC = () => {
             <div className="flex-grow border-t border-[#E7E5E4]"></div>
           </div>
 
+          {/* Botões Sociais com Ícones SVG Integrados */}
           <div className="grid grid-cols-3 gap-2.5">
-            <button type="button" className="py-2.5 border border-[#E7E5E4] bg-[#FAF9F6] rounded-xl text-xs font-bold text-[#1C1917] hover:bg-[#F5F5F4] flex items-center justify-center">
+            <button
+              type="button"
+              className="py-2.5 border border-[#E7E5E4] bg-[#FAF9F6] rounded-xl text-xs font-bold text-[#1C1917] hover:bg-[#F5F5F4] flex items-center justify-center gap-2 transition-all"
+            >
+              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
+                <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.23v3.15C3.25 21.37 7.34 24 12 24z"/>
+                <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.23C.44 8.16 0 9.99 0 12s.44 3.84 1.23 5.42l4.05-3.15z"/>
+                <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.25 2.63 1.23 6.58l4.05 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+              </svg>
               Google
             </button>
-            <button type="button" className="py-2.5 border border-[#E7E5E4] bg-[#FAF9F6] rounded-xl text-xs font-bold text-[#1C1917] hover:bg-[#F5F5F4] flex items-center justify-center">
+
+            <button
+              type="button"
+              className="py-2.5 border border-[#E7E5E4] bg-[#FAF9F6] rounded-xl text-xs font-bold text-[#1C1917] hover:bg-[#F5F5F4] flex items-center justify-center gap-2 transition-all"
+            >
+              <svg className="w-4 h-4 shrink-0 fill-[#1877F2]" viewBox="0 0 24 24">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+              </svg>
               Facebook
             </button>
-            <button type="button" className="py-2.5 border border-[#E7E5E4] bg-[#FAF9F6] rounded-xl text-xs font-bold text-[#1C1917] hover:bg-[#F5F5F4] flex items-center justify-center">
+
+            <button
+              type="button"
+              className="py-2.5 border border-[#E7E5E4] bg-[#FAF9F6] rounded-xl text-xs font-bold text-[#1C1917] hover:bg-[#F5F5F4] flex items-center justify-center gap-2 transition-all"
+            >
+              <svg className="w-4 h-4 shrink-0 stroke-[#1C1917] fill-none stroke-2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+              </svg>
               E-mail
             </button>
           </div>
