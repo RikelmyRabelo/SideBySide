@@ -5,16 +5,22 @@ import { Button } from '../components/ui/Button';
 export const Profile: React.FC = () => {
   const navigate = useNavigate();
 
-  // Estados dos Dados Pessoais
+  // Estados SBS-34: Dados Pessoais e Nível CEFR
   const [name, setName] = useState('Lucas Silva');
   const [email, setEmail] = useState('lucas.silva@email.com');
   const [cefrLevel, setCefrLevel] = useState('B1');
   const [avatarUrl, setAvatarUrl] = useState(
     'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80'
   );
+
+  // Estados SBS-35: Conexão e Privacidade
+  const [defaultMediaMode, setDefaultMediaMode] = useState<'video' | 'audio'>('video');
+  const [expandedMatching, setExpandedMatching] = useState(true);
+  const [showEmailInProfile, setShowEmailInProfile] = useState(false);
+  const [allowDirectReconnect, setAllowDirectReconnect] = useState(true);
+
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Informações detalhadas dos níveis CEFR
   const cefrLevelsInfo = [
     { code: 'A1', label: 'Iniciante', desc: 'Compreende frases simples do dia a dia.' },
     { code: 'A2', label: 'Básico', desc: 'Comunica-se em tarefas rotineiras e simples.' },
@@ -68,7 +74,7 @@ export const Profile: React.FC = () => {
             Meu Perfil
           </h1>
           <p className="text-xs sm:text-sm text-[#57534E] max-w-xl leading-relaxed font-medium">
-            Gerencie suas informações cadastrais e ajuste seu nível de proficiência CEFR para garantir o pareamento ideal durante as práticas.
+            Gerencie suas informações cadastrais e ajuste seu nível de proficiência e preferências de privacidade.
           </p>
         </section>
 
@@ -78,14 +84,14 @@ export const Profile: React.FC = () => {
             <svg className="w-4 h-4 shrink-0 fill-current text-emerald-600" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
             </svg>
-            <span>Informações do perfil salvas com sucesso!</span>
+            <span>Preferências salvas com sucesso!</span>
           </div>
         )}
 
-        {/* Formulário SBS-34: Dados Pessoais & CEFR */}
+        {/* Formulário Principal */}
         <form onSubmit={handleSubmit} className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-8">
           
-          {/* Seção 1: Foto do Perfil */}
+          {/* SBS-34: Foto do Perfil */}
           <div className="flex flex-col gap-4 border-b border-[#E7E5E4] pb-6">
             <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
               Foto do Perfil
@@ -108,7 +114,7 @@ export const Profile: React.FC = () => {
             </div>
           </div>
 
-          {/* Seção 2: Informações Pessoais */}
+          {/* SBS-34: Informações Pessoais */}
           <div className="flex flex-col gap-4 border-b border-[#E7E5E4] pb-6">
             <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
               Informações Pessoais
@@ -143,8 +149,8 @@ export const Profile: React.FC = () => {
             </div>
           </div>
 
-          {/* Seção 3: Nível CEFR */}
-          <div className="flex flex-col gap-4">
+          {/* SBS-34: Nível CEFR */}
+          <div className="flex flex-col gap-4 border-b border-[#E7E5E4] pb-6">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
                 Nível de Fluência (CEFR)
@@ -198,6 +204,116 @@ export const Profile: React.FC = () => {
                   </button>
                 );
               })}
+            </div>
+          </div>
+
+          {/* SBS-35: Preferências de Conexão */}
+          <div className="flex flex-col gap-4 border-b border-[#E7E5E4] pb-6">
+            <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
+              Preferências de Conexão
+            </h2>
+
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
+                  Modo de Mídia Padrão
+                </label>
+                <div className="grid grid-cols-2 bg-[#F5F5F4] p-1 rounded-xl border border-[#E7E5E4] text-xs font-bold uppercase tracking-wider">
+                  <button
+                    type="button"
+                    onClick={() => setDefaultMediaMode('video')}
+                    className={`py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all ${
+                      defaultMediaMode === 'video' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C]'
+                    }`}
+                  >
+                    Vídeo + Áudio
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDefaultMediaMode('audio')}
+                    className={`py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all ${
+                      defaultMediaMode === 'audio' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C]'
+                    }`}
+                  >
+                    Apenas Áudio
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between bg-[#FAF9F6] border border-[#E7E5E4] p-4 rounded-xl">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs font-bold text-[#1C1917]">Pareamento Ampliado</span>
+                  <span className="text-[11px] text-[#78716C] font-medium">
+                    Permitir conectar com níveis adjacentes (ex: A2 e B2 para nível B1)
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setExpandedMatching(!expandedMatching)}
+                  className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors shrink-0 ${
+                    expandedMatching ? 'bg-[#1C1917]' : 'bg-[#E7E5E4]'
+                  }`}
+                >
+                  <div
+                    className={`bg-[#FFFFFF] w-4 h-4 rounded-full shadow-md transform transition-transform ${
+                      expandedMatching ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* SBS-35: Opções de Privacidade */}
+          <div className="flex flex-col gap-4">
+            <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
+              Privacidade da Conta
+            </h2>
+
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between bg-[#FAF9F6] border border-[#E7E5E4] p-4 rounded-xl">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs font-bold text-[#1C1917]">Exibir E-mail no Perfil Público</span>
+                  <span className="text-[11px] text-[#78716C] font-medium">
+                    Tornar seu endereço de e-mail visível para os seus parceiros de conversa
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowEmailInProfile(!showEmailInProfile)}
+                  className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors shrink-0 ${
+                    showEmailInProfile ? 'bg-[#1C1917]' : 'bg-[#E7E5E4]'
+                  }`}
+                >
+                  <div
+                    className={`bg-[#FFFFFF] w-4 h-4 rounded-full shadow-md transform transition-transform ${
+                      showEmailInProfile ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between bg-[#FAF9F6] border border-[#E7E5E4] p-4 rounded-xl">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs font-bold text-[#1C1917]">Permitir Reconexões Diretas</span>
+                  <span className="text-[11px] text-[#78716C] font-medium">
+                    Permitir que parceiros recentes enviem solicitações diretas de conversa
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAllowDirectReconnect(!allowDirectReconnect)}
+                  className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors shrink-0 ${
+                    allowDirectReconnect ? 'bg-[#1C1917]' : 'bg-[#E7E5E4]'
+                  }`}
+                >
+                  <div
+                    className={`bg-[#FFFFFF] w-4 h-4 rounded-full shadow-md transform transition-transform ${
+                      allowDirectReconnect ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
           </div>
 
