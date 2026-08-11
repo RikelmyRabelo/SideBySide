@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 
 export const Login: React.FC = () => {
+  const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [cefrLevel, setCefrLevel] = useState('B1');
   const [agreeTerms, setAgreeTerms] = useState(false);
-
+  
   // Hero: Alternância PT/EN estática
   const [isEnglish, setIsEnglish] = useState(false);
 
@@ -411,8 +413,17 @@ export const Login: React.FC = () => {
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAgreeTerms(e.target.checked)}
                   className="mt-0.5 rounded border-[#D6D3D1] text-[#1C1917] focus:ring-[#1C1917]"
                 />
-                <span>
-                  Li e aceito os <a href="#" className="text-[#1C1917] underline font-bold">Termos de Uso</a> e a <a href="#" className="text-[#1C1917] underline font-bold">Moderação de Vídeo</a>.
+                <span className="text-xs text-[#78716C]">
+                  Li e aceito os{' '}
+                  <button 
+                    type="button" 
+                    onClick={() => navigate('/terms')} 
+                    className="text-[#1C1917] underline font-bold"
+                  >
+                    Termos de Uso
+                  </button>
+                  {' '}e a{' '}
+                  <a href="#" className="text-[#1C1917] underline font-bold">Moderação de Vídeo</a>.
                 </span>
               </label>
             )}
@@ -467,9 +478,9 @@ export const Login: React.FC = () => {
         <div className="max-w-7xl mx-auto mt-12 pt-6 border-t border-[#292524] flex flex-col sm:flex-row items-center justify-between text-xs text-[#A8A29E] gap-4">
           <p>© 2026 SideBySide. Todos os direitos reservados.</p>
           <div className="flex gap-6">
-            <a href="#" className="hover:text-[#FAF9F6]">Termos de Uso</a>
-            <a href="#" className="hover:text-[#FAF9F6]">Política de Moderação</a>
-            <a href="#" className="hover:text-[#FAF9F6]">Privacidade</a>
+            <button type="button" onClick={() => navigate('/Terms')} className="hover:text-[#FAF9F6] transition-colors">Termos de Uso</button>
+            <button type="button" onClick={() => navigate('/Moderation')} className="hover:text-[#FAF9F6] transition-colors">Política de Moderação</button>
+            <button type="button" onClick={() => navigate('/Privacy')} className="hover:text-[#FAF9F6] transition-colors">Privacidade</button>
           </div>
         </div>
       </footer>
