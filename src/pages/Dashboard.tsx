@@ -9,7 +9,7 @@ export const Dashboard: React.FC = () => {
   const [expandedMatching, setExpandedMatching] = useState(true);
   const [isMatching, setIsMatching] = useState(false);
 
-  // SBS-24: Dados do Streak e Métricas do Estudante
+  // SBS-24: Dados do Streak e Métricas
   const userMetrics = {
     currentStreak: 5,
     totalMinutes: 140,
@@ -46,6 +46,33 @@ export const Dashboard: React.FC = () => {
       topic: 'Daily Routine',
     },
   ]);
+
+  // SBS-26: Tópicos Diários e Perguntas Quebra-gelo
+  const dailyTopics = [
+    {
+      id: 'travel',
+      category: 'Viagens & Culturas',
+      title: 'Experiências Inesquecíveis',
+      icebreaker: 'Qual foi o destino mais marcante que você já visitou e por quê?',
+      vocabPreview: ['Destination', 'Wanderlust', 'Unforgettable'],
+    },
+    {
+      id: 'career',
+      category: 'Trabalho & Tecnologia',
+      title: 'O Futuro da Inteligência Artificial',
+      icebreaker: 'Como a tecnologia e a IA têm mudado a sua rotina diária no trabalho?',
+      vocabPreview: ['Automation', 'Efficiency', 'Workflow'],
+    },
+    {
+      id: 'hobbies',
+      category: 'Estilo de Vida',
+      title: 'Passatempos & Hábitos Diários',
+      icebreaker: 'O que você mais gosta de fazer para relaxar no final de semana?',
+      vocabPreview: ['Leisure', 'Unwind', 'Daily Routine'],
+    },
+  ];
+
+  const [selectedTopic, setSelectedTopic] = useState(dailyTopics[0]);
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col font-sans selection:bg-[#1C1917] selection:text-[#FAF9F6]">
@@ -85,7 +112,7 @@ export const Dashboard: React.FC = () => {
             </div>
             <span className="text-xs font-bold text-[#1C1917] hidden md:inline-block">Lucas Silva</span>
             <svg className="w-4 h-4 stroke-[#78716C] fill-none stroke-2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l.546.947c.275.476.17.1.082-.218.794l-.927.927a1.125 1.125 0 01-.225 1.186m0 0a1.125 1.125 0 011.186.225l.927.928c.418.419.508 1.05.218 1.566l-.546.948a1.125 1.125 0 01-1.37.491l-1.216-.456c-.356-.133-.751-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-1.094c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-.546-.947a1.125 1.125 0 01.218-1.567l.927-.927a1.125 1.125 0 01.225-1.186m0 0a1.125 1.125 0 01-1.186-.225l-.927-.928a1.125 1.125 0 01-.218-1.566l.546-.948a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l.546.947c.275.476.17.1.082-.218.794l-.927.927a1.125 1.125 0 01-.225 1.186m0 0a1.125 1.125 0 011.186.225l.927.928c.418.419.508 1.05.218 1.566l-.546.948a1.125 1.125 0 01-1.37.491l-1.216-.456c-.356-.133-.751-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-1.094c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-.546-.947a1.125 1.125 0 012.18-1.567l.927-.927a1.125 1.125 0 01.225-1.186m0 0a1.125 1.125 0 01-1.186-.225l-.927-.928a1.125 1.125 0 01-.218-1.566l.546-.948a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           </div>
@@ -143,6 +170,81 @@ export const Dashboard: React.FC = () => {
             <div className="flex flex-col">
               <span className="text-2xl font-black text-[#1C1917] tracking-tight">{userMetrics.totalSessions} Conexões</span>
               <span className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Sessões Realizadas</span>
+            </div>
+          </div>
+        </section>
+
+        {/* SBS-26: Sugestões de Tópicos Diários (Daily Topics) */}
+        <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
+          <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-4">
+            <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
+              Tópicos Recomendados para Hoje
+            </h2>
+            <span className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
+              Atualizado Diariamente
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {dailyTopics.map((topic) => (
+              <button
+                key={topic.id}
+                type="button"
+                onClick={() => setSelectedTopic(topic)}
+                className={`p-4 rounded-xl border text-left flex flex-col justify-between gap-3 transition-all ${
+                  selectedTopic.id === topic.id
+                    ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917] shadow-md'
+                    : 'bg-[#FAF9F6] text-[#1C1917] border-[#E7E5E4] hover:border-[#1C1917]'
+                }`}
+              >
+                <div className="flex flex-col gap-1">
+                  <span
+                    className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md w-fit ${
+                      selectedTopic.id === topic.id
+                        ? 'bg-[#292524] text-[#A8A29E]'
+                        : 'bg-[#E7E5E4] text-[#57534E]'
+                    }`}
+                  >
+                    {topic.category}
+                  </span>
+                  <h3 className="text-sm font-bold mt-1 leading-snug">{topic.title}</h3>
+                </div>
+
+                <div className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider">
+                  <span>Selecionar tema</span>
+                  <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                  </svg>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {/* Prévia do Tema Selecionado (Quebra-gelo + Vocabulário) */}
+          <div className="bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl p-5 flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[#78716C]">
+                Pergunta Quebra-gelo Sugerida
+              </span>
+              <p className="text-sm font-bold text-[#1C1917] italic">
+                "{selectedTopic.icebreaker}"
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-1.5 pt-3 border-t border-[#E7E5E4]">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[#78716C]">
+                Vocabulário Recomendado
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {selectedTopic.vocabPreview.map((word, idx) => (
+                  <span
+                    key={idx}
+                    className="text-xs font-bold px-2.5 py-1 bg-[#FFFFFF] border border-[#E7E5E4] rounded-md text-[#1C1917]"
+                  >
+                    {word}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
         </section>
@@ -226,7 +328,7 @@ export const Dashboard: React.FC = () => {
           </Button>
         </section>
 
-        {/* SBS-25: Histórico de Conexões Recentes */}
+        {/* Histórico de Conexões Recentes */}
         <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
           <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-4">
             <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
