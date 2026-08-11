@@ -10,7 +10,14 @@ export const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [cefrLevel, setCefrLevel] = useState('B1');
   const [agreeTerms, setAgreeTerms] = useState(false);
-  
+
+  // Estado do FAQ Interativo
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  const toggleFaq = (index: number) => {
+    setOpenFaq(openFaq === index ? null : index);
+  };
+
   // Hero: Alternância PT/EN estática
   const [isEnglish, setIsEnglish] = useState(false);
 
@@ -21,6 +28,50 @@ export const Login: React.FC = () => {
 
     return () => clearInterval(interval);
   }, []);
+
+  // Estado do Carrossel de Depoimentos
+  const testimonials = [
+    {
+      quote: "Fiquei super apreensivo na primeira conversa, mas o suporte de temas na tela me ajudou demais. Hoje converso sem medo no trabalho!",
+      author: "Mariana R.",
+      initials: "MR",
+      level: "Nível B1 — Intermediário",
+    },
+    {
+      quote: "A moderação por IA dá uma tranquilidade absurda. Todas as conexões que fiz foram super respeitosas e focadas em aprender.",
+      author: "Lucas C.",
+      initials: "LC",
+      level: "Nível B2 — Avançado",
+    },
+    {
+      quote: "Treinar o listening com pessoas reais e sotaques diferentes mudou totalmente minha compreensão. Vale muito a pena!",
+      author: "Fernanda S.",
+      initials: "FS",
+      level: "Nível A2 — Básico",
+    },
+    {
+      quote: "Eu costumava travar completamente tentando pensar em gramática antes de falar. O método P2P destravou minha fala em 3 semanas.",
+      author: "Rodrigo M.",
+      initials: "RM",
+      level: "Nível B1 — Intermediário",
+    },
+    {
+      quote: "Excelente para quem não tem com quem praticar no dia a dia. Conectei com um parceiro do mesmo nível e agora praticamos diariamente.",
+      author: "Camila T.",
+      initials: "CT",
+      level: "Nível C1 — Avançado",
+    },
+  ];
+
+  const [currentTestimonial, setCurrentTestimonial] = useState(0);
+
+  useEffect(() => {
+    const testimonialTimer = setInterval(() => {
+      setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
+    }, 5000);
+
+    return () => clearInterval(testimonialTimer);
+  }, [testimonials.length]);
 
   // Cursor com rastreamento e ocultação nas bordas
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
@@ -100,6 +151,25 @@ export const Login: React.FC = () => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const faqItems = [
+    {
+      question: 'A plataforma é realmente gratuita?',
+      answer: 'Sim! Você pode realizar conexões diárias e praticar em salas ao vivo sem custo algum na versão base.',
+    },
+    {
+      question: 'Como funciona a segurança nas chamadas de vídeo?',
+      answer: 'Contamos com moderação ativa por Inteligência Artificial em tempo real que monitora desvios de condutas, além de botões de troca de par e denúncia instantânea.',
+    },
+    {
+      question: 'E se meu nível de inglês for muito básico?',
+      answer: 'Nosso algoritmo realiza o pareamento exato pelo seu nível CEFR (A1 a C1). Você conversará com pessoas que estão exatamente no mesmo patamar de aprendizado.',
+    },
+    {
+      question: 'E se eu ficar travado sem saber o que falar?',
+      answer: 'Durante todas as chamadas, um painel lateral exibe automaticamente sugestões de perguntas quebra-gelo, tópicos de conversa e dicas de vocabulário.',
+    },
+  ];
+
   return (
     <div className="min-h-screen w-full bg-[#FAF9F6] text-[#1C1917] font-sans selection:bg-[#1C1917] selection:text-[#FAF9F6] overflow-x-hidden relative">
       
@@ -126,6 +196,8 @@ export const Login: React.FC = () => {
           <nav className="hidden md:flex items-center gap-8 text-xs font-bold tracking-widest uppercase text-[#78716C]">
             <button type="button" onClick={() => scrollToSection('about')} className="hover:text-[#1C1917] transition-colors">Método</button>
             <button type="button" onClick={() => scrollToSection('features')} className="hover:text-[#1C1917] transition-colors">Pilares</button>
+            <button type="button" onClick={() => scrollToSection('testimonials')} className="hover:text-[#1C1917] transition-colors">Comunidade</button>
+            <button type="button" onClick={() => scrollToSection('faq')} className="hover:text-[#1C1917] transition-colors">FAQ</button>
             <button type="button" onClick={() => scrollToSection('auth')} className="hover:text-[#1C1917] transition-colors">Entrar</button>
           </nav>
 
@@ -338,6 +410,131 @@ export const Login: React.FC = () => {
         </div>
       </section>
 
+      {/* SEÇÃO PROVA SOCIAL (CARROSSEL DE DEPOIMENTOS & MÉTRICAS) */}
+      <section id="testimonials" className="py-28 px-6 lg:px-12 max-w-5xl mx-auto flex flex-col gap-16 border-b border-[#E7E5E4]">
+        <div className="flex flex-col gap-2 text-center items-center">
+          <span className="text-xs font-bold text-[#78716C] uppercase tracking-widest">Comunidade em Ação</span>
+          
+          {/* Título com Texto Gradiente / Brilho Destacado */}
+          <h2 className="text-4xl sm:text-6xl font-black uppercase tracking-tight text-[#1C1917]">
+            Quem Pratica,{' '}
+            <span className="bg-gradient-to-r from-[#1C1917] via-[#78716C] to-[#1C1917] bg-[length:200%_auto] animate-gradient bg-clip-text text-transparent underline decoration-[#E7E5E4] underline-offset-8">
+              Destrava
+            </span>
+          </h2>
+        </div>
+
+        {/* Banner de Métricas */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-8 shadow-sm text-center">
+          <div className="flex flex-col gap-1">
+            <span className="text-4xl font-black text-[#1C1917]">+15.000</span>
+            <span className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Conversas Realizadas</span>
+          </div>
+          <div className="flex flex-col gap-1 border-y sm:border-y-0 sm:border-x border-[#E7E5E4] py-4 sm:py-0">
+            <span className="text-4xl font-black text-[#1C1917]">98.4%</span>
+            <span className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Avaliações Positivas</span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-4xl font-black text-[#1C1917]">4.9 / 5★</span>
+            <span className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Nota Média de Segurança</span>
+          </div>
+        </div>
+
+        {/* Carrossel de Depoimentos Destaque */}
+        <div className="relative bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-8 sm:p-12 shadow-sm min-h-[220px] flex flex-col justify-between transition-all duration-500">
+          
+          <div className="flex flex-col gap-4">
+            <span className="text-3xl font-black text-[#A8A29E] leading-none">“</span>
+            <p className="text-base sm:text-xl font-medium text-[#1C1917] leading-relaxed italic -mt-4">
+              {testimonials[currentTestimonial].quote}
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-6 border-t border-[#F5F5F4] mt-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-[#1C1917] text-[#FAF9F6] font-black text-xs flex items-center justify-center uppercase">
+                {testimonials[currentTestimonial].initials}
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-bold text-[#1C1917]">{testimonials[currentTestimonial].author}</span>
+                <span className="text-[11px] font-bold text-[#A8A29E] uppercase">{testimonials[currentTestimonial].level}</span>
+              </div>
+            </div>
+
+            {/* Controles do Carrossel */}
+            <div className="flex items-center gap-4">
+              <div className="flex gap-1.5">
+                {testimonials.map((_, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setCurrentTestimonial(idx)}
+                    className={`h-2 rounded-full transition-all ${
+                      currentTestimonial === idx ? 'w-6 bg-[#1C1917]' : 'w-2 bg-[#E7E5E4]'
+                    }`}
+                  />
+                ))}
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCurrentTestimonial((prev) => (prev === 0 ? testimonials.length - 1 : prev - 1))
+                  }
+                  className="w-8 h-8 rounded-lg border border-[#E7E5E4] hover:bg-[#F5F5F4] text-[#1C1917] font-bold flex items-center justify-center text-xs transition-colors"
+                >
+                  ←
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCurrentTestimonial((prev) => (prev + 1) % testimonials.length)
+                  }
+                  className="w-8 h-8 rounded-lg border border-[#E7E5E4] hover:bg-[#F5F5F4] text-[#1C1917] font-bold flex items-center justify-center text-xs transition-colors"
+                >
+                  →
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SEÇÃO FAQ (PERGUNTAS FREQUENTES INTERATIVAS) */}
+      <section id="faq" className="py-28 px-6 lg:px-12 max-w-4xl mx-auto flex flex-col gap-12 border-b border-[#E7E5E4]">
+        <div className="flex flex-col gap-2 text-center items-center">
+          <span className="text-xs font-bold text-[#78716C] uppercase tracking-widest">Tire suas dúvidas</span>
+          <h2 className="text-3xl sm:text-5xl font-black uppercase tracking-tight text-[#1C1917]">
+            Perguntas Frequentes
+          </h2>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          {faqItems.map((item, index) => (
+            <div
+              key={index}
+              className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 transition-all shadow-sm cursor-pointer hover:border-[#1C1917]"
+              onClick={() => toggleFaq(index)}
+            >
+              <div className="flex justify-between items-center">
+                <h3 className="text-base font-bold text-[#1C1917] uppercase tracking-tight">
+                  {item.question}
+                </h3>
+                <span className="text-lg font-black text-[#1C1917] ml-4">
+                  {openFaq === index ? '−' : '+'}
+                </span>
+              </div>
+              {openFaq === index && (
+                <p className="text-xs text-[#57534E] leading-relaxed mt-4 pt-4 border-t border-[#F5F5F4]">
+                  {item.answer}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* FORMULÁRIO DE AUTENTICAÇÃO */}
       <section id="auth" className="py-28 px-6 max-w-md mx-auto w-full flex flex-col justify-center">
         <div className="bg-[#FFFFFF] rounded-2xl p-8 shadow-lg flex flex-col gap-6 text-[#1C1917] border border-[#E7E5E4]">
@@ -417,13 +614,19 @@ export const Login: React.FC = () => {
                   Li e aceito os{' '}
                   <button 
                     type="button" 
-                    onClick={() => navigate('/terms')} 
+                    onClick={() => navigate('/Terms')} 
                     className="text-[#1C1917] underline font-bold"
                   >
                     Termos de Uso
                   </button>
                   {' '}e a{' '}
-                  <a href="#" className="text-[#1C1917] underline font-bold">Moderação de Vídeo</a>.
+                  <button 
+                    type="button" 
+                    onClick={() => navigate('/Moderation')} 
+                    className="text-[#1C1917] underline font-bold"
+                  >
+                    Moderação de Vídeo
+                  </button>.
                 </span>
               </label>
             )}
