@@ -6,8 +6,9 @@ export const Profile: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'general' | 'social' | 'stats' | 'security'>('general');
 
-  // Estado do Modal de Perfil Público
+  // Estado do Modal de Perfil Público e Solicitação de Amizade
   const [showPublicPreview, setShowPublicPreview] = useState(false);
+  const [friendRequestSent, setFriendRequestSent] = useState(false);
 
   // Estados SBS-34: Dados Pessoais e Nível CEFR
   const [name, setName] = useState('Lucas Silva');
@@ -59,6 +60,8 @@ export const Profile: React.FC = () => {
   // Estados SBS-37: Metas Semanais e Gamificação
   const [weeklyGoalTarget, setWeeklyGoalTarget] = useState(5);
   const [weeklyGoalCompleted] = useState(3);
+  const [currentStreak] = useState(5);
+
   const badgesList = [
     { id: 'first_chat', title: 'Primeira Conversa', desc: 'Sessão inicial concluída', unlocked: true, icon: '💬' },
     { id: 'streak_5', title: '5 Dias de Ofensiva', desc: 'Prática contínua', unlocked: true, icon: '🔥' },
@@ -82,7 +85,7 @@ export const Profile: React.FC = () => {
   };
 
   // Estados SBS-39: Parceiros Favoritos & Notas Privadas
-  const [favoritePartners, setFavoritePartners] = useState([
+  const [favoritePartners] = useState([
     {
       id: '1',
       name: 'Elena Rostova',
@@ -621,10 +624,10 @@ export const Profile: React.FC = () => {
         </div>
       )}
 
-      {/* Modal de Visualização do Perfil Público */}
+      {/* Modal de Visualização do Perfil Público Expandido */}
       {showPublicPreview && (
         <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 max-w-lg w-full shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-3">
               <span className="text-[10px] font-black uppercase tracking-widest bg-[#F5F5F4] text-[#78716C] px-2.5 py-1 rounded border border-[#E7E5E4]">
                 COMO OS OUTROS TE VEEM
@@ -653,18 +656,61 @@ export const Profile: React.FC = () => {
                 {showEmailInProfile && (
                   <span className="text-xs font-bold text-[#78716C]">{email}</span>
                 )}
-                <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 mt-1">
-                  Reputação: {evolutionStats.reputationScore}
-                </span>
+                
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    Reputação: {evolutionStats.reputationScore}
+                  </span>
+                  <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                    🔥 {currentStreak} Dias de Ofensiva
+                  </span>
+                </div>
               </div>
 
-              <p className="text-xs text-[#57534E] font-medium leading-relaxed italic bg-[#FAF9F6] p-3 rounded-xl border border-[#E7E5E4] w-full">
+              {/* Botão de Solicitação de Amizade */}
+              <button
+                type="button"
+                onClick={() => setFriendRequestSent(!friendRequestSent)}
+                className={`w-full py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
+                  friendRequestSent
+                    ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+                    : 'bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6]'
+                }`}
+              >
+                {friendRequestSent ? (
+                  <>
+                    <span>✓</span> Solicitação Enviada
+                  </>
+                ) : (
+                  <>
+                    <span>👤+</span> Enviar Solicitação de Amizade
+                  </>
+                )}
+              </button>
+
+              <p className="text-xs text-[#57534E] font-medium leading-relaxed italic bg-[#FAF9F6] p-3 rounded-xl border border-[#E7E5E4] w-full text-left">
                 "{bio || 'Sem biografia informada.'}"
               </p>
 
+              {/* Conquistas / Badges no Perfil Público */}
+              <div className="flex flex-col gap-1.5 w-full pt-1 text-left">
+                <span className="text-[10px] font-bold uppercase text-[#78716C]">
+                  Conquistas Desbloqueadas:
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  {badgesList.filter((b) => b.unlocked).map((badge) => (
+                    <div key={badge.id} className="p-2 rounded-lg bg-[#FAF9F6] border border-[#E7E5E4] flex items-center gap-2">
+                      <span className="text-base">{badge.icon}</span>
+                      <span className="text-[10px] font-bold text-[#1C1917] uppercase truncate">{badge.title}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tópicos de Interesse */}
               {selectedInterests.length > 0 && (
-                <div className="flex flex-col gap-1.5 w-full pt-2">
-                  <span className="text-[10px] font-bold uppercase text-[#78716C] text-left">
+                <div className="flex flex-col gap-1.5 w-full pt-1 text-left">
+                  <span className="text-[10px] font-bold uppercase text-[#78716C]">
                     Interesses de Conversa:
                   </span>
                   <div className="flex flex-wrap gap-1.5">
@@ -679,12 +725,30 @@ export const Profile: React.FC = () => {
                   </div>
                 </div>
               )}
+
+              {/* Agenda / Resumo de Disponibilidade */}
+              <div className="flex flex-col gap-1.5 w-full pt-1 text-left">
+                <span className="text-[10px] font-bold uppercase text-[#78716C]">
+                  Horários Frequentes:
+                </span>
+                <div className="flex flex-wrap gap-1">
+                  {selectedAvailability.length > 0 ? (
+                    selectedAvailability.map((slot) => (
+                      <span key={slot} className="text-[10px] font-semibold px-2 py-0.5 bg-[#FAF9F6] border border-[#E7E5E4] text-[#57534E] rounded">
+                        {slot.split(' ')[0]}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-[10px] text-[#78716C]">Sem agenda cadastrada</span>
+                  )}
+                </div>
+              </div>
             </div>
 
             <button
               type="button"
               onClick={() => setShowPublicPreview(false)}
-              className="w-full py-3 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-bold text-xs uppercase tracking-widest rounded-xl transition-all"
+              className="w-full py-3 bg-[#F5F5F4] hover:bg-[#E7E5E4] border border-[#E7E5E4] text-[#1C1917] font-bold text-xs uppercase tracking-widest rounded-xl transition-all"
             >
               Fechar Visualização
             </button>
