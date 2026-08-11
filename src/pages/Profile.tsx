@@ -99,6 +99,24 @@ export const Profile: React.FC = () => {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [tempNoteText, setSaveTempNoteText] = useState('');
 
+  // Estados SBS-40: Calendário de Disponibilidade
+  const timeSlots = ['Manhã (08h - 12h)', 'Tarde (12h - 18h)', 'Noite (18h - 22h)'];
+  const weekDays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+
+  const [selectedAvailability, setSelectedAvailability] = useState<string[]>([
+    'Seg-Noite (18h - 22h)',
+    'Qua-Noite (18h - 22h)',
+    'Sex-Noite (18h - 22h)',
+  ]);
+
+  const toggleAvailabilitySlot = (slotKey: string) => {
+    if (selectedAvailability.includes(slotKey)) {
+      setSelectedAvailability(selectedAvailability.filter((item) => item !== slotKey));
+    } else {
+      setSelectedAvailability([...selectedAvailability, slotKey]);
+    }
+  };
+
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
@@ -223,7 +241,7 @@ export const Profile: React.FC = () => {
             Meu Perfil
           </h1>
           <p className="text-xs sm:text-sm text-[#57534E] max-w-xl leading-relaxed font-medium">
-            Gerencie suas informações cadastrais, parceiros favoritos, evolução de fala e privacidade.
+            Gerencie suas informações cadastrais, agenda de estudos, parceiros favoritos e privacidade.
           </p>
         </section>
 
@@ -236,6 +254,64 @@ export const Profile: React.FC = () => {
             <span>Preferências salvas com sucesso!</span>
           </div>
         )}
+
+        {/* SBS-40: Calendário de Disponibilidade Diária & Horários de Pico */}
+        <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#E7E5E4] pb-4">
+            <div>
+              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
+                Agenda de Disponibilidade
+              </h2>
+              <p className="text-xs text-[#78716C] font-medium">
+                Marque os turnos em que costuma ficar livre para otimizar o pareamento.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-1 bg-[#F5F5F4] border border-[#E7E5E4] rounded-lg text-[10px] font-bold text-[#1C1917] uppercase w-fit">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              Pico de usuários: Noite (18h-22h)
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <div className="min-w-[500px] flex flex-col gap-2">
+              <div className="grid grid-cols-8 gap-2 text-center text-[10px] font-black uppercase text-[#78716C] pb-1 border-b border-[#E7E5E4]">
+                <span>Turno</span>
+                {weekDays.map((day) => (
+                  <span key={day}>{day}</span>
+                ))}
+              </div>
+
+              {timeSlots.map((slot) => (
+                <div key={slot} className="grid grid-cols-8 gap-2 items-center">
+                  <span className="text-[10px] font-bold text-[#1C1917] uppercase leading-tight">
+                    {slot.split(' ')[0]}
+                  </span>
+                  {weekDays.map((day) => {
+                    const slotKey = `${day}-${slot}`;
+                    const isSelected = selectedAvailability.includes(slotKey);
+                    const isPeak = slot.includes('Noite');
+                    return (
+                      <button
+                        key={slotKey}
+                        type="button"
+                        onClick={() => toggleAvailabilitySlot(slotKey)}
+                        className={`py-2.5 rounded-lg border text-[10px] font-extrabold uppercase transition-all flex items-center justify-center ${
+                          isSelected
+                            ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]'
+                            : isPeak
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:border-[#1C1917]'
+                            : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4] hover:border-[#1C1917]'
+                        }`}
+                      >
+                        {isSelected ? '✓' : isPeak ? '🔥' : '+'}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
 
         {/* SBS-39: Parceiros Favoritos & Notas Privadas */}
         <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
@@ -300,7 +376,6 @@ export const Profile: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Campo de Nota Privada */}
                   <div className="bg-[#FFFFFF] border border-[#E7E5E4] p-3 rounded-lg flex flex-col gap-2">
                     <div className="flex justify-between items-center">
                       <span className="text-[10px] font-bold uppercase text-[#78716C]">
