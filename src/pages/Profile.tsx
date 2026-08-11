@@ -10,6 +10,10 @@ export const Profile: React.FC = () => {
   const [showPublicPreview, setShowPublicPreview] = useState(false);
   const [friendRequestSent, setFriendRequestSent] = useState(false);
 
+  // Estado do Modal de Adicionar Tópicos
+  const [showTopicsModal, setShowTopicsModal] = useState(false);
+  const [topicSearch, setTopicSearch] = useState('');
+
   // Estados SBS-34: Dados Pessoais e Nível CEFR
   const [name, setName] = useState('Lucas Silva');
   const [email, setEmail] = useState('lucas.silva@email.com');
@@ -18,7 +22,7 @@ export const Profile: React.FC = () => {
     'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80'
   );
 
-  // Estados SBS-41: Biografia e Interesses ("Sobre Mim")
+  // Estados SBS-41 / SBS-44 / SBS-45: Biografia e Interesses ("Sobre Mim")
   const [bio, setBio] = useState(
     'Desenvolvedor de software focado em evoluir no inglês para entrevistas e reuniões internacionais.'
   );
@@ -27,19 +31,24 @@ export const Profile: React.FC = () => {
     'Viagens',
     'Carreira & Negócios',
   ]);
-  const availableInterests = [
-    'Tecnologia',
-    'Viagens',
-    'Carreira & Negócios',
-    'Cinema & Séries',
-    'Música',
-    'Esportes',
+
+  // Biblioteca ampliada de tópicos por categoria
+  const topicsLibrary = [
+    { category: 'Tecnologia & Carreira', items: ['Tecnologia', 'Carreira & Negócios', 'Inteligência Artificial', 'Startups', 'Programação', 'Marketing Digital'] },
+    { category: 'Cultura & Entretenimento', items: ['Cinema & Séries', 'Música', 'Leitura', 'Jogos & eSports', 'Arte & Design', 'Fotografia'] },
+    { category: 'Estilo de Vida & Hobbies', items: ['Viagens', 'Esportes', 'Culinária', 'Saúde & Fitness', 'Gastronomia', 'Idiomas'] },
+    { category: 'Sociedade & Atualidades', items: ['Economia', 'Meio Ambiente', 'Psicologia', 'História', 'Filosofia', 'Moda'] },
   ];
 
+  // Alternar seleção com trava de limite máximo (5 tópicos)
   const toggleInterest = (interest: string) => {
     if (selectedInterests.includes(interest)) {
       setSelectedInterests(selectedInterests.filter((i) => i !== interest));
     } else {
+      if (selectedInterests.length >= 5) {
+        alert('Você só pode selecionar até 5 tópicos de interesse.');
+        return;
+      }
       setSelectedInterests([...selectedInterests, interest]);
     }
   };
@@ -345,26 +354,49 @@ export const Profile: React.FC = () => {
                 />
               </div>
 
-              <div className="flex flex-col gap-2 pt-2 border-t border-[#E7E5E4]">
-                <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Tópicos de Interesse</label>
+              {/* Tópicos de Interesse com Trava de Limite (Max 5) */}
+              <div className="flex flex-col gap-3 pt-2 border-t border-[#E7E5E4]">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
+                      Tópicos de Interesse
+                    </label>
+                    <span className="text-[10px] font-black uppercase bg-[#F5F5F4] px-2 py-0.5 rounded border border-[#E7E5E4] text-[#1C1917]">
+                      {selectedInterests.length}/5
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowTopicsModal(true)}
+                    className="text-xs font-black uppercase text-[#1C1917] hover:underline flex items-center gap-1"
+                  >
+                    <span>+</span> Explorar Tópicos
+                  </button>
+                </div>
+
                 <div className="flex flex-wrap gap-2">
-                  {availableInterests.map((interest) => {
-                    const isSelected = selectedInterests.includes(interest);
-                    return (
-                      <button
-                        key={interest}
-                        type="button"
-                        onClick={() => toggleInterest(interest)}
-                        className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${
-                          isSelected
-                            ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]'
-                            : 'bg-[#FAF9F6] text-[#78716C] border-[#E7E5E4] hover:border-[#1C1917]'
-                        }`}
-                      >
-                        {isSelected ? `✓ ${interest}` : `+ ${interest}`}
-                      </button>
-                    );
-                  })}
+                  {selectedInterests.map((interest) => (
+                    <button
+                      key={interest}
+                      type="button"
+                      onClick={() => toggleInterest(interest)}
+                      className="px-3 py-1.5 rounded-lg border text-xs font-bold transition-all bg-[#1C1917] text-[#FAF9F6] border-[#1C1917] flex items-center gap-1.5"
+                    >
+                      <span>✓ {interest}</span>
+                      <span className="text-[10px] opacity-70">✕</span>
+                    </button>
+                  ))}
+
+                  {selectedInterests.length < 5 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowTopicsModal(true)}
+                      className="px-3 py-1.5 rounded-lg border border-dashed border-[#D6D3D1] text-xs font-bold text-[#78716C] hover:border-[#1C1917] hover:text-[#1C1917] transition-all"
+                    >
+                      + Adicionar Tópicos
+                    </button>
+                  )}
                 </div>
               </div>
             </section>
@@ -624,6 +656,83 @@ export const Profile: React.FC = () => {
         </div>
       )}
 
+      {/* Modal de Adicionar Tópicos com Contador (Max 5) */}
+      {showTopicsModal && (
+        <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 max-w-lg w-full shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-3">
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-black uppercase text-[#1C1917]">
+                  Explorar Tópicos
+                </h3>
+                <span className="text-[10px] font-black uppercase bg-[#1C1917] text-[#FAF9F6] px-2 py-0.5 rounded">
+                  {selectedInterests.length}/5
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTopicsModal(false)}
+                className="text-sm font-bold text-[#78716C] hover:text-[#1C1917]"
+              >
+                ✕
+              </button>
+            </div>
+
+            <input
+              type="text"
+              placeholder="Buscar tópico..."
+              value={topicSearch}
+              onChange={(e) => setTopicSearch(e.target.value)}
+              className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+            />
+
+            <div className="flex flex-col gap-5">
+              {topicsLibrary.map((cat) => {
+                const filteredItems = cat.items.filter((item) =>
+                  item.toLowerCase().includes(topicSearch.toLowerCase())
+                );
+                if (filteredItems.length === 0) return null;
+
+                return (
+                  <div key={cat.category} className="flex flex-col gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-[#78716C]">
+                      {cat.category}
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {filteredItems.map((item) => {
+                        const isSelected = selectedInterests.includes(item);
+                        return (
+                          <button
+                            key={item}
+                            type="button"
+                            onClick={() => toggleInterest(item)}
+                            className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${
+                              isSelected
+                                ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]'
+                                : 'bg-[#FAF9F6] text-[#78716C] border-[#E7E5E4] hover:border-[#1C1917]'
+                            }`}
+                          >
+                            {isSelected ? `✓ ${item}` : `+ ${item}`}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowTopicsModal(false)}
+              className="w-full py-3 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-bold text-xs uppercase tracking-widest rounded-xl transition-all"
+            >
+              Concluir Seleção ({selectedInterests.length}/5)
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Modal de Visualização do Perfil Público Expandido */}
       {showPublicPreview && (
         <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
@@ -667,7 +776,6 @@ export const Profile: React.FC = () => {
                 </div>
               </div>
 
-              {/* Botão de Solicitação de Amizade */}
               <button
                 type="button"
                 onClick={() => setFriendRequestSent(!friendRequestSent)}
@@ -692,7 +800,6 @@ export const Profile: React.FC = () => {
                 "{bio || 'Sem biografia informada.'}"
               </p>
 
-              {/* Conquistas / Badges no Perfil Público */}
               <div className="flex flex-col gap-1.5 w-full pt-1 text-left">
                 <span className="text-[10px] font-bold uppercase text-[#78716C]">
                   Conquistas Desbloqueadas:
@@ -707,7 +814,6 @@ export const Profile: React.FC = () => {
                 </div>
               </div>
 
-              {/* Tópicos de Interesse */}
               {selectedInterests.length > 0 && (
                 <div className="flex flex-col gap-1.5 w-full pt-1 text-left">
                   <span className="text-[10px] font-bold uppercase text-[#78716C]">
@@ -726,7 +832,6 @@ export const Profile: React.FC = () => {
                 </div>
               )}
 
-              {/* Agenda / Resumo de Disponibilidade */}
               <div className="flex flex-col gap-1.5 w-full pt-1 text-left">
                 <span className="text-[10px] font-bold uppercase text-[#78716C]">
                   Horários Frequentes:
