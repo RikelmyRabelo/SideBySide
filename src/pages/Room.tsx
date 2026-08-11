@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ReportModal } from '../components/room/ReportModal';
 
@@ -8,6 +8,11 @@ export const Room: React.FC = () => {
   const [camActive, setCamActive] = useState(true);
   const [activeTab, setActiveTab] = useState<'vocab' | 'chat'>('vocab');
   const [isReportOpen, setIsReportOpen] = useState(false);
+
+  // Referência para o elemento de vídeo da câmera local
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [mediaError, setMediaError] = useState<string | null>(null);
 
   // Efeito de cursor do mouse
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
@@ -57,6 +62,69 @@ export const Room: React.FC = () => {
     animationFrameId = requestAnimationFrame(updateFollower);
     return () => cancelAnimationFrame(animationFrameId);
   }, [mousePos]);
+
+  // Função para inicializar mídia com suporte a fallback de áudio
+  const startMedia = async (videoConstraint = true) => {
+    try {
+      setMediaError(null);
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      }
+
+      const userStream = await navigator.mediaDevices.getUserMedia({
+        video: videoConstraint,
+        audio: true,
+      });
+
+      streamRef.current = userStream;
+      if (localVideoRef.current && videoConstraint) {
+        localVideoRef.current.srcObject = userStream;
+      }
+      setCamActive(videoConstraint);
+      setMicActive(true);
+    } catch (err: any) {
+      console.error('Erro ao acessar dispositivos de mídia:', err);
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setMediaError('Acesso bloqueado. Verifique as permissões de câmera/microfone no ícone do seu navegador.');
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        setMediaError('Nenhuma câmera ou microfone detectado no dispositivo.');
+      } else {
+        setMediaError('Não foi possível inicializar a câmera/microfone.');
+      }
+    }
+  };
+
+  useEffect(() => {
+    startMedia(true);
+
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, []);
+
+  // Controle de Ativação/Desativação do Microfone
+  const toggleMicrophone = () => {
+    if (streamRef.current) {
+      const audioTracks = streamRef.current.getAudioTracks();
+      audioTracks.forEach((track) => {
+        track.enabled = !micActive;
+      });
+    }
+    setMicActive(!micActive);
+  };
+
+  // Controle de Ativação/Desativação da Câmera
+  const toggleCamera = () => {
+    if (streamRef.current) {
+      const videoTracks = streamRef.current.getVideoTracks();
+      videoTracks.forEach((track) => {
+        track.enabled = !camActive;
+      });
+    }
+    setCamActive(!camActive);
+  };
 
   const vocabList = [
     {
@@ -133,6 +201,29 @@ export const Room: React.FC = () => {
         </button>
       </header>
 
+      {/* Banner de Erro de Permissão de Mídia */}
+      {mediaError && (
+        <div className="bg-amber-50 border-b border-amber-200 text-amber-800 px-6 py-2.5 text-xs font-bold flex items-center justify-between z-40">
+          <span>⚠️ {mediaError}</span>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => startMedia(false)}
+              className="px-3 py-1 bg-[#1C1917] text-[#FAF9F6] rounded-lg text-[10px] font-black uppercase"
+            >
+              Usar Apenas Áudio
+            </button>
+            <button
+              type="button"
+              onClick={() => startMedia(true)}
+              className="underline uppercase tracking-wider text-[10px] text-amber-900"
+            >
+              Tentar Novamente
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main Container */}
       <div className="flex-1 flex overflow-hidden p-4 gap-4">
         {/* Area do Vídeo */}
@@ -156,15 +247,19 @@ export const Room: React.FC = () => {
             </div>
           </div>
 
-          {/* Feed PIP Local (Você) - Canto Inferior Esquerdo */}
-          <div className="absolute bottom-20 left-6 z-20 w-44 h-28 rounded-2xl overflow-hidden border-2 border-[#FFFFFF] shadow-xl bg-[#1C1917]">
-            {camActive ? (
-              <img
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80"
-                alt="Você"
-                className="w-full h-full object-cover"
-              />
-            ) : (
+          {/* Feed PIP Local (Você) - Elemento de Vídeo Real da Câmera */}
+          <div className="absolute bottom-20 left-6 z-20 w-44 h-28 rounded-2xl overflow-hidden border-2 border-[#FFFFFF] shadow-xl bg-[#1C1917] relative">
+            <video
+              ref={localVideoRef}
+              autoPlay
+              playsInline
+              muted
+              className={`w-full h-full object-cover transform -scale-x-100 ${
+                camActive ? 'block' : 'hidden'
+              }`}
+            />
+
+            {!camActive && (
               <div className="w-full h-full bg-[#1C1917] flex flex-col items-center justify-center gap-1">
                 <svg className="w-6 h-6 stroke-[#FAF9F6] fill-none stroke-2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
@@ -172,6 +267,7 @@ export const Room: React.FC = () => {
                 <span className="text-[9px] font-black uppercase text-[#A8A29E]">Câmera Desativada</span>
               </div>
             )}
+
             <div className="absolute bottom-1.5 left-2 bg-[#1C1917]/80 px-2 py-0.5 rounded text-[9px] font-black uppercase text-[#FAF9F6]">
               Você {!micActive && '(Mudo)'}
             </div>
@@ -181,7 +277,7 @@ export const Room: React.FC = () => {
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 bg-[#FFFFFF] border border-[#E7E5E4] p-2 rounded-2xl flex items-center gap-3 shadow-lg">
             <button
               type="button"
-              onClick={() => setMicActive(!micActive)}
+              onClick={toggleMicrophone}
               className={`p-3 rounded-xl transition-all border ${
                 micActive 
                   ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' 
@@ -203,7 +299,7 @@ export const Room: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => setCamActive(!camActive)}
+              onClick={toggleCamera}
               className={`p-3 rounded-xl transition-all border ${
                 camActive 
                   ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' 
