@@ -19,12 +19,46 @@ export const Profile: React.FC = () => {
   const [showEmailInProfile, setShowEmailInProfile] = useState(false);
   const [allowDirectReconnect, setAllowDirectReconnect] = useState(true);
 
-  // Estados SBS-36: Segurança (Troca de Senha e Exclusão)
+  // Estados SBS-36: Segurança
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
+
+  // Estados SBS-37: Metas Semanais e Gamificação
+  const [weeklyGoalTarget, setWeeklyGoalTarget] = useState(5);
+  const [weeklyGoalCompleted] = useState(3);
+  const badgesList = [
+    {
+      id: 'first_chat',
+      title: 'Primeira Conversa',
+      desc: 'Realizou a primeira sessão ao vivo na plataforma',
+      unlocked: true,
+      icon: '💬',
+    },
+    {
+      id: 'streak_5',
+      title: '5 Dias de Ofensiva',
+      desc: 'Manteve a prática diária ativa por 5 dias seguidos',
+      unlocked: true,
+      icon: '🔥',
+    },
+    {
+      id: 'minutes_100',
+      title: '100 Minutos Falados',
+      desc: 'Soma total de mais de 100 minutos em chamadas',
+      unlocked: true,
+      icon: '⏱️',
+    },
+    {
+      id: 'level_b2',
+      title: 'Rumo ao B2',
+      desc: 'Completou 10 conversas na categoria intermediária',
+      unlocked: false,
+      icon: '🎓',
+    },
+  ];
 
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
@@ -38,7 +72,6 @@ export const Profile: React.FC = () => {
     { code: 'C1', label: 'Avançado', desc: 'Expressa-se de forma fluida e bem estruturada.' },
   ];
 
-  // Cálculo de Força da Nova Senha
   const getPasswordStrength = (pass: string) => {
     if (!pass) return { label: '', color: 'bg-[#E7E5E4]', width: 'w-0' };
     let score = 0;
@@ -53,6 +86,7 @@ export const Profile: React.FC = () => {
   };
 
   const passwordStrength = getPasswordStrength(newPassword);
+  const goalProgressPercentage = Math.min(100, Math.round((weeklyGoalCompleted / weeklyGoalTarget) * 100));
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -133,7 +167,7 @@ export const Profile: React.FC = () => {
             Meu Perfil
           </h1>
           <p className="text-xs sm:text-sm text-[#57534E] max-w-xl leading-relaxed font-medium">
-            Gerencie suas informações cadastrais, privacidade, segurança e dados da conta.
+            Gerencie suas informações cadastrais, metas de aprendizado, conquistas e segurança.
           </p>
         </section>
 
@@ -146,6 +180,88 @@ export const Profile: React.FC = () => {
             <span>Preferências salvas com sucesso!</span>
           </div>
         )}
+
+        {/* SBS-37: Painel de Metas Semanais e Conquistas (Gamificação) */}
+        <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
+          <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-4">
+            <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
+              Metas Semanais & Conquistas
+            </h2>
+            <span className="text-xs font-bold text-[#78716C] uppercase">
+              Ciclo Atual: {weeklyGoalCompleted} / {weeklyGoalTarget}
+            </span>
+          </div>
+
+          {/* Configuração de Meta */}
+          <div className="flex flex-col gap-3">
+            <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
+              Sessões Desejadas por Semana
+            </label>
+            <div className="grid grid-cols-3 gap-3">
+              {[3, 5, 7].map((num) => (
+                <button
+                  key={num}
+                  type="button"
+                  onClick={() => setWeeklyGoalTarget(num)}
+                  className={`py-3 rounded-xl border font-bold text-xs uppercase tracking-wider transition-all ${
+                    weeklyGoalTarget === num
+                      ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917] shadow-md'
+                      : 'bg-[#FAF9F6] text-[#1C1917] border-[#E7E5E4] hover:border-[#1C1917]'
+                  }`}
+                >
+                  {num} Sessões
+                </button>
+              ))}
+            </div>
+
+            {/* Barra de Progresso */}
+            <div className="flex flex-col gap-1.5 mt-2">
+              <div className="flex justify-between items-center text-xs font-bold text-[#1C1917]">
+                <span>Progresso Semanal</span>
+                <span>{goalProgressPercentage}% concluído</span>
+              </div>
+              <div className="w-full h-3 bg-[#F5F5F4] border border-[#E7E5E4] rounded-full overflow-hidden p-0.5">
+                <div
+                  className="h-full bg-[#1C1917] rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${goalProgressPercentage}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Grade de Conquistas / Badges */}
+          <div className="flex flex-col gap-3 pt-2">
+            <span className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
+              Conquistas Desbloqueadas
+            </span>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {badgesList.map((badge) => (
+                <div
+                  key={badge.id}
+                  className={`p-4 rounded-xl border flex items-start gap-3 transition-colors ${
+                    badge.unlocked
+                      ? 'bg-[#FAF9F6] border-[#E7E5E4] text-[#1C1917]'
+                      : 'bg-[#F5F5F4] border-[#E7E5E4] text-[#A8A29E] opacity-60'
+                  }`}
+                >
+                  <span className="text-2xl shrink-0">{badge.icon}</span>
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold uppercase">{badge.title}</span>
+                      {badge.unlocked && (
+                        <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 bg-[#1C1917] text-[#FAF9F6] rounded">
+                          Ativo
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[11px] font-medium leading-snug">{badge.desc}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
 
         {/* Formulário Principal */}
         <form onSubmit={handleSubmit} className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-8">
@@ -324,7 +440,7 @@ export const Profile: React.FC = () => {
           </div>
 
           {/* SBS-35: Opções de Privacidade */}
-          <div className="flex flex-col gap-4 border-b border-[#E7E5E4] pb-6">
+          <div className="flex flex-col gap-4">
             <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
               Privacidade da Conta
             </h2>
@@ -385,7 +501,7 @@ export const Profile: React.FC = () => {
           </Button>
         </form>
 
-        {/* SBS-36: Bloco de Segurança - Troca de Senha */}
+        {/* SBS-36: Bloco de Segurança */}
         <form onSubmit={handlePasswordChange} className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
           <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
             Segurança da Conta & Alteração de Senha
@@ -469,7 +585,7 @@ export const Profile: React.FC = () => {
           </Button>
         </form>
 
-        {/* SBS-36: Zona de Perigo / Exclusão de Conta (LGPD) */}
+        {/* SBS-36: Exclusão de Conta */}
         <section className="bg-[#FFFFFF] border border-red-200 rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-4">
           <div className="flex flex-col gap-1">
             <h2 className="text-base font-black uppercase tracking-tight text-red-600">
@@ -490,7 +606,7 @@ export const Profile: React.FC = () => {
         </section>
       </main>
 
-      {/* Modal Destrutivo de Confirmação de Exclusão */}
+      {/* Modal de Exclusão */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-[#1C1917]/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#FFFFFF] border border-red-200 rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150">
