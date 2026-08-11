@@ -4,6 +4,7 @@ import { Button } from '../components/ui/Button';
 
 export const Profile: React.FC = () => {
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<'general' | 'social' | 'stats' | 'security'>('general');
 
   // Estados SBS-34: Dados Pessoais e Nível CEFR
   const [name, setName] = useState('Lucas Silva');
@@ -15,13 +16,12 @@ export const Profile: React.FC = () => {
 
   // Estados SBS-41: Biografia e Interesses ("Sobre Mim")
   const [bio, setBio] = useState(
-    'Desenvolvedor de software focado em evoluir no inglês para entrevistas e reuniões internacionais. Adoro conversar sobre tecnologia, viagens e música.'
+    'Desenvolvedor de software focado em evoluir no inglês para entrevistas e reuniões internacionais.'
   );
   const [selectedInterests, setSelectedInterests] = useState<string[]>([
     'Tecnologia',
     'Viagens',
     'Carreira & Negócios',
-    'Música',
   ]);
   const availableInterests = [
     'Tecnologia',
@@ -30,8 +30,6 @@ export const Profile: React.FC = () => {
     'Cinema & Séries',
     'Música',
     'Esportes',
-    'Leitura',
-    'Culinária',
   ];
 
   const toggleInterest = (interest: string) => {
@@ -59,37 +57,13 @@ export const Profile: React.FC = () => {
   const [weeklyGoalTarget, setWeeklyGoalTarget] = useState(5);
   const [weeklyGoalCompleted] = useState(3);
   const badgesList = [
-    {
-      id: 'first_chat',
-      title: 'Primeira Conversa',
-      desc: 'Realizou a primeira sessão ao vivo na plataforma',
-      unlocked: true,
-      icon: '💬',
-    },
-    {
-      id: 'streak_5',
-      title: '5 Dias de Ofensiva',
-      desc: 'Manteve a prática diária ativa por 5 dias seguidos',
-      unlocked: true,
-      icon: '🔥',
-    },
-    {
-      id: 'minutes_100',
-      title: '100 Minutos Falados',
-      desc: 'Soma total de mais de 100 minutos em chamadas',
-      unlocked: true,
-      icon: '⏱️',
-    },
-    {
-      id: 'level_b2',
-      title: 'Rumo ao B2',
-      desc: 'Completou 10 conversas na categoria intermediária',
-      unlocked: false,
-      icon: '🎓',
-    },
+    { id: 'first_chat', title: 'Primeira Conversa', desc: 'Sessão inicial concluída', unlocked: true, icon: '💬' },
+    { id: 'streak_5', title: '5 Dias de Ofensiva', desc: 'Prática contínua', unlocked: true, icon: '🔥' },
+    { id: 'minutes_100', title: '100 Minutos Falados', desc: '+100 minutos em sala', unlocked: true, icon: '⏱️' },
+    { id: 'level_b2', title: 'Rumo ao B2', desc: '10 treinos no nível B1', unlocked: false, icon: '🎓' },
   ];
 
-  // Dados SBS-38: Estatísticas Detalhadas & Relatório de Evolução
+  // Dados SBS-38: Estatísticas Detalhadas
   const evolutionStats = {
     reputationScore: '98/100',
     topicsDistribution: [
@@ -105,7 +79,6 @@ export const Profile: React.FC = () => {
   };
 
   // Estados SBS-39: Parceiros Favoritos & Notas Privadas
-  const [favoriteSearch, setFavoriteSearch] = useState('');
   const [favoritePartners, setFavoritePartners] = useState([
     {
       id: '1',
@@ -131,7 +104,6 @@ export const Profile: React.FC = () => {
   // Estados SBS-40: Calendário de Disponibilidade
   const timeSlots = ['Manhã (08h - 12h)', 'Tarde (12h - 18h)', 'Noite (18h - 22h)'];
   const weekDays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
-
   const [selectedAvailability, setSelectedAvailability] = useState<string[]>([
     'Seg-Noite (18h - 22h)',
     'Qua-Noite (18h - 22h)',
@@ -152,7 +124,7 @@ export const Profile: React.FC = () => {
 
   const cefrLevelsInfo = [
     { code: 'A1', label: 'Iniciante', desc: 'Compreende frases simples do dia a dia.' },
-    { code: 'A2', label: 'Básico', desc: 'Comunica-se em tarefas rotineiras e simples.' },
+    { code: 'A2', label: 'Básico', desc: 'Comunica-se em tarefas rotineiras.' },
     { code: 'B1', label: 'Intermediário', desc: 'Mantém conversas sobre temas familiares.' },
     { code: 'B2', label: 'Intermediário Avançado', desc: 'Fala com fluência e espontaneidade.' },
     { code: 'C1', label: 'Avançado', desc: 'Expressa-se de forma fluida e bem estruturada.' },
@@ -177,8 +149,7 @@ export const Profile: React.FC = () => {
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const url = URL.createObjectURL(file);
-      setAvatarUrl(url);
+      setAvatarUrl(URL.createObjectURL(file));
     }
   };
 
@@ -231,14 +202,6 @@ export const Profile: React.FC = () => {
     setEditingNoteId(null);
   };
 
-  const handleRemoveFavorite = (partnerId: string) => {
-    setFavoritePartners((prev) => prev.filter((p) => p.id !== partnerId));
-  };
-
-  const filteredPartners = favoritePartners.filter((p) =>
-    p.name.toLowerCase().includes(favoriteSearch.toLowerCase())
-  );
-
   return (
     <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col font-sans selection:bg-[#1C1917] selection:text-[#FAF9F6]">
       {/* Header Bar */}
@@ -260,772 +223,388 @@ export const Profile: React.FC = () => {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-3xl w-full mx-auto p-6 lg:p-8 flex flex-col gap-6">
-        {/* Banner do Perfil */}
-        <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-2">
-          <span className="text-[10px] font-bold tracking-widest text-[#78716C] uppercase bg-[#F5F5F4] border border-[#E7E5E4] px-3 py-1 rounded-md w-fit">
-            CONFIGURAÇÕES DA CONTA
-          </span>
-          <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-[#1C1917] mt-1">
-            Meu Perfil
-          </h1>
-          <p className="text-xs sm:text-sm text-[#57534E] max-w-xl leading-relaxed font-medium">
-            Gerencie suas informações cadastrais, biografia, agenda de estudos, parceiros favoritos e privacidade.
-          </p>
+      <main className="flex-1 max-w-4xl w-full mx-auto p-6 lg:p-8 flex flex-col gap-6">
+        {/* Top Header Card */}
+        <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-[#E7E5E4] bg-[#F5F5F4] shrink-0">
+              <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
+            </div>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-black uppercase text-[#1C1917]">{name}</h1>
+                <span className="px-2 py-0.5 bg-[#1C1917] text-[#FAF9F6] font-black text-[10px] rounded uppercase">
+                  {cefrLevel}
+                </span>
+              </div>
+              <span className="text-xs font-bold text-[#78716C]">{email}</span>
+            </div>
+          </div>
+
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button
+              variant="primary"
+              onClick={handleSubmit}
+              className="py-2.5 px-5 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-bold text-xs uppercase tracking-wider rounded-xl transition-all"
+            >
+              Salvar Perfil
+            </Button>
+          </div>
         </section>
 
-        {/* Mensagem de Sucesso Geral */}
+        {/* Abas de Navegação */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 bg-[#FFFFFF] border border-[#E7E5E4] p-1.5 rounded-2xl text-xs font-black uppercase tracking-wider shadow-sm">
+          <button
+            type="button"
+            onClick={() => setActiveTab('general')}
+            className={`py-3 rounded-xl transition-all ${
+              activeTab === 'general' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C] hover:text-[#1C1917]'
+            }`}
+          >
+            Geral & Bio
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('social')}
+            className={`py-3 rounded-xl transition-all ${
+              activeTab === 'social' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C] hover:text-[#1C1917]'
+            }`}
+          >
+            Agenda & Parceiros
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('stats')}
+            className={`py-3 rounded-xl transition-all ${
+              activeTab === 'stats' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C] hover:text-[#1C1917]'
+            }`}
+          >
+            Metas & Evolução
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('security')}
+            className={`py-3 rounded-xl transition-all ${
+              activeTab === 'security' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C] hover:text-[#1C1917]'
+            }`}
+          >
+            Segurança & LGPD
+          </button>
+        </div>
+
+        {/* Mensagem de Sucesso */}
         {saveSuccess && (
           <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2.5 animate-in fade-in duration-150">
             <svg className="w-4 h-4 shrink-0 fill-current text-emerald-600" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
             </svg>
-            <span>Preferências salvas com sucesso!</span>
+            <span>Alterações salvas com sucesso!</span>
           </div>
         )}
 
-        {/* SBS-41: Seção "Sobre Mim" e Interesses */}
-        <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
-          <div className="border-b border-[#E7E5E4] pb-4">
-            <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
-              Sobre Mim & Interesses
-            </h2>
-            <p className="text-xs text-[#78716C] font-medium">
-              Sua biografia e tópicos ajudam a quebrar o gelo nas primeiras frases das chamadas.
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
-                Mini Biografia
-              </label>
-              <textarea
-                rows={3}
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                placeholder="Escreva uma breve introdução sobre você e seus objetivos no inglês..."
-                className="w-full p-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] resize-none"
-              />
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
-                Tópicos de Interesse
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {availableInterests.map((interest) => {
-                  const isSelected = selectedInterests.includes(interest);
-                  return (
-                    <button
-                      key={interest}
-                      type="button"
-                      onClick={() => toggleInterest(interest)}
-                      className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${
-                        isSelected
-                          ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]'
-                          : 'bg-[#FAF9F6] text-[#78716C] border-[#E7E5E4] hover:border-[#1C1917]'
-                      }`}
-                    >
-                      {isSelected ? `✓ ${interest}` : `+ ${interest}`}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* SBS-40: Calendário de Disponibilidade Diária & Horários de Pico */}
-        <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#E7E5E4] pb-4">
-            <div>
-              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
-                Agenda de Disponibilidade
+        {/* CONTEÚDO DA ABA 1: GERAL & BIO */}
+        {activeTab === 'general' && (
+          <div className="flex flex-col gap-6 animate-in fade-in duration-150">
+            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
+              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917] border-b border-[#E7E5E4] pb-3">
+                Informações Pessoais
               </h2>
-              <p className="text-xs text-[#78716C] font-medium">
-                Marque os turnos em que costuma ficar livre para otimizar o pareamento.
-              </p>
-            </div>
-            <div className="flex items-center gap-2 px-3 py-1 bg-[#F5F5F4] border border-[#E7E5E4] rounded-lg text-[10px] font-bold text-[#1C1917] uppercase w-fit">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              Pico de usuários: Noite (18h-22h)
-            </div>
-          </div>
 
-          <div className="overflow-x-auto">
-            <div className="min-w-[500px] flex flex-col gap-2">
-              <div className="grid grid-cols-8 gap-2 text-center text-[10px] font-black uppercase text-[#78716C] pb-1 border-b border-[#E7E5E4]">
-                <span>Turno</span>
-                {weekDays.map((day) => (
-                  <span key={day}>{day}</span>
-                ))}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Nome Completo</label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">E-mail</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+                  />
+                </div>
               </div>
 
-              {timeSlots.map((slot) => (
-                <div key={slot} className="grid grid-cols-8 gap-2 items-center">
-                  <span className="text-[10px] font-bold text-[#1C1917] uppercase leading-tight">
-                    {slot.split(' ')[0]}
-                  </span>
-                  {weekDays.map((day) => {
-                    const slotKey = `${day}-${slot}`;
-                    const isSelected = selectedAvailability.includes(slotKey);
-                    const isPeak = slot.includes('Noite');
+              <div className="flex flex-col gap-1.5 pt-2">
+                <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Mini Biografia</label>
+                <textarea
+                  rows={3}
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  className="w-full p-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] resize-none"
+                />
+              </div>
+
+              <div className="flex flex-col gap-2 pt-2 border-t border-[#E7E5E4]">
+                <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Tópicos de Interesse</label>
+                <div className="flex flex-wrap gap-2">
+                  {availableInterests.map((interest) => {
+                    const isSelected = selectedInterests.includes(interest);
                     return (
                       <button
-                        key={slotKey}
+                        key={interest}
                         type="button"
-                        onClick={() => toggleAvailabilitySlot(slotKey)}
-                        className={`py-2.5 rounded-lg border text-[10px] font-extrabold uppercase transition-all flex items-center justify-center ${
+                        onClick={() => toggleInterest(interest)}
+                        className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${
                           isSelected
                             ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]'
-                            : isPeak
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:border-[#1C1917]'
-                            : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4] hover:border-[#1C1917]'
+                            : 'bg-[#FAF9F6] text-[#78716C] border-[#E7E5E4] hover:border-[#1C1917]'
                         }`}
                       >
-                        {isSelected ? '✓' : isPeak ? '🔥' : '+'}
+                        {isSelected ? `✓ ${interest}` : `+ ${interest}`}
                       </button>
                     );
                   })}
                 </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* SBS-39: Parceiros Favoritos & Notas Privadas */}
-        <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E7E5E4] pb-4">
-            <div>
-              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
-                Parceiros Favoritos
-              </h2>
-              <p className="text-xs text-[#78716C] font-medium">
-                Gerencie suas conexões salvas e mantenha anotações privadas pós-conversa.
-              </p>
-            </div>
-
-            <input
-              type="text"
-              placeholder="Buscar parceiro..."
-              value={favoriteSearch}
-              onChange={(e) => setFavoriteSearch(e.target.value)}
-              className="px-3.5 py-2 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] w-full sm:w-48"
-            />
-          </div>
-
-          {filteredPartners.length > 0 ? (
-            <div className="flex flex-col gap-4">
-              {filteredPartners.map((partner) => (
-                <div
-                  key={partner.id}
-                  className="bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl p-4 flex flex-col gap-3"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="relative w-11 h-11 rounded-xl overflow-hidden border border-[#D6D3D1] bg-[#E7E5E4] shrink-0">
-                        <img src={partner.avatar} alt={partner.name} className="w-full h-full object-cover" />
-                        <span
-                          className={`absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full border-2 border-white ${
-                            partner.isOnline ? 'bg-emerald-500' : 'bg-stone-300'
-                          }`}
-                        />
-                      </div>
-
-                      <div className="flex flex-col">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-[#1C1917]">{partner.name}</span>
-                          <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-[#E7E5E4] text-[#1C1917] rounded-md">
-                            {partner.level}
-                          </span>
-                        </div>
-                        <span className="text-[11px] font-medium text-[#78716C]">
-                          {partner.isOnline ? 'Disponível agora' : 'Offline'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveFavorite(partner.id)}
-                        className="px-3 py-1.5 text-[#78716C] hover:text-red-600 text-xs font-bold uppercase transition-colors"
-                      >
-                        Remover
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="bg-[#FFFFFF] border border-[#E7E5E4] p-3 rounded-lg flex flex-col gap-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-bold uppercase text-[#78716C]">
-                        Sua Nota Privada
-                      </span>
-                      {editingNoteId !== partner.id && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingNoteId(partner.id);
-                            setSaveTempNoteText(partner.note);
-                          }}
-                          className="text-[10px] font-bold uppercase text-[#1C1917] underline"
-                        >
-                          Editar Nota
-                        </button>
-                      )}
-                    </div>
-
-                    {editingNoteId === partner.id ? (
-                      <div className="flex flex-col gap-2">
-                        <textarea
-                          rows={2}
-                          value={tempNoteText}
-                          onChange={(e) => setSaveTempNoteText(e.target.value)}
-                          className="w-full p-2 bg-[#FAF9F6] border border-[#E7E5E4] rounded-md text-xs font-medium text-[#1C1917] outline-none focus:border-[#1C1917] resize-none"
-                        />
-                        <div className="flex justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setEditingNoteId(null)}
-                            className="px-3 py-1 bg-[#F5F5F4] text-[#78716C] rounded text-xs font-bold uppercase"
-                          >
-                            Cancelar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleSaveNote(partner.id)}
-                            className="px-3 py-1 bg-[#1C1917] text-[#FAF9F6] rounded text-xs font-bold uppercase"
-                          >
-                            Salvar
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-[#57534E] font-medium italic">
-                        "{partner.note || 'Nenhuma nota gravada.'}"
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="py-8 text-center text-xs font-bold text-[#78716C] bg-[#FAF9F6] border border-dashed border-[#D6D3D1] rounded-xl">
-              Nenhum parceiro favorito encontrado.
-            </div>
-          )}
-        </section>
-
-        {/* SBS-38: Relatório de Evolução */}
-        <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
-          <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-4">
-            <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
-              Relatório de Evolução & Métricas
-            </h2>
-            <span className="text-xs font-bold text-[#78716C] uppercase">
-              Reputação: <strong className="text-[#1C1917]">{evolutionStats.reputationScore}</strong>
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl p-5 flex flex-col gap-4">
-              <span className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
-                Tempo por Tópico Praticado
-              </span>
-              <div className="flex flex-col gap-3">
-                {evolutionStats.topicsDistribution.map((item, idx) => (
-                  <div key={idx} className="flex flex-col gap-1">
-                    <div className="flex justify-between items-center text-xs font-bold text-[#1C1917]">
-                      <span>{item.name}</span>
-                      <span>{item.percentage}%</span>
-                    </div>
-                    <div className="w-full h-2 bg-[#E7E5E4] rounded-full overflow-hidden">
-                      <div className={`h-full ${item.color} rounded-full`} style={{ width: `${item.percentage}%` }} />
-                    </div>
-                  </div>
-                ))}
               </div>
-            </div>
+            </section>
 
-            <div className="bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl p-5 flex flex-col justify-between gap-4">
-              <div className="flex flex-col gap-1">
-                <span className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
-                  Nível dos Parceiros Pareados
-                </span>
-                <span className="text-xs text-[#57534E] font-medium">
-                  Total de conversas com cada nível CEFR
-                </span>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                {evolutionStats.partnerLevels.map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between bg-[#FFFFFF] border border-[#E7E5E4] px-3 py-2 rounded-lg text-xs font-bold">
-                    <span className="text-[#1C1917]">{item.level}</span>
-                    <span className="bg-[#F5F5F4] px-2 py-0.5 rounded text-[#78716C]">{item.count} conexões</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* SBS-37: Painel de Metas Semanais */}
-        <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
-          <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-4">
-            <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
-              Metas Semanais & Conquistas
-            </h2>
-            <span className="text-xs font-bold text-[#78716C] uppercase">
-              Ciclo Atual: {weeklyGoalCompleted} / {weeklyGoalTarget}
-            </span>
-          </div>
-
-          <div className="flex flex-col gap-3">
-            <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
-              Sessões Desejadas por Semana
-            </label>
-            <div className="grid grid-cols-3 gap-3">
-              {[3, 5, 7].map((num) => (
-                <button
-                  key={num}
-                  type="button"
-                  onClick={() => setWeeklyGoalTarget(num)}
-                  className={`py-3 rounded-xl border font-bold text-xs uppercase tracking-wider transition-all ${
-                    weeklyGoalTarget === num
-                      ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917] shadow-md'
-                      : 'bg-[#FAF9F6] text-[#1C1917] border-[#E7E5E4] hover:border-[#1C1917]'
-                  }`}
-                >
-                  {num} Sessões
-                </button>
-              ))}
-            </div>
-
-            <div className="flex flex-col gap-1.5 mt-2">
-              <div className="flex justify-between items-center text-xs font-bold text-[#1C1917]">
-                <span>Progresso Semanal</span>
-                <span>{goalProgressPercentage}% concluído</span>
-              </div>
-              <div className="w-full h-3 bg-[#F5F5F4] border border-[#E7E5E4] rounded-full overflow-hidden p-0.5">
-                <div
-                  className="h-full bg-[#1C1917] rounded-full transition-all duration-500 ease-out"
-                  style={{ width: `${goalProgressPercentage}%` }}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-3 pt-2">
-            <span className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
-              Conquistas Desbloqueadas
-            </span>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {badgesList.map((badge) => (
-                <div
-                  key={badge.id}
-                  className={`p-4 rounded-xl border flex items-start gap-3 transition-colors ${
-                    badge.unlocked
-                      ? 'bg-[#FAF9F6] border-[#E7E5E4] text-[#1C1917]'
-                      : 'bg-[#F5F5F4] border-[#E7E5E4] text-[#A8A29E] opacity-60'
-                  }`}
-                >
-                  <span className="text-2xl shrink-0">{badge.icon}</span>
-                  <div className="flex flex-col gap-0.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold uppercase">{badge.title}</span>
-                      {badge.unlocked && (
-                        <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 bg-[#1C1917] text-[#FAF9F6] rounded">
-                          Ativo
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-[11px] font-medium leading-snug">{badge.desc}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Formulário Principal */}
-        <form onSubmit={handleSubmit} className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-8">
-          
-          {/* SBS-34: Foto do Perfil */}
-          <div className="flex flex-col gap-4 border-b border-[#E7E5E4] pb-6">
-            <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
-              Foto do Perfil
-            </h2>
-
-            <div className="flex items-center gap-5">
-              <div className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-[#E7E5E4] bg-[#F5F5F4] shrink-0">
-                <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label className="px-4 py-2 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer transition-all w-fit">
-                  Alterar Foto
-                  <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
-                </label>
-                <span className="text-[11px] font-medium text-[#78716C]">
-                  Recomendado: Imagem quadrada em formato JPG ou PNG.
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* SBS-34: Informações Pessoais */}
-          <div className="flex flex-col gap-4 border-b border-[#E7E5E4] pb-6">
-            <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
-              Informações Pessoais
-            </h2>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
-                  Nome Completo
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] w-full"
-                  required
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
-                  E-mail
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] w-full"
-                  required
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* SBS-34: Nível CEFR */}
-          <div className="flex flex-col gap-4 border-b border-[#E7E5E4] pb-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
+            {/* CEFR Level Selection */}
+            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-4">
+              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917] border-b border-[#E7E5E4] pb-3">
                 Nível de Fluência (CEFR)
               </h2>
-              <span className="text-xs font-bold text-[#78716C] uppercase">
-                Atual: <strong className="text-[#1C1917]">{cefrLevel}</strong>
-              </span>
-            </div>
 
-            <div className="grid grid-cols-1 gap-2.5">
-              {cefrLevelsInfo.map((item) => {
-                const isSelected = cefrLevel === item.code;
-                return (
-                  <button
-                    key={item.code}
-                    type="button"
-                    onClick={() => setCefrLevel(item.code)}
-                    className={`p-4 rounded-xl border text-left flex items-center justify-between gap-4 transition-all ${
-                      isSelected
-                        ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917] shadow-md'
-                        : 'bg-[#FAF9F6] text-[#1C1917] border-[#E7E5E4] hover:border-[#1C1917]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={`w-9 h-9 rounded-lg font-black text-xs flex items-center justify-center shrink-0 ${
-                          isSelected ? 'bg-[#292524] text-[#FAF9F6]' : 'bg-[#E7E5E4] text-[#1C1917]'
-                        }`}
-                      >
-                        {item.code}
-                      </span>
-                      <div className="flex flex-col">
-                        <span className="text-xs font-bold uppercase">{item.label}</span>
-                        <span
-                          className={`text-[11px] font-medium leading-snug ${
-                            isSelected ? 'text-[#A8A29E]' : 'text-[#78716C]'
-                          }`}
-                        >
-                          {item.desc}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div
-                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                        isSelected ? 'border-[#FAF9F6] bg-[#FAF9F6]' : 'border-[#D6D3D1]'
+              <div className="grid grid-cols-1 gap-2.5">
+                {cefrLevelsInfo.map((item) => {
+                  const isSelected = cefrLevel === item.code;
+                  return (
+                    <button
+                      key={item.code}
+                      type="button"
+                      onClick={() => setCefrLevel(item.code)}
+                      className={`p-3.5 rounded-xl border text-left flex items-center justify-between gap-4 transition-all ${
+                        isSelected
+                          ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]'
+                          : 'bg-[#FAF9F6] text-[#1C1917] border-[#E7E5E4] hover:border-[#1C1917]'
                       }`}
                     >
-                      {isSelected && <div className="w-2 h-2 rounded-full bg-[#1C1917]" />}
+                      <div className="flex items-center gap-3">
+                        <span className={`w-8 h-8 rounded-lg font-black text-xs flex items-center justify-center ${isSelected ? 'bg-[#292524] text-[#FAF9F6]' : 'bg-[#E7E5E4] text-[#1C1917]'}`}>
+                          {item.code}
+                        </span>
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold uppercase">{item.label}</span>
+                          <span className={`text-[11px] font-medium ${isSelected ? 'text-[#A8A29E]' : 'text-[#78716C]'}`}>
+                            {item.desc}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* CONTEÚDO DA ABA 2: AGENDA & PARCEIROS */}
+        {activeTab === 'social' && (
+          <div className="flex flex-col gap-6 animate-in fade-in duration-150">
+            {/* Disponibilidade */}
+            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
+              <div className="flex justify-between items-center border-b border-[#E7E5E4] pb-3">
+                <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
+                  Agenda de Disponibilidade
+                </h2>
+                <span className="text-[10px] font-bold uppercase bg-emerald-50 text-emerald-800 px-2.5 py-1 rounded-md border border-emerald-200">
+                  🔥 Pico: Noite (18h-22h)
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <div className="min-w-[480px] flex flex-col gap-2">
+                  <div className="grid grid-cols-8 gap-2 text-center text-[10px] font-black uppercase text-[#78716C] pb-1 border-b border-[#E7E5E4]">
+                    <span>Turno</span>
+                    {weekDays.map((day) => <span key={day}>{day}</span>)}
+                  </div>
+
+                  {timeSlots.map((slot) => (
+                    <div key={slot} className="grid grid-cols-8 gap-2 items-center">
+                      <span className="text-[10px] font-bold text-[#1C1917] uppercase">{slot.split(' ')[0]}</span>
+                      {weekDays.map((day) => {
+                        const slotKey = `${day}-${slot}`;
+                        const isSelected = selectedAvailability.includes(slotKey);
+                        return (
+                          <button
+                            key={slotKey}
+                            type="button"
+                            onClick={() => toggleAvailabilitySlot(slotKey)}
+                            className={`py-2 rounded-lg border text-[10px] font-extrabold uppercase transition-all ${
+                              isSelected ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4]'
+                            }`}
+                          >
+                            {isSelected ? '✓' : '+'}
+                          </button>
+                        );
+                      })}
                     </div>
-                  </button>
-                );
-              })}
-            </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            {/* Parceiros Favoritos */}
+            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-4">
+              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917] border-b border-[#E7E5E4] pb-3">
+                Parceiros Favoritos
+              </h2>
+
+              <div className="flex flex-col gap-3">
+                {favoritePartners.map((partner) => (
+                  <div key={partner.id} className="bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl p-4 flex flex-col gap-2">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-3">
+                        <img src={partner.avatar} alt={partner.name} className="w-10 h-10 rounded-xl object-cover border" />
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold text-[#1C1917]">{partner.name} ({partner.level})</span>
+                          <span className="text-[10px] font-medium text-[#78716C]">{partner.isOnline ? 'Online' : 'Offline'}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-xs text-[#57534E] italic bg-[#FFFFFF] p-2.5 rounded-lg border border-[#E7E5E4]">
+                      "{partner.note}"
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
           </div>
+        )}
 
-          {/* SBS-35: Preferências de Conexão */}
-          <div className="flex flex-col gap-4 border-b border-[#E7E5E4] pb-6">
-            <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
-              Preferências de Conexão
-            </h2>
+        {/* CONTEÚDO DA ABA 3: METAS & EVOLUÇÃO */}
+        {activeTab === 'stats' && (
+          <div className="flex flex-col gap-6 animate-in fade-in duration-150">
+            {/* Metas Semanais */}
+            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
+              <div className="flex justify-between items-center border-b border-[#E7E5E4] pb-3">
+                <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
+                  Meta Semanal de Prática
+                </h2>
+                <span className="text-xs font-bold text-[#78716C]">{weeklyGoalCompleted}/{weeklyGoalTarget} Concluídas</span>
+              </div>
 
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
-                  Modo de Mídia Padrão
-                </label>
-                <div className="grid grid-cols-2 bg-[#F5F5F4] p-1 rounded-xl border border-[#E7E5E4] text-xs font-bold uppercase tracking-wider">
+              <div className="grid grid-cols-3 gap-3">
+                {[3, 5, 7].map((num) => (
                   <button
+                    key={num}
                     type="button"
-                    onClick={() => setDefaultMediaMode('video')}
-                    className={`py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all ${
-                      defaultMediaMode === 'video' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C]'
+                    onClick={() => setWeeklyGoalTarget(num)}
+                    className={`py-3 rounded-xl border font-bold text-xs uppercase ${
+                      weeklyGoalTarget === num ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] border-[#E7E5E4]'
                     }`}
                   >
-                    Vídeo + Áudio
+                    {num} Sessões
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setDefaultMediaMode('audio')}
-                    className={`py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all ${
-                      defaultMediaMode === 'audio' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C]'
-                    }`}
-                  >
-                    Apenas Áudio
-                  </button>
-                </div>
+                ))}
               </div>
 
-              <div className="flex items-center justify-between bg-[#FAF9F6] border border-[#E7E5E4] p-4 rounded-xl">
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-xs font-bold text-[#1C1917]">Pareamento Ampliado</span>
-                  <span className="text-[11px] text-[#78716C] font-medium">
-                    Permitir conectar com níveis adjacentes (ex: A2 e B2 para nível B1)
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setExpandedMatching(!expandedMatching)}
-                  className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors shrink-0 ${
-                    expandedMatching ? 'bg-[#1C1917]' : 'bg-[#E7E5E4]'
-                  }`}
-                >
-                  <div
-                    className={`bg-[#FFFFFF] w-4 h-4 rounded-full shadow-md transform transition-transform ${
-                      expandedMatching ? 'translate-x-5' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
+              <div className="w-full h-3 bg-[#F5F5F4] rounded-full overflow-hidden p-0.5 border border-[#E7E5E4]">
+                <div className="h-full bg-[#1C1917] rounded-full transition-all" style={{ width: `${goalProgressPercentage}%` }} />
               </div>
-            </div>
+            </section>
+
+            {/* Badges e Relatório */}
+            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-4">
+              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917] border-b border-[#E7E5E4] pb-3">
+                Conquistas & Badges
+              </h2>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {badgesList.map((badge) => (
+                  <div key={badge.id} className="p-3.5 rounded-xl border bg-[#FAF9F6] border-[#E7E5E4] flex items-center gap-3">
+                    <span className="text-2xl">{badge.icon}</span>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-[#1C1917] uppercase">{badge.title}</span>
+                      <span className="text-[11px] text-[#78716C]">{badge.desc}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
           </div>
+        )}
 
-          {/* SBS-35: Opções de Privacidade */}
-          <div className="flex flex-col gap-4">
-            <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
-              Privacidade da Conta
-            </h2>
+        {/* CONTEÚDO DA ABA 4: SEGURANÇA & LGPD */}
+        {activeTab === 'security' && (
+          <div className="flex flex-col gap-6 animate-in fade-in duration-150">
+            <form onSubmit={handlePasswordChange} className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-4">
+              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917] border-b border-[#E7E5E4] pb-3">
+                Alterar Senha
+              </h2>
 
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between bg-[#FAF9F6] border border-[#E7E5E4] p-4 rounded-xl">
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-xs font-bold text-[#1C1917]">Exibir E-mail no Perfil Público</span>
-                  <span className="text-[11px] text-[#78716C] font-medium">
-                    Tornar seu endereço de e-mail visível para os seus parceiros de conversa
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowEmailInProfile(!showEmailInProfile)}
-                  className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors shrink-0 ${
-                    showEmailInProfile ? 'bg-[#1C1917]' : 'bg-[#E7E5E4]'
-                  }`}
-                >
-                  <div
-                    className={`bg-[#FFFFFF] w-4 h-4 rounded-full shadow-md transform transition-transform ${
-                      showEmailInProfile ? 'translate-x-5' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
-              </div>
+              {passwordError && <div className="p-3 rounded-xl bg-red-50 text-red-700 text-xs font-bold">{passwordError}</div>}
+              {passwordSuccess && <div className="p-3 rounded-xl bg-emerald-50 text-emerald-800 text-xs font-bold">{passwordSuccess}</div>}
 
-              <div className="flex items-center justify-between bg-[#FAF9F6] border border-[#E7E5E4] p-4 rounded-xl">
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-xs font-bold text-[#1C1917]">Permitir Reconexões Diretas</span>
-                  <span className="text-[11px] text-[#78716C] font-medium">
-                    Permitir que parceiros recentes enviem solicitações diretas de conversa
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setAllowDirectReconnect(!allowDirectReconnect)}
-                  className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors shrink-0 ${
-                    allowDirectReconnect ? 'bg-[#1C1917]' : 'bg-[#E7E5E4]'
-                  }`}
-                >
-                  <div
-                    className={`bg-[#FFFFFF] w-4 h-4 rounded-full shadow-md transform transition-transform ${
-                      allowDirectReconnect ? 'translate-x-5' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <Button
-            variant="primary"
-            type="submit"
-            className="w-full py-4 text-xs font-bold uppercase tracking-widest bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl shadow-md transition-all hover:scale-[1.01] active:scale-[0.99]"
-          >
-            Salvar Alterações
-          </Button>
-        </form>
-
-        {/* SBS-36: Bloco de Segurança */}
-        <form onSubmit={handlePasswordChange} className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
-          <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
-            Segurança da Conta & Alteração de Senha
-          </h2>
-
-          {passwordError && (
-            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold">
-              {passwordError}
-            </div>
-          )}
-
-          {passwordSuccess && (
-            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
-              {passwordSuccess}
-            </div>
-          )}
-
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
-                Senha Atual
-              </label>
-              <input
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                placeholder="••••••••"
-                className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] w-full"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
-                  Nova Senha
-                </label>
+              <div className="flex flex-col gap-3">
                 <input
                   type="password"
+                  placeholder="Senha Atual"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className="px-4 py-2.5 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold outline-none"
+                />
+                <input
+                  type="password"
+                  placeholder="Nova Senha"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] w-full"
+                  className="px-4 py-2.5 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold outline-none"
                 />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
-                  Confirmar Nova Senha
-                </label>
                 <input
                   type="password"
+                  placeholder="Confirmar Nova Senha"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] w-full"
+                  className="px-4 py-2.5 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold outline-none"
                 />
               </div>
-            </div>
 
-            {newPassword.length > 0 && (
-              <div className="flex flex-col gap-1 mt-1">
-                <div className="flex justify-between items-center text-[10px] font-bold text-[#78716C] uppercase">
-                  <span>Força da senha:</span>
-                  <span className={passwordStrength.label === 'Fraca' ? 'text-red-500' : passwordStrength.label === 'Média' ? 'text-amber-500' : 'text-emerald-600'}>
-                    {passwordStrength.label}
-                  </span>
-                </div>
-                <div className="w-full h-1.5 bg-[#F5F5F4] rounded-full overflow-hidden border border-[#E7E5E4]">
-                  <div className={`h-full rounded-full transition-all duration-500 ease-out ${passwordStrength.width} ${passwordStrength.color}`} />
-                </div>
-              </div>
-            )}
+              <Button type="submit" variant="primary" className="py-3 text-xs font-bold uppercase tracking-wider bg-[#1C1917] text-[#FAF9F6] rounded-xl">
+                Atualizar Senha
+              </Button>
+            </form>
+
+            <section className="bg-[#FFFFFF] border border-red-200 rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-3">
+              <h2 className="text-base font-black uppercase text-red-600">Exclusão Definitiva da Conta (LGPD)</h2>
+              <p className="text-xs text-[#57534E]">Ação irreversível de remoção permanente de todos os seus dados cadastrais.</p>
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(true)}
+                className="w-fit px-5 py-2.5 bg-red-50 text-red-600 border border-red-200 font-bold text-xs uppercase rounded-xl"
+              >
+                Encerrar Conta
+              </button>
+            </section>
           </div>
-
-          <Button
-            variant="primary"
-            type="submit"
-            className="w-full py-3.5 text-xs font-bold uppercase tracking-widest bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl transition-all"
-          >
-            Atualizar Senha
-          </Button>
-        </form>
-
-        {/* SBS-36: Exclusão de Conta */}
-        <section className="bg-[#FFFFFF] border border-red-200 rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-base font-black uppercase tracking-tight text-red-600">
-              Exclusão Definitiva de Conta (LGPD)
-            </h2>
-            <p className="text-xs text-[#57534E] leading-relaxed font-medium">
-              Conforme a Lei Geral de Proteção de Dados, você pode solicitar o encerramento permanente da sua conta e remoção imediata do seu histórico.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setShowDeleteModal(true)}
-            className="w-full sm:w-fit px-6 py-3 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-bold text-xs uppercase tracking-wider rounded-xl transition-all"
-          >
-            Encerrar Minha Conta
-          </button>
-        </section>
+        )}
       </main>
 
       {/* Modal de Exclusão */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-[#1C1917]/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#FFFFFF] border border-red-200 rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex flex-col gap-2">
-              <h3 className="text-lg font-black uppercase tracking-tight text-red-600">
-                Excluir Conta Permanentemente?
-              </h3>
-              <p className="text-xs text-[#57534E] leading-relaxed font-medium">
-                Esta ação é irreversível. Seu perfil, métricas de ofensiva, histórico de conversas e dados cadastrais serão completamente apagados.
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <label className="text-[11px] font-bold text-[#78716C] uppercase">
-                Digite "EXCLUIR" para confirmar:
-              </label>
-              <input
-                type="text"
-                value={deleteConfirmationText}
-                onChange={(e) => setDeleteConfirmationText(e.target.value)}
-                placeholder="EXCLUIR"
-                className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-red-500 w-full"
-              />
-            </div>
-
-            <div className="flex gap-3">
+          <div className="bg-[#FFFFFF] border border-red-200 rounded-2xl p-6 max-w-md w-full flex flex-col gap-4">
+            <h3 className="text-base font-black uppercase text-red-600">Confirmar Exclusão</h3>
+            <p className="text-xs text-[#57534E]">Digite "EXCLUIR" para apagar permanentemente seus dados.</p>
+            <input
+              type="text"
+              value={deleteConfirmationText}
+              onChange={(e) => setDeleteConfirmationText(e.target.value)}
+              placeholder="EXCLUIR"
+              className="px-4 py-2.5 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold"
+            />
+            <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setDeleteConfirmationText('');
-                }}
-                className="flex-1 py-3 bg-[#F5F5F4] hover:bg-[#E7E5E4] border border-[#E7E5E4] text-[#1C1917] font-bold text-xs uppercase tracking-wider rounded-xl transition-all"
+                onClick={() => setShowDeleteModal(false)}
+                className="flex-1 py-2.5 bg-[#F5F5F4] text-xs font-bold uppercase rounded-xl"
               >
                 Cancelar
               </button>
@@ -1033,7 +612,7 @@ export const Profile: React.FC = () => {
                 type="button"
                 disabled={deleteConfirmationText !== 'EXCLUIR'}
                 onClick={handleDeleteAccount}
-                className="flex-1 py-3 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all"
+                className="flex-1 py-2.5 bg-red-600 text-white text-xs font-bold uppercase rounded-xl disabled:opacity-50"
               >
                 Confirmar
               </button>
