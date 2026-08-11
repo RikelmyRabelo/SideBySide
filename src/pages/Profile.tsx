@@ -1,10 +1,59 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 
 export const Profile: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'general' | 'social' | 'stats' | 'security'>('general');
+
+  // Estado do Efeito de Cursor (sincronizado identicamente ao Login.tsx)
+  const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
+  const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
+  const [cursorOpacity, setCursorOpacity] = useState(1);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePos({ x: e.clientX, y: e.clientY });
+
+      const padding = 40;
+      const isNearEdge =
+        e.clientX < padding ||
+        e.clientY < padding ||
+        e.clientX > window.innerWidth - padding ||
+        e.clientY > window.innerHeight - padding;
+
+      setCursorOpacity(isNearEdge ? 0 : 1);
+    };
+
+    const handleMouseLeave = () => setCursorOpacity(0);
+
+    window.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseleave', handleMouseLeave);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseleave', handleMouseLeave);
+    };
+  }, []);
+
+  useEffect(() => {
+    let animationFrameId: number;
+
+    const updateFollower = () => {
+      setFollowerPos((prev) => {
+        const dx = mousePos.x - prev.x;
+        const dy = mousePos.y - prev.y;
+        return {
+          x: prev.x + dx * 0.12,
+          y: prev.y + dy * 0.12,
+        };
+      });
+      animationFrameId = requestAnimationFrame(updateFollower);
+    };
+
+    animationFrameId = requestAnimationFrame(updateFollower);
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [mousePos]);
 
   // Estado do Modal de Perfil Público e Solicitação de Amizade
   const [showPublicPreview, setShowPublicPreview] = useState(false);
@@ -192,7 +241,18 @@ export const Profile: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col font-sans selection:bg-[#1C1917] selection:text-[#FAF9F6]">
+    <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col font-sans selection:bg-[#1C1917] selection:text-[#FAF9F6] relative overflow-x-hidden">
+      
+      {/* Cursor Solido Neutro (Mesmo do Login.tsx) */}
+      <div
+        className="pointer-events-none fixed z-50 w-3.5 h-3.5 rounded-full bg-[#1C1917] transition-opacity duration-300 ease-out -translate-x-1/2 -translate-y-1/2 hidden md:block"
+        style={{
+          left: `${followerPos.x}px`,
+          top: `${followerPos.y}px`,
+          opacity: cursorOpacity,
+        }}
+      />
+
       {/* Header Bar */}
       <header className="bg-[#FFFFFF] border-b border-[#E7E5E4] px-6 py-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/dashboard')}>
@@ -354,7 +414,7 @@ export const Profile: React.FC = () => {
                 />
               </div>
 
-              {/* Tópicos de Interesse com Trava de Limite (Max 5) */}
+              {/* Tópicos de Interesse */}
               <div className="flex flex-col gap-3 pt-2 border-t border-[#E7E5E4]">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
@@ -602,7 +662,11 @@ export const Profile: React.FC = () => {
                 />
               </div>
 
-              <Button type="submit" variant="primary" className="py-3 text-xs font-bold uppercase tracking-wider bg-[#1C1917] text-[#FAF9F6] rounded-xl">
+              <Button
+                type="submit"
+                variant="primary"
+                className="py-3 text-xs font-bold uppercase tracking-wider bg-[#1C1917] text-[#FAF9F6] rounded-xl"
+              >
                 Atualizar Senha
               </Button>
             </form>
