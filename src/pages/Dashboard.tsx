@@ -16,6 +16,23 @@ export const Dashboard: React.FC = () => {
     totalSessions: 12,
   };
 
+  // SBS-28: Meta Semanal de Conversação
+  const weeklyGoal = {
+    target: 5,
+    completed: 3,
+    days: [
+      { day: 'Seg', completed: true },
+      { day: 'Ter', completed: true },
+      { day: 'Qua', completed: true },
+      { day: 'Qui', completed: false },
+      { day: 'Sex', completed: false },
+      { day: 'Sáb', completed: false },
+      { day: 'Dom', completed: false },
+    ],
+  };
+
+  const goalPercentage = Math.min(100, Math.round((weeklyGoal.completed / weeklyGoal.target) * 100));
+
   // SBS-25: Histórico de Conexões Recentes
   const [recentConnections] = useState([
     {
@@ -74,13 +91,12 @@ export const Dashboard: React.FC = () => {
 
   const [selectedTopic, setSelectedTopic] = useState(dailyTopics[0]);
 
-  // SBS-27: Estado do Teste de Dispositivos
+  // SBS-27: Teste de Dispositivos (Corrigida a tipagem de setInterval)
   const [isTestingDevices, setIsTestingDevices] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
-  const [deviceStatus, setDeviceStatus] = useState({ mic: 'ok', cam: 'ok' });
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval>;
     if (isTestingDevices) {
       interval = setInterval(() => {
         setAudioLevel(Math.floor(Math.random() * 85) + 15);
@@ -191,7 +207,56 @@ export const Dashboard: React.FC = () => {
           </div>
         </section>
 
-        {/* SBS-27: Checagem Prévia de Dispositivos (Equipamento) */}
+        {/* SBS-28: Meta Semanal de Conversação e Gamificação */}
+        <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#E7E5E4] pb-4 gap-2">
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
+                Meta Semanal de Prática
+              </h2>
+              <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 bg-[#F5F5F4] border border-[#E7E5E4] text-[#78716C] rounded-md">
+                Ciclo Atual
+              </span>
+            </div>
+            <span className="text-xs font-bold text-[#1C1917]">
+              {weeklyGoal.completed} de {weeklyGoal.target} conversas concluídas ({goalPercentage}%)
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            <div className="w-full h-3 bg-[#F5F5F4] border border-[#E7E5E4] rounded-full overflow-hidden p-0.5">
+              <div
+                className="h-full bg-[#1C1917] rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${goalPercentage}%` }}
+              />
+            </div>
+
+            <div className="grid grid-cols-7 gap-2 pt-2">
+              {weeklyGoal.days.map((item, index) => (
+                <div key={index} className="flex flex-col items-center gap-1.5">
+                  <div
+                    className={`w-9 h-9 rounded-xl border flex items-center justify-center font-bold text-xs transition-colors ${
+                      item.completed
+                        ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]'
+                        : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4]'
+                    }`}
+                  >
+                    {item.completed ? (
+                      <svg className="w-4 h-4 fill-none stroke-current stroke-[3]" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                      </svg>
+                    ) : (
+                      '•'
+                    )}
+                  </div>
+                  <span className="text-[10px] font-bold text-[#78716C] uppercase">{item.day}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Checagem Prévia de Dispositivos (Equipamento) */}
         <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
           <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-4">
             <div className="flex items-center gap-2">
@@ -212,7 +277,6 @@ export const Dashboard: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-            {/* Prévia da Câmera */}
             <div className="relative w-full h-44 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl overflow-hidden flex flex-col items-center justify-center">
               {isTestingDevices && mediaMode === 'video' ? (
                 <div className="relative w-full h-full">
@@ -237,7 +301,6 @@ export const Dashboard: React.FC = () => {
               )}
             </div>
 
-            {/* Teste e Feedback Visual de Sinal do Microfone */}
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
                 <div className="flex justify-between items-center text-xs font-bold uppercase tracking-wider text-[#78716C]">
