@@ -7,6 +7,7 @@ import { Privacy } from './pages/Privacy';
 import { Dashboard } from './pages/Dashboard';
 import { Room } from './pages/Room';
 import { Profile } from './pages/Profile';
+import { VerifyCode } from './pages/VerifyCode';
 
 export const App: React.FC = () => {
   return (

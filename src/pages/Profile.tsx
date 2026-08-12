@@ -63,9 +63,13 @@ export const Profile: React.FC = () => {
   const [showTopicsModal, setShowTopicsModal] = useState(false);
   const [topicSearch, setTopicSearch] = useState('');
 
-  // Estados SBS-34: Dados Pessoais e Nível CEFR
+  // Estados SBS-34 & SBS-48: Dados Pessoais, Nível CEFR, Idade, Sexo e Pronomes
   const [name, setName] = useState('Lucas Silva');
-  const [email, setEmail] = useState('lucas.silva@email.com');
+  const [email] = useState('lucas.silva@email.com');
+  const [age, setAge] = useState<number | string>(26);
+  const [showAgeInProfile, setShowAgeInProfile] = useState(true);
+  const [gender, setGender] = useState('Masculino');
+  const [pronouns, setPronouns] = useState('ele/dele (he/him)');
   const [cefrLevel, setCefrLevel] = useState('B1');
   const [avatarUrl, setAvatarUrl] = useState(
     'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80'
@@ -398,9 +402,76 @@ export const Profile: React.FC = () => {
                   <input
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    disabled
+                    className="px-4 py-3 bg-[#F5F5F4] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#78716C] cursor-not-allowed outline-none select-none"
+                  />
+                </div>
+
+                {/* SBS-48: Campo de Idade com SVG SVG Icon para Visibilidade */}
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Idade</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowAgeInProfile(!showAgeInProfile)}
+                      className="text-[10px] font-bold uppercase text-[#1C1917] hover:underline flex items-center gap-1.5"
+                    >
+                      {showAgeInProfile ? (
+                        <>
+                          <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          Visível
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-2 text-[#78716C]" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                          </svg>
+                          Oculta
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <input
+                    type="number"
+                    min={18}
+                    max={100}
+                    value={age}
+                    onChange={(e) => setAge(e.target.value)}
                     className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
                   />
+                </div>
+
+                {/* SBS-48: Campo de Sexo / Gênero */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Sexo / Gênero</label>
+                  <select
+                    value={gender}
+                    onChange={(e) => setGender(e.target.value)}
+                    className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+                  >
+                    <option value="Masculino">Masculino</option>
+                    <option value="Feminino">Feminino</option>
+                    <option value="Não-binário">Não-binário</option>
+                    <option value="Prefiro não dizer">Prefiro não dizer</option>
+                  </select>
+                </div>
+
+                {/* SBS-48: Campo de Pronomes */}
+                <div className="flex flex-col gap-1.5 sm:col-span-2">
+                  <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Pronomes</label>
+                  <select
+                    value={pronouns}
+                    onChange={(e) => setPronouns(e.target.value)}
+                    className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+                  >
+                    <option value="ele/dele (he/him)">ele/dele (he/him)</option>
+                    <option value="ela/dela (she/her)">ela/dela (she/her)</option>
+                    <option value="elu/delu (they/them)">elu/delu (they/them)</option>
+                    <option value="Qualquer pronome (any pronouns)">Qualquer pronome (any pronouns)</option>
+                  </select>
                 </div>
               </div>
 
@@ -826,6 +897,16 @@ export const Profile: React.FC = () => {
                     {cefrLevel}
                   </span>
                 </div>
+
+                {/* SBS-48: Exibição de Idade (se visível), Gênero e Pronomes */}
+                <div className="flex items-center gap-2 text-xs font-bold text-[#78716C]">
+                  {showAgeInProfile && <span>{age} anos</span>}
+                  {showAgeInProfile && <span>•</span>}
+                  <span>{gender}</span>
+                  <span>•</span>
+                  <span className="italic">{pronouns}</span>
+                </div>
+
                 {showEmailInProfile && (
                   <span className="text-xs font-bold text-[#78716C]">{email}</span>
                 )}
