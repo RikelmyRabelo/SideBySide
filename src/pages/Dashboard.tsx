@@ -58,6 +58,55 @@ export const Dashboard: React.FC = () => {
   const [expandedMatching, setExpandedMatching] = useState(true);
   const [isMatching, setIsMatching] = useState(false);
 
+  // Efeito de cursor do mouse
+  const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
+  const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
+  const [cursorOpacity, setCursorOpacity] = useState(1);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePos({ x: e.clientX, y: e.clientY });
+
+      const padding = 40;
+      const isNearEdge =
+        e.clientX < padding ||
+        e.clientY < padding ||
+        e.clientX > window.innerWidth - padding ||
+        e.clientY > window.innerHeight - padding;
+
+      setCursorOpacity(isNearEdge ? 0 : 1);
+    };
+
+    const handleMouseLeave = () => setCursorOpacity(0);
+
+    window.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseleave', handleMouseLeave);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseleave', handleMouseLeave);
+    };
+  }, []);
+
+  useEffect(() => {
+    let animationFrameId: number;
+
+    const updateFollower = () => {
+      setFollowerPos((prev) => {
+        const dx = mousePos.x - prev.x;
+        const dy = mousePos.y - prev.y;
+        return {
+          x: prev.x + dx * 0.12,
+          y: prev.y + dy * 0.12,
+        };
+      });
+      animationFrameId = requestAnimationFrame(updateFollower);
+    };
+
+    animationFrameId = requestAnimationFrame(updateFollower);
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [mousePos]);
+
   // Estado da Dica de Vocabulário Dinâmica
   const [vocabTip, setVocabTip] = useState<VocabResult>(FALLBACK_VOCAB_LIST[0]);
   const [isLoadingVocab, setIsLoadingVocab] = useState(false);
@@ -202,10 +251,16 @@ export const Dashboard: React.FC = () => {
     setShowTopicConfirmModal(true);
   };
 
-  const confirmJoinRoomWithTopic = () => {
+  const confirmJoinRoomWithTopic = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const targetTopic = topicToJoin || selectedTopic;
     setShowTopicConfirmModal(false);
-    if (topicToJoin) {
-      navigate(`/room/${topicToJoin.id}`);
+    
+    if (targetTopic && targetTopic.id) {
+      navigate(`/room/${targetTopic.id}`);
     } else {
       navigate('/room');
     }
@@ -243,7 +298,17 @@ export const Dashboard: React.FC = () => {
   ]);
 
   return (
-    <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col font-sans selection:bg-[#1C1917] selection:text-[#FAF9F6]">
+    <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col font-sans relative selection:bg-[#1C1917] selection:text-[#FAF9F6]">
+      {/* Cursor Solido Neutro */}
+      <div
+        className="pointer-events-none fixed z-50 w-3.5 h-3.5 rounded-full bg-[#1C1917] transition-opacity duration-300 ease-out -translate-x-1/2 -translate-y-1/2 hidden md:block"
+        style={{
+          left: `${followerPos.x}px`,
+          top: `${followerPos.y}px`,
+          opacity: cursorOpacity,
+        }}
+      />
+
       {/* Header Bar */}
       <header className="bg-[#FFFFFF] border-b border-[#E7E5E4] px-6 py-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
@@ -741,12 +806,12 @@ export const Dashboard: React.FC = () => {
       </main>
 
       {/* Modal de Confirmação para Entrar na Room pelo Tópico */}
-      {showTopicConfirmModal && topicToJoin && (
+      {showTopicConfirmModal && (topicToJoin || selectedTopic) && (
         <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-3">
               <span className="text-[10px] font-black uppercase tracking-widest bg-[#F5F5F4] text-[#1C1917] px-2.5 py-1 rounded border border-[#E7E5E4]">
-                {topicToJoin.category}
+                {(topicToJoin || selectedTopic)?.category}
               </span>
               <button
                 type="button"
@@ -759,7 +824,7 @@ export const Dashboard: React.FC = () => {
 
             <div className="flex flex-col gap-2">
               <h3 className="text-lg font-black uppercase text-[#1C1917]">
-                {topicToJoin.title}
+                {(topicToJoin || selectedTopic)?.title}
               </h3>
               <p className="text-xs text-[#57534E] font-medium leading-relaxed">
                 Deseja entrar na sala de conversação com o guia deste tópico ativado? Os assuntos e a linha narrativa da sala serão ajustados para esse tema.
@@ -771,7 +836,7 @@ export const Dashboard: React.FC = () => {
                 Pergunta Quebra-gelo Inicial:
               </span>
               <p className="text-xs font-bold text-[#1C1917] italic">
-                "{topicToJoin.icebreaker}"
+                "{(topicToJoin || selectedTopic)?.icebreaker}"
               </p>
             </div>
 
