@@ -105,12 +105,18 @@ export const Profile: React.FC = () => {
     }
   };
 
-  // Estados de Segurança
-  const [currentPassword, setCurrentPassword] = useState('');
+  // Estados da Verificação via E-mail para Trocar Senha
+  const [emailCodeSent, setEmailCodeSent] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [isEmailCodeVerified, setIsEmailCodeVerified] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
+  // Estados da Camada Reforçada de Exclusão de Conta
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePasswordConfirm, setDeletePasswordConfirm] = useState('');
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
+  const [agreeDeleteTerms, setAgreeDeleteTerms] = useState(false);
 
   // Estados de Metas Semanais e Gamificação
   const [weeklyGoalTarget, setWeeklyGoalTarget] = useState(5);
@@ -127,11 +133,6 @@ export const Profile: React.FC = () => {
   // Estatísticas Detalhadas
   const evolutionStats = {
     reputationScore: '98/100',
-    topicsDistribution: [
-      { name: 'Viagens & Culturas', percentage: 45, color: 'bg-emerald-500' },
-      { name: 'Trabalho & Tecnologia', percentage: 35, color: 'bg-amber-500' },
-      { name: 'Estilo de Vida & Hábitos', percentage: 20, color: 'bg-sky-500' },
-    ],
   };
 
   // Parceiros Favoritos
@@ -198,13 +199,27 @@ export const Profile: React.FC = () => {
     setTimeout(() => setSaveSuccess(false), 3000);
   };
 
+  const handleSendEmailCode = () => {
+    setPasswordError(null);
+    setEmailCodeSent(true);
+  };
+
+  const handleVerifyEmailCode = () => {
+    setPasswordError(null);
+    if (!verificationCode || verificationCode.length < 6) {
+      setPasswordError('Informe o código de 6 dígitos enviado ao e-mail.');
+      return;
+    }
+    setIsEmailCodeVerified(true);
+  };
+
   const handlePasswordChange = (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordError(null);
     setPasswordSuccess(null);
 
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      setPasswordError('Preencha todos os campos de senha.');
+    if (!newPassword || !confirmPassword) {
+      setPasswordError('Preencha os campos da nova senha.');
       return;
     }
 
@@ -219,14 +234,24 @@ export const Profile: React.FC = () => {
     }
 
     setPasswordSuccess('Senha alterada com sucesso!');
-    setCurrentPassword('');
+    setEmailCodeSent(false);
+    setVerificationCode('');
+    setIsEmailCodeVerified(false);
     setNewPassword('');
     setConfirmPassword('');
     setTimeout(() => setPasswordSuccess(null), 3000);
   };
 
   const handleDeleteAccount = () => {
-    if (deleteConfirmationText === 'EXCLUIR') {
+    if (!deletePasswordConfirm) {
+      alert('Por favor, informe sua senha atual para confirmar.');
+      return;
+    }
+    if (!agreeDeleteTerms) {
+      alert('Você precisa aceitar os termos de exclusão permanente.');
+      return;
+    }
+    if (deleteConfirmationText === 'EXCLUIR PERMANENTEMENTE') {
       alert('Sua conta e dados foram removidos permanentemente.');
       navigate('/');
     }
@@ -269,7 +294,7 @@ export const Profile: React.FC = () => {
       {/* Main Content */}
       <main className="flex-1 max-w-4xl w-full mx-auto p-6 lg:p-8 flex flex-col gap-6">
         
-        {/* Top Header Card com Borda Brutalista */}
+        {/* Top Header Card */}
         <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="relative group w-16 h-16 rounded-2xl overflow-hidden border-2 border-[#1C1917] bg-[#F5F5F4] shrink-0 shadow-sm">
@@ -316,7 +341,7 @@ export const Profile: React.FC = () => {
           </div>
         </section>
 
-        {/* Abas de Navegação com Borda Brutalista */}
+        {/* Abas de Navegação */}
         <div className="grid grid-cols-2 sm:grid-cols-4 bg-[#FFFFFF] border-2 border-[#1C1917] p-1.5 rounded-2xl text-xs font-black uppercase tracking-wider shadow-[4px_4px_0px_0px_#1C1917]">
           <button
             type="button"
@@ -679,79 +704,198 @@ export const Profile: React.FC = () => {
           </div>
         )}
 
-        {/* CONTEÚDO DA ABA 4: SEGURANÇA */}
+        {/* CONTEÚDO DA ABA 4: SEGURANÇA (VERIFICAÇÃO VIA E-MAIL) */}
         {activeTab === 'security' && (
           <div className="flex flex-col gap-6 animate-in fade-in duration-150">
-            <form onSubmit={handlePasswordChange} className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-4">
-              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917] border-b-2 border-[#E7E5E4] pb-3">
-                Alterar Senha
-              </h2>
+            {/* Bloco de Alteração de Senha via Validação por E-mail */}
+            <form onSubmit={handlePasswordChange} className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-5">
+              <div className="flex flex-col gap-1 border-b-2 border-[#E7E5E4] pb-3">
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#FAF9F6] bg-[#1C1917] px-2.5 py-0.5 rounded w-fit">
+                  VERIFICAÇÃO VIA E-MAIL
+                </span>
+                <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917] mt-1">
+                  Alterar Senha de Acesso
+                </h2>
+              </div>
 
               {passwordError && <div className="p-3 rounded-xl bg-red-50 border-2 border-red-600 text-red-700 text-xs font-black">{passwordError}</div>}
               {passwordSuccess && <div className="p-3 rounded-xl bg-emerald-50 border-2 border-emerald-600 text-emerald-800 text-xs font-black">{passwordSuccess}</div>}
 
-              <div className="flex flex-col gap-3">
-                <input
-                  type="password"
-                  placeholder="Senha Atual"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold outline-none focus:border-[#1C1917]"
-                />
-                <input
-                  type="password"
-                  placeholder="Nova Senha"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold outline-none focus:border-[#1C1917]"
-                />
-                <input
-                  type="password"
-                  placeholder="Confirmar Nova Senha"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold outline-none focus:border-[#1C1917]"
-                />
+              {/* Etapa 1: Envio do Código por E-mail */}
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-black text-[#1C1917] uppercase tracking-wider flex items-center gap-2">
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${isEmailCodeVerified ? 'bg-emerald-600 text-white' : 'bg-[#1C1917] text-[#FAF9F6]'}`}>
+                    {isEmailCodeVerified ? '✓' : '1'}
+                  </span>
+                  1. Solicitar Código para: <span className="text-[#78716C]">{email}</span>
+                </label>
+
+                {!emailCodeSent ? (
+                  <button
+                    type="button"
+                    onClick={handleSendEmailCode}
+                    className="py-3 px-5 bg-[#1C1917] text-[#FAF9F6] font-black text-xs uppercase rounded-xl border-2 border-[#1C1917] hover:bg-[#292524] transition-all w-fit"
+                  >
+                    Enviar Código de Confirmação por E-mail
+                  </button>
+                ) : (
+                  <div className="flex flex-col gap-2 pt-1">
+                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 p-2.5 rounded-xl border border-emerald-200">
+                      ✉️ Código enviado! Verifique sua caixa de entrada.
+                    </span>
+
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        maxLength={6}
+                        disabled={isEmailCodeVerified}
+                        placeholder="Digite o código de 6 dígitos..."
+                        value={verificationCode}
+                        onChange={(e) => setVerificationCode(e.target.value)}
+                        className="flex-1 px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold outline-none focus:border-[#1C1917] disabled:opacity-75"
+                      />
+                      {!isEmailCodeVerified ? (
+                        <button
+                          type="button"
+                          onClick={handleVerifyEmailCode}
+                          className="px-5 py-3 bg-[#1C1917] text-[#FAF9F6] font-black text-xs uppercase rounded-xl border-2 border-[#1C1917] hover:bg-[#292524] transition-all"
+                        >
+                          Validar Código
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsEmailCodeVerified(false);
+                            setVerificationCode('');
+                          }}
+                          className="px-4 py-3 bg-[#FAF9F6] text-[#78716C] hover:text-[#1C1917] font-black text-xs uppercase rounded-xl border-2 border-[#E7E5E4]"
+                        >
+                          Alterar
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <Button
-                type="submit"
-                variant="primary"
-                className="py-3.5 text-xs font-black uppercase tracking-wider bg-[#1C1917] text-[#FAF9F6] rounded-xl border-2 border-[#1C1917]"
-              >
-                Atualizar Senha
-              </Button>
+              {/* Etapa 2: Definição da Nova Senha (Liberada após verificação por e-mail) */}
+              {isEmailCodeVerified && (
+                <div className="flex flex-col gap-3 pt-2 animate-in fade-in slide-in-from-top-4 duration-300 border-t-2 border-[#E7E5E4]">
+                  <label className="text-xs font-black text-[#1C1917] uppercase tracking-wider flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-[#1C1917] text-[#FAF9F6] flex items-center justify-center text-[10px] font-black">
+                      2
+                    </span>
+                    2. Digite e Confirme a Nova Senha
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="Nova Senha (Mínimo 6 caracteres)"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold outline-none focus:border-[#1C1917]"
+                  />
+                  <input
+                    type="password"
+                    placeholder="Confirmar Nova Senha"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold outline-none focus:border-[#1C1917]"
+                  />
+
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    className="py-3.5 text-xs font-black uppercase tracking-wider bg-[#1C1917] text-[#FAF9F6] rounded-xl border-2 border-[#1C1917] mt-2 shadow-md"
+                  >
+                    Salvar Nova Senha
+                  </Button>
+                </div>
+              )}
             </form>
 
+            {/* Bloco de Exclusão com Camada Dupla */}
             <section className="bg-[#FFFFFF] border-2 border-red-600 rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#DC2626] flex flex-col gap-3">
+              <span className="text-[10px] font-black uppercase tracking-widest text-red-600 bg-red-50 px-2.5 py-0.5 rounded border border-red-200 w-fit">
+                ZONA CRÍTICA
+              </span>
               <h2 className="text-base font-black uppercase text-red-600">Exclusão Definitiva da Conta</h2>
-              <p className="text-xs text-[#57534E] font-medium">Ação irreversível de remoção permanente de todos os seus dados cadastrais.</p>
+              <p className="text-xs text-[#57534E] font-medium">Ação irreversível de remoção permanente de todos os seus dados cadastrais, histórico e conquistas.</p>
               <button
                 type="button"
                 onClick={() => setShowDeleteModal(true)}
-                className="w-fit px-5 py-2.5 bg-red-50 text-red-600 border-2 border-red-600 font-black text-xs uppercase rounded-xl"
+                className="w-fit px-5 py-2.5 bg-red-50 text-red-600 border-2 border-red-600 font-black text-xs uppercase rounded-xl hover:bg-red-600 hover:text-white transition-all mt-1"
               >
-                Encerrar Conta
+                Iniciar Processo de Exclusão
               </button>
             </section>
           </div>
         )}
       </main>
 
-      {/* Modal de Exclusão */}
+      {/* Modal de Exclusão Reforçado com Dupla Verificação */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 max-w-md w-full flex flex-col gap-4 shadow-[8px_8px_0px_0px_#1C1917]">
-            <h3 className="text-base font-black uppercase text-red-600">Confirmar Exclusão</h3>
-            <p className="text-xs text-[#57534E] font-medium">Digite "EXCLUIR" para apagar permanentemente seus dados.</p>
-            <input
-              type="text"
-              value={deleteConfirmationText}
-              onChange={(e) => setDeleteConfirmationText(e.target.value)}
-              placeholder="EXCLUIR"
-              className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
-            />
-            <div className="flex gap-2">
+          <div className="bg-[#FFFFFF] border-2 border-red-600 rounded-3xl p-6 sm:p-8 max-w-md w-full flex flex-col gap-5 shadow-[8px_8px_0px_0px_#DC2626] animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b-2 border-red-200 pb-3">
+              <h3 className="text-base font-black uppercase text-red-600 flex items-center gap-2">
+                <span>⚠️</span> Confirmar Exclusão
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                className="text-sm font-black text-[#78716C] hover:text-[#1C1917]"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-[#57534E] font-medium leading-relaxed">
+              Esta ação removerá permanentemente seu histórico de conversas, badges, amizades e estatísticas.
+            </p>
+
+            <div className="flex flex-col gap-3 border-t-2 border-[#E7E5E4] pt-4">
+              {/* Camada 1: Digitar a Senha do Usuário */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] font-black text-[#1C1917] uppercase">1. Digite sua Senha do Perfil *</label>
+                <input
+                  type="password"
+                  value={deletePasswordConfirm}
+                  onChange={(e) => setDeletePasswordConfirm(e.target.value)}
+                  placeholder="Sua senha atual..."
+                  className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-red-600"
+                />
+              </div>
+
+              {/* Camada 2: Marcar Termo de Ciência */}
+              <label className="flex items-start gap-2.5 cursor-pointer bg-[#FAF9F6] p-3 rounded-xl border-2 border-[#E7E5E4]">
+                <input
+                  type="checkbox"
+                  checked={agreeDeleteTerms}
+                  onChange={(e) => setAgreeDeleteTerms(e.target.checked)}
+                  className="mt-0.5 rounded border-2 border-[#1C1917] text-red-600 focus:ring-red-600"
+                />
+                <span className="text-[11px] font-bold text-[#1C1917] leading-snug">
+                  Estou ciente de que a remoção é irreversível e não poderei recuperar este perfil.
+                </span>
+              </label>
+
+              {/* Camada 3: Digitar Frase Exata */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] font-black text-[#1C1917] uppercase">
+                  2. Digite "EXCLUIR PERMANENTEMENTE" *
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirmationText}
+                  onChange={(e) => setDeleteConfirmationText(e.target.value)}
+                  placeholder="EXCLUIR PERMANENTEMENTE"
+                  className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-red-600"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => setShowDeleteModal(false)}
@@ -761,11 +905,15 @@ export const Profile: React.FC = () => {
               </button>
               <button
                 type="button"
-                disabled={deleteConfirmationText !== 'EXCLUIR'}
+                disabled={
+                  !deletePasswordConfirm ||
+                  !agreeDeleteTerms ||
+                  deleteConfirmationText !== 'EXCLUIR PERMANENTEMENTE'
+                }
                 onClick={handleDeleteAccount}
-                className="flex-1 py-3 bg-red-600 text-white text-xs font-black uppercase rounded-xl border-2 border-red-600 disabled:opacity-50"
+                className="flex-1 py-3 bg-red-600 text-white text-xs font-black uppercase rounded-xl border-2 border-red-600 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
               >
-                Confirmar
+                Apagar Conta
               </button>
             </div>
           </div>
