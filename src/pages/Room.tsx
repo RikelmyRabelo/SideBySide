@@ -1,12 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ReportModal } from '../components/room/ReportModal';
+import { TOPICS_CATALOG, getRandomTopic, TopicItem } from '../data/topicsData';
 
 export const Room: React.FC = () => {
   const navigate = useNavigate();
+  const { topicId } = useParams<{ topicId?: string }>();
+
+  // Carrega o tópico dinâmico com base na rota ou sorteia se for 'random'/indefinido
+  const [currentTopic, setCurrentTopic] = useState<TopicItem>(() => {
+    if (topicId && TOPICS_CATALOG[topicId]) {
+      return TOPICS_CATALOG[topicId];
+    }
+    return getRandomTopic();
+  });
+
   const [micActive, setMicActive] = useState(true);
   const [camActive, setCamActive] = useState(true);
-  const [activeTab, setActiveTab] = useState<'vocab' | 'chat'>('vocab');
+  const [activeTab, setActiveTab] = useState<'topics' | 'chat'>('topics');
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -157,33 +168,6 @@ export const Room: React.FC = () => {
     setCamActive(!camActive);
   };
 
-  const vocabList = [
-    {
-      term: 'Wanderlust',
-      phonetic: '/ˈwɒndəlʌst/',
-      translation: 'Desejo intenso de viajar',
-      example: '"Her wanderlust led her to travel to over 30 countries before turning 25."',
-    },
-    {
-      term: 'To hit the road',
-      phonetic: '/tʊ hɪt ðə roʊd/',
-      translation: 'Pegar a estrada / Partir',
-      example: '"We packed our bags and decided to hit the road early in the morning."',
-    },
-    {
-      term: 'Off the beaten path',
-      phonetic: '/ɒf ðə ˈbiːtən pɑːθ/',
-      translation: 'Fora do comum / Pouco explorado',
-      example: '"I always prefer visiting places that are off the beaten path."',
-    },
-    {
-      term: 'Jet lag',
-      phonetic: '/ˈdʒɛt læɡ/',
-      translation: 'Cansaço de fuso horário',
-      example: '"It took me three whole days to recover from the jet lag after flying from Tokyo."',
-    },
-  ];
-
   const handleConfirmReport = (reason: string) => {
     console.log('Denúncia enviada:', reason);
     setIsReportOpen(false);
@@ -219,9 +203,12 @@ export const Room: React.FC = () => {
             </div>
           </div>
 
-          {/* Tema da Conversa */}
-          <div className="bg-[#FAF9F6] border border-[#E7E5E4] px-4 py-1.5 rounded-xl text-xs font-black uppercase text-[#1C1917]">
-            <span>Tema: Experiences & Travel ✈️</span>
+          {/* Tema da Conversa Dinâmico */}
+          <div className="bg-[#FAF9F6] border border-[#E7E5E4] px-4 py-1.5 rounded-xl text-xs font-black uppercase text-[#1C1917] flex items-center gap-2">
+            <span className="text-[10px] bg-[#E7E5E4] px-2 py-0.5 rounded text-[#78716C]">
+              {currentTopic.category}
+            </span>
+            <span>{currentTopic.title}</span>
           </div>
 
           <button
@@ -389,6 +376,7 @@ export const Room: React.FC = () => {
 
             <button
               type="button"
+              onClick={() => setCurrentTopic(getRandomTopic())}
               className="px-5 py-2.5 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 shadow-sm"
             >
               <span>⏭</span> PRÓXIMO PAR
@@ -396,19 +384,19 @@ export const Room: React.FC = () => {
           </div>
         </div>
 
-        {/* Sidebar Direita (Vocabulário / Chat) */}
+        {/* Sidebar Direita (Tópicos Sequenciais Encadeados / Chat) */}
         {!isFullscreen && (
           <aside className="w-80 bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl flex flex-col overflow-hidden shrink-0 shadow-sm">
             {/* Abas */}
             <div className="grid grid-cols-2 bg-[#F5F5F4] p-1 border-b border-[#E7E5E4] text-xs font-black uppercase tracking-wider">
               <button
                 type="button"
-                onClick={() => setActiveTab('vocab')}
+                onClick={() => setActiveTab('topics')}
                 className={`py-2.5 rounded-lg transition-all ${
-                  activeTab === 'vocab' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C]'
+                  activeTab === 'topics' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C]'
                 }`}
               >
-                Vocabulário
+                Guia de Tópicos
               </button>
               <button
                 type="button"
@@ -423,24 +411,57 @@ export const Room: React.FC = () => {
 
             {/* Conteúdo das Abas */}
             <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
-              {activeTab === 'vocab' ? (
-                vocabList.map((item, index) => (
-                  <div
-                    key={index}
-                    className="bg-[#FAF9F6] border border-[#E7E5E4] p-3 rounded-xl flex flex-col gap-1"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-black text-[#1C1917] uppercase">{item.term}</span>
-                      <span className="text-[10px] text-[#78716C] italic font-medium">{item.phonetic}</span>
-                    </div>
-                    <span className="text-[10px] font-bold text-[#1C1917] bg-[#E7E5E4] px-2 py-0.5 rounded-md w-fit uppercase">
-                      {item.translation}
+              {activeTab === 'topics' ? (
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col pb-2 border-b border-[#E7E5E4]">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#78716C]">
+                      LINHA NARRATIVA CONECTADA
                     </span>
-                    <p className="text-[11px] text-[#57534E] mt-1 leading-relaxed font-medium">
-                      {item.example}
-                    </p>
+                    <h3 className="text-xs font-black uppercase text-[#1C1917]">
+                      {currentTopic.title}
+                    </h3>
                   </div>
-                ))
+
+                  {currentTopic.steps.map((step) => (
+                    <div
+                      key={step.stepNumber}
+                      className="bg-[#FAF9F6] border border-[#E7E5E4] p-3.5 rounded-xl flex flex-col gap-2 relative group hover:border-[#1C1917] transition-all"
+                    >
+                      <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-1.5">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-[#1C1917]">
+                          {step.stageTitle}
+                        </span>
+                        <span className="w-5 h-5 rounded-full bg-[#1C1917] text-[#FAF9F6] text-[9px] font-black flex items-center justify-center">
+                          {step.stepNumber}
+                        </span>
+                      </div>
+
+                      <p className="text-xs font-bold text-[#1C1917] leading-snug">
+                        "{step.question}"
+                      </p>
+
+                      <div className="flex flex-col gap-1 pt-1">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-[#78716C]">
+                          Frase de transição:
+                        </span>
+                        <span className="text-[10px] font-semibold text-[#57534E] italic bg-[#FFFFFF] p-1.5 rounded border border-[#E7E5E4]">
+                          {step.transitionPhrase}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {step.keywords.map((word, idx) => (
+                          <span
+                            key={idx}
+                            className="text-[9px] font-bold text-[#1C1917] bg-[#E7E5E4] px-2 py-0.5 rounded uppercase"
+                          >
+                            {word}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <div className="flex flex-col h-full justify-between gap-3">
                   <div className="flex flex-col gap-2">
