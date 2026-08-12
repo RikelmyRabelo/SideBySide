@@ -6,7 +6,7 @@ export const Profile: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'general' | 'social' | 'stats' | 'security'>('general');
 
-  // Estado do Efeito de Cursor (sincronizado identicamente ao Login.tsx)
+  // Estado do Efeito de Cursor Neutro
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
   const [cursorOpacity, setCursorOpacity] = useState(1);
@@ -63,7 +63,7 @@ export const Profile: React.FC = () => {
   const [showTopicsModal, setShowTopicsModal] = useState(false);
   const [topicSearch, setTopicSearch] = useState('');
 
-  // Estados SBS-34 & SBS-48: Dados Pessoais, Nível CEFR, Idade, Sexo e Pronomes
+  // Estados: Dados Pessoais, Nível CEFR, Idade, Sexo e Pronomes
   const [name, setName] = useState('Lucas Silva');
   const [email] = useState('lucas.silva@email.com');
   const [age, setAge] = useState<number | string>(26);
@@ -75,7 +75,7 @@ export const Profile: React.FC = () => {
     'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80'
   );
 
-  // Estados SBS-41 / SBS-44 / SBS-45: Biografia e Interesses ("Sobre Mim")
+  // Estados: Biografia e Interesses ("Sobre Mim")
   const [bio, setBio] = useState(
     'Desenvolvedor de software focado em evoluir no inglês para entrevistas e reuniões internacionais.'
   );
@@ -85,7 +85,7 @@ export const Profile: React.FC = () => {
     'Carreira & Negócios',
   ]);
 
-  // Biblioteca ampliada de tópicos por categoria
+  // Biblioteca de tópicos por categoria
   const topicsLibrary = [
     { category: 'Tecnologia & Carreira', items: ['Tecnologia', 'Carreira & Negócios', 'Inteligência Artificial', 'Startups', 'Programação', 'Marketing Digital'] },
     { category: 'Cultura & Entretenimento', items: ['Cinema & Séries', 'Música', 'Leitura', 'Jogos & eSports', 'Arte & Design', 'Fotografia'] },
@@ -93,7 +93,6 @@ export const Profile: React.FC = () => {
     { category: 'Sociedade & Atualidades', items: ['Economia', 'Meio Ambiente', 'Psicologia', 'História', 'Filosofia', 'Moda'] },
   ];
 
-  // Alternar seleção com trava de limite máximo (5 tópicos)
   const toggleInterest = (interest: string) => {
     if (selectedInterests.includes(interest)) {
       setSelectedInterests(selectedInterests.filter((i) => i !== interest));
@@ -106,20 +105,14 @@ export const Profile: React.FC = () => {
     }
   };
 
-  // Estados SBS-35: Conexão e Privacidade
-  const [defaultMediaMode, setDefaultMediaMode] = useState<'video' | 'audio'>('video');
-  const [expandedMatching, setExpandedMatching] = useState(true);
-  const [showEmailInProfile, setShowEmailInProfile] = useState(false);
-  const [allowDirectReconnect, setAllowDirectReconnect] = useState(true);
-
-  // Estados SBS-36: Segurança
+  // Estados de Segurança
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
 
-  // Estados SBS-37: Metas Semanais e Gamificação
+  // Estados de Metas Semanais e Gamificação
   const [weeklyGoalTarget, setWeeklyGoalTarget] = useState(5);
   const [weeklyGoalCompleted] = useState(3);
   const [currentStreak] = useState(5);
@@ -131,7 +124,7 @@ export const Profile: React.FC = () => {
     { id: 'level_b2', title: 'Rumo ao B2', desc: '10 treinos no nível B1', unlocked: false, icon: '🎓' },
   ];
 
-  // Dados SBS-38: Estatísticas Detalhadas
+  // Estatísticas Detalhadas
   const evolutionStats = {
     reputationScore: '98/100',
     topicsDistribution: [
@@ -139,14 +132,9 @@ export const Profile: React.FC = () => {
       { name: 'Trabalho & Tecnologia', percentage: 35, color: 'bg-amber-500' },
       { name: 'Estilo de Vida & Hábitos', percentage: 20, color: 'bg-sky-500' },
     ],
-    partnerLevels: [
-      { level: 'A2 (Básico)', count: 2 },
-      { level: 'B1 (Intermediário)', count: 8 },
-      { level: 'B2 (Avançado)', count: 2 },
-    ],
   };
 
-  // Estados SBS-39: Parceiros Favoritos & Notas Privadas
+  // Parceiros Favoritos
   const [favoritePartners] = useState([
     {
       id: '1',
@@ -166,7 +154,7 @@ export const Profile: React.FC = () => {
     },
   ]);
 
-  // Estados SBS-40: Calendário de Disponibilidade
+  // Agenda de Disponibilidade
   const timeSlots = ['Manhã (08h - 12h)', 'Tarde (12h - 18h)', 'Noite (18h - 22h)'];
   const weekDays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
   const [selectedAvailability, setSelectedAvailability] = useState<string[]>([
@@ -240,14 +228,14 @@ export const Profile: React.FC = () => {
   const handleDeleteAccount = () => {
     if (deleteConfirmationText === 'EXCLUIR') {
       alert('Sua conta e dados foram removidos permanentemente.');
-      navigate('/login');
+      navigate('/');
     }
   };
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col font-sans selection:bg-[#1C1917] selection:text-[#FAF9F6] relative overflow-x-hidden">
       
-      {/* Cursor Solido Neutro (Mesmo do Login.tsx) */}
+      {/* Cursor Solido Neutro */}
       <div
         className="pointer-events-none fixed z-50 w-3.5 h-3.5 rounded-full bg-[#1C1917] transition-opacity duration-300 ease-out -translate-x-1/2 -translate-y-1/2 hidden md:block"
         style={{
@@ -260,7 +248,7 @@ export const Profile: React.FC = () => {
       {/* Header Bar */}
       <header className="bg-[#FFFFFF] border-b border-[#E7E5E4] px-6 py-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/dashboard')}>
-          <div className="w-8 h-8 rounded-md bg-[#1C1917] flex items-center justify-center font-black text-[#FAF9F6] text-base">
+          <div className="w-8 h-8 rounded-lg bg-[#1C1917] flex items-center justify-center font-black text-[#FAF9F6] text-base shadow-sm">
             S
           </div>
           <span className="text-lg font-black tracking-tight text-[#1C1917] uppercase">SideBySide</span>
@@ -269,7 +257,7 @@ export const Profile: React.FC = () => {
         <button
           type="button"
           onClick={() => navigate('/dashboard')}
-          className="px-4 py-2 bg-[#F5F5F4] hover:bg-[#E7E5E4] border border-[#E7E5E4] text-[#1C1917] font-bold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center gap-2"
+          className="px-4 py-2 bg-[#FAF9F6] hover:bg-[#F5F5F4] border-2 border-[#1C1917] text-[#1C1917] font-black text-xs uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 shadow-sm"
         >
           <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-[2.5]" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
@@ -280,15 +268,15 @@ export const Profile: React.FC = () => {
 
       {/* Main Content */}
       <main className="flex-1 max-w-4xl w-full mx-auto p-6 lg:p-8 flex flex-col gap-6">
-        {/* Top Header Card */}
-        <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+        
+        {/* Top Header Card com Borda Brutalista */}
+        <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            <div className="relative group w-16 h-16 rounded-2xl overflow-hidden border-2 border-[#E7E5E4] bg-[#F5F5F4] shrink-0">
+            <div className="relative group w-16 h-16 rounded-2xl overflow-hidden border-2 border-[#1C1917] bg-[#F5F5F4] shrink-0 shadow-sm">
               <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
-              <label className="absolute inset-0 bg-[#1C1917]/60 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
+              <label className="absolute inset-0 bg-[#1C1917]/80 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
                 <svg className="w-5 h-5 stroke-[#FAF9F6] fill-none stroke-2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
                 </svg>
                 <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
               </label>
@@ -309,7 +297,7 @@ export const Profile: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowPublicPreview(true)}
-              className="py-2.5 px-4 bg-[#F5F5F4] hover:bg-[#E7E5E4] border border-[#E7E5E4] text-[#1C1917] font-bold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center gap-2"
+              className="py-2.5 px-4 bg-[#FAF9F6] hover:bg-[#F5F5F4] border-2 border-[#1C1917] text-[#1C1917] font-black text-xs uppercase tracking-wider rounded-xl transition-all flex items-center gap-2"
             >
               <svg className="w-4 h-4 stroke-current fill-none stroke-2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
@@ -321,15 +309,15 @@ export const Profile: React.FC = () => {
             <Button
               variant="primary"
               onClick={handleSubmit}
-              className="py-2.5 px-5 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-bold text-xs uppercase tracking-wider rounded-xl transition-all"
+              className="py-2.5 px-5 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-black text-xs uppercase tracking-wider rounded-xl transition-all border-2 border-[#1C1917] shadow-sm"
             >
               Salvar Perfil
             </Button>
           </div>
         </section>
 
-        {/* Abas de Navegação */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 bg-[#FFFFFF] border border-[#E7E5E4] p-1.5 rounded-2xl text-xs font-black uppercase tracking-wider shadow-sm">
+        {/* Abas de Navegação com Borda Brutalista */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 bg-[#FFFFFF] border-2 border-[#1C1917] p-1.5 rounded-2xl text-xs font-black uppercase tracking-wider shadow-[4px_4px_0px_0px_#1C1917]">
           <button
             type="button"
             onClick={() => setActiveTab('general')}
@@ -370,7 +358,7 @@ export const Profile: React.FC = () => {
 
         {/* Mensagem de Sucesso */}
         {saveSuccess && (
-          <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2.5 animate-in fade-in duration-150">
+          <div className="p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-600 text-emerald-800 text-xs font-black flex items-center gap-2.5 animate-in fade-in duration-150 shadow-sm">
             <svg className="w-4 h-4 shrink-0 fill-current text-emerald-600" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
             </svg>
@@ -381,40 +369,39 @@ export const Profile: React.FC = () => {
         {/* CONTEÚDO DA ABA 1: GERAL & BIO */}
         {activeTab === 'general' && (
           <div className="flex flex-col gap-6 animate-in fade-in duration-150">
-            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
-              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917] border-b border-[#E7E5E4] pb-3">
+            <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-6">
+              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917] border-b-2 border-[#E7E5E4] pb-3">
                 Informações Pessoais
               </h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Nome Completo</label>
+                  <label className="text-xs font-black text-[#1C1917] uppercase tracking-wider">Nome Completo</label>
                   <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+                    className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
                   />
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">E-mail</label>
+                  <label className="text-xs font-black text-[#1C1917] uppercase tracking-wider">E-mail</label>
                   <input
                     type="email"
                     value={email}
                     disabled
-                    className="px-4 py-3 bg-[#F5F5F4] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#78716C] cursor-not-allowed outline-none select-none"
+                    className="px-4 py-3 bg-[#F5F5F4] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#78716C] cursor-not-allowed outline-none select-none"
                   />
                 </div>
 
-                {/* SBS-48: Campo de Idade com SVG SVG Icon para Visibilidade */}
                 <div className="flex flex-col gap-1.5">
                   <div className="flex justify-between items-center">
-                    <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Idade</label>
+                    <label className="text-xs font-black text-[#1C1917] uppercase tracking-wider">Idade</label>
                     <button
                       type="button"
                       onClick={() => setShowAgeInProfile(!showAgeInProfile)}
-                      className="text-[10px] font-bold uppercase text-[#1C1917] hover:underline flex items-center gap-1.5"
+                      className="text-[10px] font-black uppercase text-[#1C1917] hover:underline flex items-center gap-1.5 bg-[#FAF9F6] px-2 py-0.5 rounded border border-[#E7E5E4]"
                     >
                       {showAgeInProfile ? (
                         <>
@@ -440,17 +427,16 @@ export const Profile: React.FC = () => {
                     max={100}
                     value={age}
                     onChange={(e) => setAge(e.target.value)}
-                    className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+                    className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
                   />
                 </div>
 
-                {/* SBS-48: Campo de Sexo / Gênero */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Sexo / Gênero</label>
+                  <label className="text-xs font-black text-[#1C1917] uppercase tracking-wider">Gênero</label>
                   <select
                     value={gender}
                     onChange={(e) => setGender(e.target.value)}
-                    className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+                    className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
                   >
                     <option value="Masculino">Masculino</option>
                     <option value="Feminino">Feminino</option>
@@ -459,13 +445,12 @@ export const Profile: React.FC = () => {
                   </select>
                 </div>
 
-                {/* SBS-48: Campo de Pronomes */}
                 <div className="flex flex-col gap-1.5 sm:col-span-2">
-                  <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Pronomes</label>
+                  <label className="text-xs font-black text-[#1C1917] uppercase tracking-wider">Pronomes</label>
                   <select
                     value={pronouns}
                     onChange={(e) => setPronouns(e.target.value)}
-                    className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+                    className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
                   >
                     <option value="ele/dele (he/him)">ele/dele (he/him)</option>
                     <option value="ela/dela (she/her)">ela/dela (she/her)</option>
@@ -476,23 +461,22 @@ export const Profile: React.FC = () => {
               </div>
 
               <div className="flex flex-col gap-1.5 pt-2">
-                <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Mini Biografia</label>
+                <label className="text-xs font-black text-[#1C1917] uppercase tracking-wider">Mini Biografia</label>
                 <textarea
                   rows={3}
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
-                  className="w-full p-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] resize-none"
+                  className="w-full p-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] resize-none"
                 />
               </div>
 
-              {/* Tópicos de Interesse */}
-              <div className="flex flex-col gap-3 pt-2 border-t border-[#E7E5E4]">
+              <div className="flex flex-col gap-3 pt-2 border-t-2 border-[#E7E5E4]">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
-                    <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
+                    <label className="text-xs font-black text-[#1C1917] uppercase tracking-wider">
                       Tópicos de Interesse
                     </label>
-                    <span className="text-[10px] font-black uppercase bg-[#F5F5F4] px-2 py-0.5 rounded border border-[#E7E5E4] text-[#1C1917]">
+                    <span className="text-[10px] font-black uppercase bg-[#1C1917] text-[#FAF9F6] px-2 py-0.5 rounded">
                       {selectedInterests.length}/5
                     </span>
                   </div>
@@ -512,7 +496,7 @@ export const Profile: React.FC = () => {
                       key={interest}
                       type="button"
                       onClick={() => toggleInterest(interest)}
-                      className="px-3 py-1.5 rounded-lg border text-xs font-bold transition-all bg-[#1C1917] text-[#FAF9F6] border-[#1C1917] flex items-center gap-1.5"
+                      className="px-3 py-1.5 rounded-xl border-2 text-xs font-black transition-all bg-[#1C1917] text-[#FAF9F6] border-[#1C1917] flex items-center gap-1.5 shadow-xs"
                     >
                       <span>✓ {interest}</span>
                       <span className="text-[10px] opacity-70">✕</span>
@@ -523,7 +507,7 @@ export const Profile: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setShowTopicsModal(true)}
-                      className="px-3 py-1.5 rounded-lg border border-dashed border-[#D6D3D1] text-xs font-bold text-[#78716C] hover:border-[#1C1917] hover:text-[#1C1917] transition-all"
+                      className="px-3 py-1.5 rounded-xl border-2 border-dashed border-[#1C1917] text-xs font-black text-[#1C1917] hover:bg-[#F5F5F4] transition-all"
                     >
                       + Adicionar Tópicos
                     </button>
@@ -532,9 +516,8 @@ export const Profile: React.FC = () => {
               </div>
             </section>
 
-            {/* CEFR Level Selection */}
-            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-4">
-              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917] border-b border-[#E7E5E4] pb-3">
+            <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-4">
+              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917] border-b-2 border-[#E7E5E4] pb-3">
                 Nível de Fluência (CEFR)
               </h2>
 
@@ -546,19 +529,21 @@ export const Profile: React.FC = () => {
                       key={item.code}
                       type="button"
                       onClick={() => setCefrLevel(item.code)}
-                      className={`p-3.5 rounded-xl border text-left flex items-center justify-between gap-4 transition-all ${
+                      className={`p-3.5 rounded-2xl border-2 text-left flex items-center justify-between gap-4 transition-all ${
                         isSelected
-                          ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]'
+                          ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917] shadow-[2px_2px_0px_0px_#78716C]'
                           : 'bg-[#FAF9F6] text-[#1C1917] border-[#E7E5E4] hover:border-[#1C1917]'
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <span className={`w-8 h-8 rounded-lg font-black text-xs flex items-center justify-center ${isSelected ? 'bg-[#292524] text-[#FAF9F6]' : 'bg-[#E7E5E4] text-[#1C1917]'}`}>
+                        <span className={`w-8 h-8 rounded-xl font-black text-xs flex items-center justify-center border-2 ${
+                          isSelected ? 'bg-[#FAF9F6] text-[#1C1917] border-[#FAF9F6]' : 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]'
+                        }`}>
                           {item.code}
                         </span>
                         <div className="flex flex-col">
-                          <span className="text-xs font-bold uppercase">{item.label}</span>
-                          <span className={`text-[11px] font-medium ${isSelected ? 'text-[#A8A29E]' : 'text-[#78716C]'}`}>
+                          <span className="text-xs font-black uppercase">{item.label}</span>
+                          <span className={`text-[11px] font-medium ${isSelected ? 'text-[#D6D3D1]' : 'text-[#78716C]'}`}>
                             {item.desc}
                           </span>
                         </div>
@@ -574,27 +559,26 @@ export const Profile: React.FC = () => {
         {/* CONTEÚDO DA ABA 2: AGENDA & PARCEIROS */}
         {activeTab === 'social' && (
           <div className="flex flex-col gap-6 animate-in fade-in duration-150">
-            {/* Disponibilidade */}
-            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
-              <div className="flex justify-between items-center border-b border-[#E7E5E4] pb-3">
+            <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-6">
+              <div className="flex justify-between items-center border-b-2 border-[#E7E5E4] pb-3">
                 <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
                   Agenda de Disponibilidade
                 </h2>
-                <span className="text-[10px] font-bold uppercase bg-emerald-50 text-emerald-800 px-2.5 py-1 rounded-md border border-emerald-200">
-                  🔥 Pico: Noite (18h-22h)
+                <span className="text-[10px] font-black uppercase bg-[#FAF9F6] text-[#1C1917] px-2.5 py-1 rounded-lg border-2 border-[#1C1917]">
+                  Pico: Noite (18h-22h)
                 </span>
               </div>
 
               <div className="overflow-x-auto">
                 <div className="min-w-[480px] flex flex-col gap-2">
-                  <div className="grid grid-cols-8 gap-2 text-center text-[10px] font-black uppercase text-[#78716C] pb-1 border-b border-[#E7E5E4]">
+                  <div className="grid grid-cols-8 gap-2 text-center text-[10px] font-black uppercase text-[#1C1917] pb-1 border-b-2 border-[#E7E5E4]">
                     <span>Turno</span>
                     {weekDays.map((day) => <span key={day}>{day}</span>)}
                   </div>
 
                   {timeSlots.map((slot) => (
                     <div key={slot} className="grid grid-cols-8 gap-2 items-center">
-                      <span className="text-[10px] font-bold text-[#1C1917] uppercase">{slot.split(' ')[0]}</span>
+                      <span className="text-[10px] font-black text-[#1C1917] uppercase">{slot.split(' ')[0]}</span>
                       {weekDays.map((day) => {
                         const slotKey = `${day}-${slot}`;
                         const isSelected = selectedAvailability.includes(slotKey);
@@ -603,7 +587,7 @@ export const Profile: React.FC = () => {
                             key={slotKey}
                             type="button"
                             onClick={() => toggleAvailabilitySlot(slotKey)}
-                            className={`py-2 rounded-lg border text-[10px] font-extrabold uppercase transition-all ${
+                            className={`py-2 rounded-xl border-2 text-[10px] font-black uppercase transition-all ${
                               isSelected ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4]'
                             }`}
                           >
@@ -617,25 +601,24 @@ export const Profile: React.FC = () => {
               </div>
             </section>
 
-            {/* Parceiros Favoritos */}
-            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-4">
-              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917] border-b border-[#E7E5E4] pb-3">
+            <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-4">
+              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917] border-b-2 border-[#E7E5E4] pb-3">
                 Parceiros Favoritos
               </h2>
 
               <div className="flex flex-col gap-3">
                 {favoritePartners.map((partner) => (
-                  <div key={partner.id} className="bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl p-4 flex flex-col gap-2">
+                  <div key={partner.id} className="bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-2xl p-4 flex flex-col gap-2">
                     <div className="flex justify-between items-center">
                       <div className="flex items-center gap-3">
-                        <img src={partner.avatar} alt={partner.name} className="w-10 h-10 rounded-xl object-cover border" />
+                        <img src={partner.avatar} alt={partner.name} className="w-10 h-10 rounded-xl object-cover border-2 border-[#1C1917]" />
                         <div className="flex flex-col">
-                          <span className="text-xs font-bold text-[#1C1917]">{partner.name} ({partner.level})</span>
-                          <span className="text-[10px] font-medium text-[#78716C]">{partner.isOnline ? 'Online' : 'Offline'}</span>
+                          <span className="text-xs font-black text-[#1C1917]">{partner.name} ({partner.level})</span>
+                          <span className="text-[10px] font-bold text-[#78716C]">{partner.isOnline ? 'Online' : 'Offline'}</span>
                         </div>
                       </div>
                     </div>
-                    <p className="text-xs text-[#57534E] italic bg-[#FFFFFF] p-2.5 rounded-lg border border-[#E7E5E4]">
+                    <p className="text-xs text-[#57534E] italic bg-[#FFFFFF] p-2.5 rounded-xl border-2 border-[#E7E5E4]">
                       "{partner.note}"
                     </p>
                   </div>
@@ -648,13 +631,12 @@ export const Profile: React.FC = () => {
         {/* CONTEÚDO DA ABA 3: METAS & EVOLUÇÃO */}
         {activeTab === 'stats' && (
           <div className="flex flex-col gap-6 animate-in fade-in duration-150">
-            {/* Metas Semanais */}
-            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
-              <div className="flex justify-between items-center border-b border-[#E7E5E4] pb-3">
+            <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-6">
+              <div className="flex justify-between items-center border-b-2 border-[#E7E5E4] pb-3">
                 <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
                   Meta Semanal de Prática
                 </h2>
-                <span className="text-xs font-bold text-[#78716C]">{weeklyGoalCompleted}/{weeklyGoalTarget} Concluídas</span>
+                <span className="text-xs font-black text-[#1C1917]">{weeklyGoalCompleted}/{weeklyGoalTarget} Concluídas</span>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
@@ -663,7 +645,7 @@ export const Profile: React.FC = () => {
                     key={num}
                     type="button"
                     onClick={() => setWeeklyGoalTarget(num)}
-                    className={`py-3 rounded-xl border font-bold text-xs uppercase ${
+                    className={`py-3 rounded-xl border-2 font-black text-xs uppercase ${
                       weeklyGoalTarget === num ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] border-[#E7E5E4]'
                     }`}
                   >
@@ -672,24 +654,23 @@ export const Profile: React.FC = () => {
                 ))}
               </div>
 
-              <div className="w-full h-3 bg-[#F5F5F4] rounded-full overflow-hidden p-0.5 border border-[#E7E5E4]">
+              <div className="w-full h-4 bg-[#F5F5F4] rounded-full overflow-hidden p-0.5 border-2 border-[#1C1917]">
                 <div className="h-full bg-[#1C1917] rounded-full transition-all" style={{ width: `${goalProgressPercentage}%` }} />
               </div>
             </section>
 
-            {/* Badges e Relatório */}
-            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-4">
-              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917] border-b border-[#E7E5E4] pb-3">
+            <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-4">
+              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917] border-b-2 border-[#E7E5E4] pb-3">
                 Conquistas & Badges
               </h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {badgesList.map((badge) => (
-                  <div key={badge.id} className="p-3.5 rounded-xl border bg-[#FAF9F6] border-[#E7E5E4] flex items-center gap-3">
+                  <div key={badge.id} className="p-3.5 rounded-2xl border-2 bg-[#FAF9F6] border-[#E7E5E4] flex items-center gap-3">
                     <span className="text-2xl">{badge.icon}</span>
                     <div className="flex flex-col">
-                      <span className="text-xs font-bold text-[#1C1917] uppercase">{badge.title}</span>
-                      <span className="text-[11px] text-[#78716C]">{badge.desc}</span>
+                      <span className="text-xs font-black text-[#1C1917] uppercase">{badge.title}</span>
+                      <span className="text-[11px] text-[#78716C] font-bold">{badge.desc}</span>
                     </div>
                   </div>
                 ))}
@@ -701,13 +682,13 @@ export const Profile: React.FC = () => {
         {/* CONTEÚDO DA ABA 4: SEGURANÇA */}
         {activeTab === 'security' && (
           <div className="flex flex-col gap-6 animate-in fade-in duration-150">
-            <form onSubmit={handlePasswordChange} className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-4">
-              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917] border-b border-[#E7E5E4] pb-3">
+            <form onSubmit={handlePasswordChange} className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-4">
+              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917] border-b-2 border-[#E7E5E4] pb-3">
                 Alterar Senha
               </h2>
 
-              {passwordError && <div className="p-3 rounded-xl bg-red-50 text-red-700 text-xs font-bold">{passwordError}</div>}
-              {passwordSuccess && <div className="p-3 rounded-xl bg-emerald-50 text-emerald-800 text-xs font-bold">{passwordSuccess}</div>}
+              {passwordError && <div className="p-3 rounded-xl bg-red-50 border-2 border-red-600 text-red-700 text-xs font-black">{passwordError}</div>}
+              {passwordSuccess && <div className="p-3 rounded-xl bg-emerald-50 border-2 border-emerald-600 text-emerald-800 text-xs font-black">{passwordSuccess}</div>}
 
               <div className="flex flex-col gap-3">
                 <input
@@ -715,40 +696,40 @@ export const Profile: React.FC = () => {
                   placeholder="Senha Atual"
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="px-4 py-2.5 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold outline-none"
+                  className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold outline-none focus:border-[#1C1917]"
                 />
                 <input
                   type="password"
                   placeholder="Nova Senha"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="px-4 py-2.5 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold outline-none"
+                  className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold outline-none focus:border-[#1C1917]"
                 />
                 <input
                   type="password"
                   placeholder="Confirmar Nova Senha"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="px-4 py-2.5 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold outline-none"
+                  className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold outline-none focus:border-[#1C1917]"
                 />
               </div>
 
               <Button
                 type="submit"
                 variant="primary"
-                className="py-3 text-xs font-bold uppercase tracking-wider bg-[#1C1917] text-[#FAF9F6] rounded-xl"
+                className="py-3.5 text-xs font-black uppercase tracking-wider bg-[#1C1917] text-[#FAF9F6] rounded-xl border-2 border-[#1C1917]"
               >
                 Atualizar Senha
               </Button>
             </form>
 
-            <section className="bg-[#FFFFFF] border border-red-200 rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-3">
+            <section className="bg-[#FFFFFF] border-2 border-red-600 rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#DC2626] flex flex-col gap-3">
               <h2 className="text-base font-black uppercase text-red-600">Exclusão Definitiva da Conta</h2>
-              <p className="text-xs text-[#57534E]">Ação irreversível de remoção permanente de todos os seus dados cadastrais.</p>
+              <p className="text-xs text-[#57534E] font-medium">Ação irreversível de remoção permanente de todos os seus dados cadastrais.</p>
               <button
                 type="button"
                 onClick={() => setShowDeleteModal(true)}
-                className="w-fit px-5 py-2.5 bg-red-50 text-red-600 border border-red-200 font-bold text-xs uppercase rounded-xl"
+                className="w-fit px-5 py-2.5 bg-red-50 text-red-600 border-2 border-red-600 font-black text-xs uppercase rounded-xl"
               >
                 Encerrar Conta
               </button>
@@ -759,22 +740,22 @@ export const Profile: React.FC = () => {
 
       {/* Modal de Exclusão */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-[#1C1917]/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#FFFFFF] border border-red-200 rounded-2xl p-6 max-w-md w-full flex flex-col gap-4">
+        <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 max-w-md w-full flex flex-col gap-4 shadow-[8px_8px_0px_0px_#1C1917]">
             <h3 className="text-base font-black uppercase text-red-600">Confirmar Exclusão</h3>
-            <p className="text-xs text-[#57534E]">Digite "EXCLUIR" para apagar permanentemente seus dados.</p>
+            <p className="text-xs text-[#57534E] font-medium">Digite "EXCLUIR" para apagar permanentemente seus dados.</p>
             <input
               type="text"
               value={deleteConfirmationText}
               onChange={(e) => setDeleteConfirmationText(e.target.value)}
               placeholder="EXCLUIR"
-              className="px-4 py-2.5 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold"
+              className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
             />
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setShowDeleteModal(false)}
-                className="flex-1 py-2.5 bg-[#F5F5F4] text-xs font-bold uppercase rounded-xl"
+                className="flex-1 py-3 bg-[#FAF9F6] border-2 border-[#1C1917] text-xs font-black uppercase rounded-xl"
               >
                 Cancelar
               </button>
@@ -782,7 +763,7 @@ export const Profile: React.FC = () => {
                 type="button"
                 disabled={deleteConfirmationText !== 'EXCLUIR'}
                 onClick={handleDeleteAccount}
-                className="flex-1 py-2.5 bg-red-600 text-white text-xs font-bold uppercase rounded-xl disabled:opacity-50"
+                className="flex-1 py-3 bg-red-600 text-white text-xs font-black uppercase rounded-xl border-2 border-red-600 disabled:opacity-50"
               >
                 Confirmar
               </button>
@@ -791,11 +772,11 @@ export const Profile: React.FC = () => {
         </div>
       )}
 
-      {/* Modal de Adicionar Tópicos com Contador (Max 5) */}
+      {/* Modal de Adicionar Tópicos */}
       {showTopicsModal && (
         <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 max-w-lg w-full shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150 max-h-[85vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-3">
+          <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b-2 border-[#E7E5E4] pb-3">
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-black uppercase text-[#1C1917]">
                   Explorar Tópicos
@@ -807,7 +788,7 @@ export const Profile: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowTopicsModal(false)}
-                className="text-sm font-bold text-[#78716C] hover:text-[#1C1917]"
+                className="text-sm font-black text-[#78716C] hover:text-[#1C1917]"
               >
                 ✕
               </button>
@@ -818,7 +799,7 @@ export const Profile: React.FC = () => {
               placeholder="Buscar tópico..."
               value={topicSearch}
               onChange={(e) => setTopicSearch(e.target.value)}
-              className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+              className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
             />
 
             <div className="flex flex-col gap-5">
@@ -841,7 +822,7 @@ export const Profile: React.FC = () => {
                             key={item}
                             type="button"
                             onClick={() => toggleInterest(item)}
-                            className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${
+                            className={`px-3.5 py-2 rounded-xl border-2 text-xs font-black transition-all ${
                               isSelected
                                 ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]'
                                 : 'bg-[#FAF9F6] text-[#78716C] border-[#E7E5E4] hover:border-[#1C1917]'
@@ -860,7 +841,7 @@ export const Profile: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowTopicsModal(false)}
-              className="w-full py-3 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-bold text-xs uppercase tracking-widest rounded-xl transition-all"
+              className="w-full py-3.5 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-black text-xs uppercase tracking-widest rounded-xl transition-all border-2 border-[#1C1917]"
             >
               Concluir Seleção ({selectedInterests.length}/5)
             </button>
@@ -868,25 +849,25 @@ export const Profile: React.FC = () => {
         </div>
       )}
 
-      {/* Modal de Visualização do Perfil Público Expandido */}
+      {/* Modal de Visualização do Perfil Público */}
       {showPublicPreview && (
         <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 max-w-lg w-full shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-3">
-              <span className="text-[10px] font-black uppercase tracking-widest bg-[#F5F5F4] text-[#78716C] px-2.5 py-1 rounded border border-[#E7E5E4]">
+          <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b-2 border-[#E7E5E4] pb-3">
+              <span className="text-[10px] font-black uppercase tracking-widest bg-[#FAF9F6] border border-[#1C1917] text-[#1C1917] px-2.5 py-1 rounded-lg">
                 COMO OS OUTROS TE VEEM
               </span>
               <button
                 type="button"
                 onClick={() => setShowPublicPreview(false)}
-                className="text-sm font-bold text-[#78716C] hover:text-[#1C1917]"
+                className="text-sm font-black text-[#78716C] hover:text-[#1C1917]"
               >
                 ✕
               </button>
             </div>
 
             <div className="flex flex-col items-center text-center gap-3">
-              <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-[#E7E5E4] bg-[#F5F5F4]">
+              <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-[#1C1917] bg-[#F5F5F4] shadow-sm">
                 <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
               </div>
 
@@ -898,7 +879,6 @@ export const Profile: React.FC = () => {
                   </span>
                 </div>
 
-                {/* SBS-48: Exibição de Idade (se visível), Gênero e Pronomes */}
                 <div className="flex items-center gap-2 text-xs font-bold text-[#78716C]">
                   {showAgeInProfile && <span>{age} anos</span>}
                   {showAgeInProfile && <span>•</span>}
@@ -906,16 +886,12 @@ export const Profile: React.FC = () => {
                   <span>•</span>
                   <span className="italic">{pronouns}</span>
                 </div>
-
-                {showEmailInProfile && (
-                  <span className="text-xs font-bold text-[#78716C]">{email}</span>
-                )}
                 
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                     Reputação: {evolutionStats.reputationScore}
                   </span>
-                  <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                  <span className="text-[11px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
                     🔥 {currentStreak} Dias de Ofensiva
                   </span>
                 </div>
@@ -924,9 +900,9 @@ export const Profile: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setFriendRequestSent(!friendRequestSent)}
-                className={`w-full py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
+                className={`w-full py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all border-2 border-[#1C1917] flex items-center justify-center gap-2 ${
                   friendRequestSent
-                    ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-600'
                     : 'bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6]'
                 }`}
               >
@@ -941,19 +917,19 @@ export const Profile: React.FC = () => {
                 )}
               </button>
 
-              <p className="text-xs text-[#57534E] font-medium leading-relaxed italic bg-[#FAF9F6] p-3 rounded-xl border border-[#E7E5E4] w-full text-left">
+              <p className="text-xs text-[#57534E] font-medium leading-relaxed italic bg-[#FAF9F6] p-3 rounded-2xl border-2 border-[#E7E5E4] w-full text-left">
                 "{bio || 'Sem biografia informada.'}"
               </p>
 
               <div className="flex flex-col gap-1.5 w-full pt-1 text-left">
-                <span className="text-[10px] font-bold uppercase text-[#78716C]">
+                <span className="text-[10px] font-black uppercase text-[#78716C]">
                   Conquistas Desbloqueadas:
                 </span>
                 <div className="grid grid-cols-2 gap-2">
                   {badgesList.filter((b) => b.unlocked).map((badge) => (
-                    <div key={badge.id} className="p-2 rounded-lg bg-[#FAF9F6] border border-[#E7E5E4] flex items-center gap-2">
+                    <div key={badge.id} className="p-2 rounded-xl bg-[#FAF9F6] border-2 border-[#E7E5E4] flex items-center gap-2">
                       <span className="text-base">{badge.icon}</span>
-                      <span className="text-[10px] font-bold text-[#1C1917] uppercase truncate">{badge.title}</span>
+                      <span className="text-[10px] font-black text-[#1C1917] uppercase truncate">{badge.title}</span>
                     </div>
                   ))}
                 </div>
@@ -961,14 +937,14 @@ export const Profile: React.FC = () => {
 
               {selectedInterests.length > 0 && (
                 <div className="flex flex-col gap-1.5 w-full pt-1 text-left">
-                  <span className="text-[10px] font-bold uppercase text-[#78716C]">
+                  <span className="text-[10px] font-black uppercase text-[#78716C]">
                     Interesses de Conversa:
                   </span>
                   <div className="flex flex-wrap gap-1.5">
                     {selectedInterests.map((interest) => (
                       <span
                         key={interest}
-                        className="text-[10px] font-bold px-2.5 py-1 bg-[#F5F5F4] border border-[#E7E5E4] text-[#1C1917] rounded-md"
+                        className="text-[10px] font-black px-2.5 py-1 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] rounded-lg"
                       >
                         {interest}
                       </span>
@@ -976,29 +952,12 @@ export const Profile: React.FC = () => {
                   </div>
                 </div>
               )}
-
-              <div className="flex flex-col gap-1.5 w-full pt-1 text-left">
-                <span className="text-[10px] font-bold uppercase text-[#78716C]">
-                  Horários Frequentes:
-                </span>
-                <div className="flex flex-wrap gap-1">
-                  {selectedAvailability.length > 0 ? (
-                    selectedAvailability.map((slot) => (
-                      <span key={slot} className="text-[10px] font-semibold px-2 py-0.5 bg-[#FAF9F6] border border-[#E7E5E4] text-[#57534E] rounded">
-                        {slot.split(' ')[0]}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-[10px] text-[#78716C]">Sem agenda cadastrada</span>
-                  )}
-                </div>
-              </div>
             </div>
 
             <button
               type="button"
               onClick={() => setShowPublicPreview(false)}
-              className="w-full py-3 bg-[#F5F5F4] hover:bg-[#E7E5E4] border border-[#E7E5E4] text-[#1C1917] font-bold text-xs uppercase tracking-widest rounded-xl transition-all"
+              className="w-full py-3 bg-[#FAF9F6] hover:bg-[#F5F5F4] border-2 border-[#1C1917] text-[#1C1917] font-black text-xs uppercase tracking-widest rounded-xl transition-all"
             >
               Fechar Visualização
             </button>
