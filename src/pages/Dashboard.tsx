@@ -75,7 +75,7 @@ export const Dashboard: React.FC = () => {
         setVocabTip({
           word: entry.word,
           phonetic: entry.phonetic || entry.phonetics?.find((p: { text?: string }) => p.text)?.text || randomFallback.phonetic,
-          definition: randomFallback.definition, // Mantém a definição em português padronizada
+          definition: randomFallback.definition,
         });
       } else {
         setVocabTip(randomFallback);
@@ -99,6 +99,16 @@ export const Dashboard: React.FC = () => {
 
   // Estados dos Modais Rápidos
   const [activeModal, setActiveModal] = useState<'goals' | 'reminders' | null>(null);
+
+  // Estado do Modal de Confirmação de Entrada no Tópico
+  const [showTopicConfirmModal, setShowTopicConfirmModal] = useState(false);
+  const [topicToJoin, setTopicToJoin] = useState<{
+    id: string;
+    category: string;
+    title: string;
+    icebreaker: string;
+    vocabPreview: string[];
+  } | null>(null);
 
   // Estado do Feedback da Última Sessão
   const [lastSessionFeedback] = useState({
@@ -185,6 +195,21 @@ export const Dashboard: React.FC = () => {
   ];
 
   const [selectedTopic, setSelectedTopic] = useState(dailyTopics[0]);
+
+  const handleTopicCardClick = (topic: typeof dailyTopics[0]) => {
+    setSelectedTopic(topic);
+    setTopicToJoin(topic);
+    setShowTopicConfirmModal(true);
+  };
+
+  const confirmJoinRoomWithTopic = () => {
+    setShowTopicConfirmModal(false);
+    if (topicToJoin) {
+      navigate(`/room/${topicToJoin.id}`);
+    } else {
+      navigate('/room');
+    }
+  };
 
   // Histórico de Conexões Recentes
   const [recentConnections] = useState([
@@ -478,8 +503,8 @@ export const Dashboard: React.FC = () => {
               <button
                 key={topic.id}
                 type="button"
-                onClick={() => setSelectedTopic(topic)}
-                className={`p-4 rounded-xl border text-left flex flex-col justify-between gap-3 transition-all ${
+                onClick={() => handleTopicCardClick(topic)}
+                className={`p-4 rounded-xl border text-left flex flex-col justify-between gap-3 transition-all hover:scale-[1.02] active:scale-[0.98] ${
                   selectedTopic.id === topic.id
                     ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917] shadow-md'
                     : 'bg-[#FAF9F6] text-[#1C1917] border-[#E7E5E4] hover:border-[#1C1917]'
@@ -498,8 +523,8 @@ export const Dashboard: React.FC = () => {
                   <h3 className="text-sm font-bold mt-1 leading-snug">{topic.title}</h3>
                 </div>
 
-                <div className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider">
-                  <span>Selecionar tema</span>
+                <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider pt-2 border-t border-[#E7E5E4]/40">
+                  <span>Entrar neste tópico</span>
                   <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
                   </svg>
@@ -714,6 +739,61 @@ export const Dashboard: React.FC = () => {
           </div>
         </section>
       </main>
+
+      {/* Modal de Confirmação para Entrar na Room pelo Tópico */}
+      {showTopicConfirmModal && topicToJoin && (
+        <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-3">
+              <span className="text-[10px] font-black uppercase tracking-widest bg-[#F5F5F4] text-[#1C1917] px-2.5 py-1 rounded border border-[#E7E5E4]">
+                {topicToJoin.category}
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowTopicConfirmModal(false)}
+                className="text-sm font-bold text-[#78716C] hover:text-[#1C1917]"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <h3 className="text-lg font-black uppercase text-[#1C1917]">
+                {topicToJoin.title}
+              </h3>
+              <p className="text-xs text-[#57534E] font-medium leading-relaxed">
+                Deseja entrar na sala de conversação com o guia deste tópico ativado? Os assuntos e a linha narrativa da sala serão ajustados para esse tema.
+              </p>
+            </div>
+
+            <div className="bg-[#FAF9F6] border border-[#E7E5E4] p-4 rounded-xl flex flex-col gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#78716C]">
+                Pergunta Quebra-gelo Inicial:
+              </span>
+              <p className="text-xs font-bold text-[#1C1917] italic">
+                "{topicToJoin.icebreaker}"
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowTopicConfirmModal(false)}
+                className="flex-1 py-3 bg-[#F5F5F4] hover:bg-[#E7E5E4] text-[#1C1917] font-bold text-xs uppercase tracking-wider rounded-xl transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmJoinRoomWithTopic}
+                className="flex-1 py-3 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md"
+              >
+                Entrar na Sala
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Busca por Par */}
       {isMatching && (
