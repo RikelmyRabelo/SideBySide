@@ -744,27 +744,28 @@ export const Login: React.FC = () => {
               type="email"
               placeholder="seu@email.com"
               value={email}
-              className="bg-[#FFFFFF] border-[#E7E5E4] text-[#1C1917] placeholder:text-[#A8A29E] focus:border-[#1C1917] focus:bg-[#FFFFFF]"
+              className="bg-[#FFFFFF] border-[#E7E5E4] text-[#1C1917] placeholder:text-[#A8A29E] focus:border-[#1C1917] focus:bg-[#FFFFFF] focus:text-[#1C1917]"
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                 setEmail(e.target.value);
                 if (errorMessage) setErrorMessage(null);
-              }}
-            />
+                }}
+          />
 
             {!isForgotPassword && (
               <div className="flex flex-col gap-1.5">
                 <div className="relative w-full">
                   <Input
-                    label="Senha"
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Sua senha"
-                    value={password}
-                    className="bg-[#FFFFFF] border-[#E7E5E4] text-[#1C1917] placeholder:text-[#A8A29E] focus:border-[#1C1917] focus:bg-[#FFFFFF]"
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                      setPassword(e.target.value);
-                      if (errorMessage) setErrorMessage(null);
-                    }}
-                  />
+  label="Senha"
+  type={showPassword ? 'text' : 'password'}
+  placeholder="Sua senha"
+  value={password}
+  className="bg-[#FFFFFF] border-[#E7E5E4] text-[#1C1917] placeholder:text-[#A8A29E] focus:border-[#1C1917] focus:bg-[#FFFFFF] focus:text-[#1C1917]"
+  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+    setPassword(e.target.value);
+    if (errorMessage) setErrorMessage(null);
+  }}
+/>
+                  
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
@@ -970,7 +971,7 @@ export const Login: React.FC = () => {
           <div className="flex flex-col gap-1.5">
             <h4 className="text-sm font-black uppercase tracking-wider text-[#FAF9F6]">
               Privacidade e Cookies (LGPD)
-            </h4>
+            </h4> 
             <p className="text-xs text-[#A8A29E] leading-relaxed">
               Utilizamos cookies estritamente necessários para otimizar sua experiência de navegação e garantir conexões P2P seguras.
             </p>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ReportModal } from '../components/room/ReportModal';
+import { RatingModal } from '../components/room/RatingModal.tsx';
 import { TOPICS_CATALOG, getRandomTopic, TopicItem } from '../data/topicsData';
 
 export const Room: React.FC = () => {
@@ -19,6 +20,7 @@ export const Room: React.FC = () => {
   const [camActive, setCamActive] = useState(true);
   const [activeTab, setActiveTab] = useState<'topics' | 'chat'>('topics');
   const [isReportOpen, setIsReportOpen] = useState(false);
+  const [isRatingOpen, setIsRatingOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Avatar do usuário para exibição em modo Apenas Áudio
@@ -171,6 +173,16 @@ export const Room: React.FC = () => {
   const handleConfirmReport = (reason: string) => {
     console.log('Denúncia enviada:', reason);
     setIsReportOpen(false);
+    setIsRatingOpen(true);
+  };
+
+  const handleEndCall = () => {
+    setIsRatingOpen(true);
+  };
+
+  const handleRatingSubmit = (data: { partnerRating: number; platformRating: number; comment: string }) => {
+    console.log('Avaliação submetida:', data);
+    setIsRatingOpen(false);
     navigate('/dashboard');
   };
 
@@ -190,7 +202,7 @@ export const Room: React.FC = () => {
       {!isFullscreen && (
         <header className="bg-[#FFFFFF] border-b border-[#E7E5E4] px-6 py-3 flex items-center justify-between shrink-0 z-30 shadow-sm">
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/dashboard')}>
+            <div className="flex items-center gap-3 cursor-pointer" onClick={handleEndCall}>
               <div className="w-8 h-8 rounded-md bg-[#1C1917] flex items-center justify-center font-black text-[#FAF9F6] text-base">
                 S
               </div>
@@ -213,7 +225,7 @@ export const Room: React.FC = () => {
 
           <button
             type="button"
-            onClick={() => navigate('/dashboard')}
+            onClick={handleEndCall}
             className="bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
           >
             Encerrar e Sair
@@ -262,7 +274,7 @@ export const Room: React.FC = () => {
           {/* Feed de Vídeo Remoto (Parceiro) */}
           <div className="absolute inset-0 bg-[#F5F5F4] flex items-center justify-center">
             <img
-              src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=1200&auto=format&fit=crop&q=80"
+              src="https://i.pinimg.com/originals/f5/1f/40/f51f40d8e9e75552feaa1d57597d8d3f.jpg"
               alt="Alex (Parceiro de Conversa)"
               className="w-full h-full object-cover"
             />
@@ -376,7 +388,7 @@ export const Room: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => setCurrentTopic(getRandomTopic())}
+              onClick={handleEndCall}
               className="px-5 py-2.5 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 shadow-sm"
             >
               <span>⏭</span> PRÓXIMO PAR
@@ -496,6 +508,13 @@ export const Room: React.FC = () => {
         isOpen={isReportOpen}
         onClose={() => setIsReportOpen(false)}
         onConfirm={handleConfirmReport}
+      />
+
+      <RatingModal
+        isOpen={isRatingOpen}
+        onClose={() => setIsRatingOpen(false)}
+        onSubmit={handleRatingSubmit}
+        partnerName="Alex (Espanha)"
       />
     </div>
   );

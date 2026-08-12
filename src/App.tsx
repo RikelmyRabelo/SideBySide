@@ -11,6 +11,7 @@ import { VerifyCode } from './pages/VerifyCode';
 import { Onboarding } from './pages/Onboarding';
 import { ForgotPassword } from './pages/ForgotPassword';
 import { ResetPassword } from './pages/ResetPassword';
+import { AuthSuccess } from './pages/AuthSuccess';
 
 export const App: React.FC = () => {
   return (
@@ -25,6 +26,7 @@ export const App: React.FC = () => {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/verify-code" element={<VerifyCode />} />
         <Route path="/onboarding" element={<Onboarding />} />
+        <Route path="/auth-success" element={<AuthSuccess />} />
 
         {/* Rotas Privadas / Internas */}
         <Route path="/dashboard" element={<Dashboard />} />
