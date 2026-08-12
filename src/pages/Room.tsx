@@ -271,8 +271,8 @@ export const Room: React.FC = () => {
             </div>
           </div>
 
-          {/* Feed PIP Local (Você) - Fixado no Canto Inferior Direito */}
-          <div className="absolute bottom-20 right-6 left-auto top-auto z-30 w-44 h-28 rounded-2xl overflow-hidden border-2 border-[#FFFFFF] shadow-2xl bg-[#1C1917]">
+          {/* Feed PIP Local (Você) */}
+          <div className="absolute bottom-5 right-6 left-auto top-auto z-30 w-44 h-28 rounded-2xl overflow-hidden border-2 border-[#FFFFFF] shadow-2xl bg-[#1C1917]">
             <video
               ref={localVideoRef}
               autoPlay
