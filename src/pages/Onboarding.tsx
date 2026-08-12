@@ -4,9 +4,8 @@ import { Button } from '../components/ui/Button';
 
 export const Onboarding: React.FC = () => {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
 
-  // Efeito de Cursor de Mouse Solido Neutro
+  // Efeito de Cursor Sólido
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
   const [cursorOpacity, setCursorOpacity] = useState(1);
@@ -14,14 +13,12 @@ export const Onboarding: React.FC = () => {
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       setMousePos({ x: e.clientX, y: e.clientY });
-
       const padding = 40;
       const isNearEdge =
         e.clientX < padding ||
         e.clientY < padding ||
         e.clientX > window.innerWidth - padding ||
         e.clientY > window.innerHeight - padding;
-
       setCursorOpacity(isNearEdge ? 0 : 1);
     };
 
@@ -38,38 +35,39 @@ export const Onboarding: React.FC = () => {
 
   useEffect(() => {
     let animationFrameId: number;
-
     const updateFollower = () => {
       setFollowerPos((prev) => {
         const dx = mousePos.x - prev.x;
         const dy = mousePos.y - prev.y;
-        return {
-          x: prev.x + dx * 0.12,
-          y: prev.y + dy * 0.12,
-        };
+        return { x: prev.x + dx * 0.12, y: prev.y + dy * 0.12 };
       });
       animationFrameId = requestAnimationFrame(updateFollower);
     };
-
     animationFrameId = requestAnimationFrame(updateFollower);
     return () => cancelAnimationFrame(animationFrameId);
   }, [mousePos]);
 
-  // Estados Form Passo 1: Informações Pessoais Completa
+  // Estados dos Campos e Confirmação de Etapas (Checklist em Cadeia)
+  const defaultAvatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80';
+  const [avatarUrl, setAvatarUrl] = useState(defaultAvatar);
+  const [hasChosenPhoto, setHasChosenPhoto] = useState(false);
+  const [skipPhoto, setSkipPhoto] = useState(false);
+
   const [displayName, setDisplayName] = useState('');
   const [age, setAge] = useState<number | string>(24);
+  const [showAgeInProfile, setShowAgeInProfile] = useState(true);
   const [gender, setGender] = useState('Masculino');
   const [pronouns, setPronouns] = useState('ele/dele (he/him)');
   const [bio, setBio] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState(
-    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80'
-  );
-
-  // Estados Form Passo 2: Nível CEFR
-  const [cefrLevel, setCefrLevel] = useState('B1');
-
-  // Estados Form Passo 3: Tópicos de Interesse
+  const [cefrLevel, setCefrLevel] = useState('');
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+
+  // Liberação Dinâmica dos Campos (Checklist)
+  const step1PhotoDone = hasChosenPhoto || skipPhoto;
+  const step2NameDone = step1PhotoDone && displayName.trim().length > 0;
+  const step3DetailsDone = step2NameDone && age !== '' && gender !== '' && pronouns !== '';
+  const step4CefrDone = step3DetailsDone && cefrLevel !== '';
+  const step5InterestsDone = step4CefrDone && selectedInterests.length > 0;
 
   const topicsLibrary = [
     { category: 'Tecnologia & Carreira', items: ['Tecnologia', 'Carreira & Negócios', 'Inteligência Artificial', 'Startups', 'Programação', 'Marketing Digital'] },
@@ -93,27 +91,17 @@ export const Onboarding: React.FC = () => {
     const file = e.target.files?.[0];
     if (file) {
       setAvatarUrl(URL.createObjectURL(file));
-    }
-  };
-
-  const handleNext = () => {
-    if (step === 1 && !displayName.trim()) {
-      alert('Por favor, informe seu nome de exibição.');
-      return;
-    }
-    if (step < 3) {
-      setStep((prev) => prev + 1);
-    } else {
-      navigate('/dashboard');
+      setHasChosenPhoto(true);
+      setSkipPhoto(false);
     }
   };
 
   const cefrLevelsInfo = [
-    { code: 'A1', label: 'Iniciante', desc: 'Compreende frases simples do dia a dia.' },
-    { code: 'A2', label: 'Básico', desc: 'Comunica-se em tarefas rotineiras.' },
-    { code: 'B1', label: 'Intermediário', desc: 'Mantém conversas sobre temas familiares.' },
-    { code: 'B2', label: 'Intermediário Avançado', desc: 'Fala com fluência e espontaneidade.' },
-    { code: 'C1', label: 'Avançado', desc: 'Expressa-se de forma fluida e bem estruturada.' },
+    { code: 'A1', label: 'Iniciante', desc: 'Compreende frases simples e expressões cotidianas.' },
+    { code: 'A2', label: 'Básico', desc: 'Comunica-se em tarefas rotineiras e diretas.' },
+    { code: 'B1', label: 'Intermediário', desc: 'Mantém conversas sobre temas familiares de interesse.' },
+    { code: 'B2', label: 'Intermediário Avançado', desc: 'Fala com fluência e espontaneidade sem esforço.' },
+    { code: 'C1', label: 'Avançado', desc: 'Expressa-se de forma fluida, natural e estruturada.' },
   ];
 
   return (
@@ -129,90 +117,140 @@ export const Onboarding: React.FC = () => {
         }}
       />
 
-      {/* Header Bar */}
       <header className="bg-[#FFFFFF] border-b border-[#E7E5E4] px-6 py-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-md bg-[#1C1917] flex items-center justify-center font-black text-[#FAF9F6] text-base">
+          <div className="w-8 h-8 rounded-lg bg-[#1C1917] flex items-center justify-center font-black text-[#FAF9F6] text-base shadow-sm">
             S
           </div>
           <span className="text-lg font-black tracking-tight text-[#1C1917] uppercase">SideBySide</span>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-black uppercase text-[#1C1917]">Etapa {step} de 3</span>
-        </div>
       </header>
 
-      {/* Progress Bar Topo */}
-      <div className="w-full bg-[#E7E5E4] h-1.5">
-        <div
-          className="bg-[#1C1917] h-full transition-all duration-300 ease-out"
-          style={{ width: `${(step / 3) * 100}%` }}
-        />
-      </div>
-
       <main className="flex-1 max-w-2xl w-full mx-auto p-6 lg:p-8 flex flex-col justify-center my-auto">
-        <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-10 shadow-sm flex flex-col gap-6">
+        <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-10 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-8 relative">
           
-          {/* PASSO 1: DADOS PESSOAIS */}
-          {step === 1 && (
-            <div className="flex flex-col gap-6 animate-in fade-in duration-150">
-              <div className="flex flex-col gap-1 text-center">
-                <span className="text-[10px] font-black tracking-widest text-[#78716C] uppercase bg-[#F5F5F4] border border-[#E7E5E4] px-3 py-1 rounded-md w-fit mx-auto">
-                  PASSO 01 / 03
-                </span>
-                <h1 className="text-2xl font-black uppercase tracking-tight text-[#1C1917] mt-1">
-                  Monte seu Perfil
-                </h1>
-                <p className="text-xs text-[#57534E] font-medium">
-                  Preencha as informações para apresentarmos você à comunidade das salas.
-                </p>
-              </div>
+          {/* TOPO: IDENTIDADE DO ESTUDO */}
+          <div className="flex flex-col gap-1 text-center border-b border-[#E7E5E4] pb-4">
+            <span className="text-[10px] font-black tracking-widest text-[#1C1917] uppercase bg-[#FAF9F6] border border-[#1C1917] px-3 py-1 rounded-lg w-fit mx-auto shadow-sm">
+              ONBOARDING PROGRESSIVO
+            </span>
+            <h1 className="text-2xl font-black uppercase tracking-tight text-[#1C1917] mt-2">
+              Identidade do Estudo
+            </h1>
+            <p className="text-xs text-[#57534E] font-medium">
+              Preencha os campos abaixo em ordem para desbloquear as opções do seu perfil.
+            </p>
+          </div>
 
-              <div className="flex flex-col items-center gap-3">
-                <div className="relative group w-20 h-20 rounded-2xl overflow-hidden border-2 border-[#E7E5E4] bg-[#F5F5F4] shrink-0">
-                  <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-                  <label className="absolute inset-0 bg-[#1C1917]/70 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center cursor-pointer transition-opacity text-center p-1">
-                    <svg className="w-4 h-4 stroke-[#FAF9F6] fill-none stroke-2" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
-                    </svg>
-                    <span className="text-[#FAF9F6] text-[9px] font-bold uppercase mt-1">Alterar Foto</span>
-                    <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
-                  </label>
-                </div>
-              </div>
+          {/* ITEM 1: SELEÇÃO DA FOTO */}
+          <div className="flex flex-col items-center gap-4 border-b border-[#E7E5E4] pb-6">
+            <span className="text-xs font-black text-[#1C1917] uppercase tracking-wider flex items-center gap-2">
+              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${step1PhotoDone ? 'bg-emerald-600 text-white' : 'bg-[#1C1917] text-[#FAF9F6]'}`}>
+                {step1PhotoDone ? '✓' : '1'}
+              </span>
+              SELECIONE UMA FOTO DE PERFIL
+            </span>
+
+            <div className="relative group w-24 h-24 rounded-2xl overflow-hidden border-2 border-[#1C1917] bg-[#F5F5F4] shrink-0 shadow-sm">
+              <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+              <label className="absolute inset-0 bg-[#1C1917]/80 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center cursor-pointer transition-all text-center p-1">
+                <svg className="w-5 h-5 stroke-[#FAF9F6] fill-none stroke-2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                </svg>
+                <span className="text-[#FAF9F6] text-[9px] font-black uppercase mt-1">Alterar Foto</span>
+                <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+              </label>
+            </div>
+
+            <label className="flex items-center gap-2 cursor-pointer bg-[#FAF9F6] border border-[#E7E5E4] px-3 py-1.5 rounded-xl hover:border-[#1C1917] transition-all">
+              <input
+                type="checkbox"
+                checked={skipPhoto}
+                onChange={(e) => {
+                  setSkipPhoto(e.target.checked);
+                  if (e.target.checked) {
+                    setHasChosenPhoto(false);
+                    setAvatarUrl(defaultAvatar);
+                  }
+                }}
+                className="rounded border-[#E7E5E4] text-[#1C1917] focus:ring-[#1C1917]"
+              />
+              <span className="text-xs font-bold text-[#1C1917] uppercase">Quero usar a foto padrão</span>
+            </label>
+          </div>
+
+          {/* ITEM 2: NOME DE EXIBIÇÃO */}
+          {step1PhotoDone && (
+            <div className="flex flex-col gap-2 border-b border-[#E7E5E4] pb-6 animate-in fade-in duration-300">
+              <span className="text-xs font-black text-[#1C1917] uppercase tracking-wider flex items-center gap-2">
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${step2NameDone ? 'bg-emerald-600 text-white' : 'bg-[#1C1917] text-[#FAF9F6]'}`}>
+                  {step2NameDone ? '✓' : '2'}
+                </span>
+                QUAL É SEU NOME DE EXIBIÇÃO? *
+              </span>
+              <input
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="Digite seu nome completo ou de preferência..."
+                className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] transition-all"
+              />
+            </div>
+          )}
+
+          {/* ITEM 3: IDADE, GÊNERO, PRONOMES E BIO */}
+          {step2NameDone && (
+            <div className="flex flex-col gap-4 border-b border-[#E7E5E4] pb-6 animate-in fade-in duration-300">
+              <span className="text-xs font-black text-[#1C1917] uppercase tracking-wider flex items-center gap-2">
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${step3DetailsDone ? 'bg-emerald-600 text-white' : 'bg-[#1C1917] text-[#FAF9F6]'}`}>
+                  {step3DetailsDone ? '✓' : '3'}
+                </span>
+                DETALHES PESSOAIS & SOCIAL
+              </span>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5 sm:col-span-2">
-                  <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
-                    Nome Completo / Exibição *
-                  </label>
-                  <input
-                    type="text"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="Ex: Lucas Silva"
-                    className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
-                  />
-                </div>
-
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Idade</label>
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-black text-[#1C1917] uppercase">Idade</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowAgeInProfile(!showAgeInProfile)}
+                      className="text-[10px] font-black uppercase text-[#1C1917] hover:underline flex items-center gap-1.5 bg-[#FAF9F6] px-2 py-0.5 rounded border border-[#E7E5E4]"
+                    >
+                      {showAgeInProfile ? (
+                        <>
+                          <svg className="w-3.5 h-3.5 stroke-current fill-none stroke-2" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          <span>Visível</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-3.5 h-3.5 stroke-current fill-none stroke-2" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                          </svg>
+                          <span>Oculta</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                   <input
                     type="number"
                     min={18}
                     max={100}
                     value={age}
                     onChange={(e) => setAge(e.target.value)}
-                    className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+                    className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
                   />
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Gênero</label>
+                  <label className="text-xs font-black text-[#1C1917] uppercase">Gênero</label>
                   <select
                     value={gender}
                     onChange={(e) => setGender(e.target.value)}
-                    className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+                    className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
                   >
                     <option value="Masculino">Masculino</option>
                     <option value="Feminino">Feminino</option>
@@ -222,11 +260,11 @@ export const Onboarding: React.FC = () => {
                 </div>
 
                 <div className="flex flex-col gap-1.5 sm:col-span-2">
-                  <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Pronomes</label>
+                  <label className="text-xs font-black text-[#1C1917] uppercase">Pronomes de Tratamento</label>
                   <select
                     value={pronouns}
                     onChange={(e) => setPronouns(e.target.value)}
-                    className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+                    className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
                   >
                     <option value="ele/dele (he/him)">ele/dele (he/him)</option>
                     <option value="ela/dela (she/her)">ela/dela (she/her)</option>
@@ -236,33 +274,32 @@ export const Onboarding: React.FC = () => {
                 </div>
 
                 <div className="flex flex-col gap-1.5 sm:col-span-2">
-                  <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Mini Biografia</label>
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-black text-[#1C1917] uppercase">Mini Biografia (Opcional)</label>
+                    <span className="text-[10px] font-bold text-[#78716C] uppercase">{bio.length}/140</span>
+                  </div>
                   <textarea
                     rows={2}
+                    maxLength={140}
                     value={bio}
                     onChange={(e) => setBio(e.target.value)}
-                    placeholder="Conte um pouco sobre suas metas de prática..."
-                    className="w-full p-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] resize-none"
+                    placeholder="Conte um pouco sobre suas metas de conversa..."
+                    className="w-full p-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] resize-none"
                   />
                 </div>
               </div>
             </div>
           )}
 
-          {/* PASSO 2: CEFR LEVEL */}
-          {step === 2 && (
-            <div className="flex flex-col gap-6 animate-in fade-in duration-150">
-              <div className="flex flex-col gap-1 text-center">
-                <span className="text-[10px] font-black tracking-widest text-[#78716C] uppercase bg-[#F5F5F4] border border-[#E7E5E4] px-3 py-1 rounded-md w-fit mx-auto">
-                  PASSO 02 / 03
+          {/* ITEM 4: SELEÇÃO CEFR */}
+          {step3DetailsDone && (
+            <div className="flex flex-col gap-3 border-b border-[#E7E5E4] pb-6 animate-in fade-in duration-300">
+              <span className="text-xs font-black text-[#1C1917] uppercase tracking-wider flex items-center gap-2">
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${step4CefrDone ? 'bg-emerald-600 text-white' : 'bg-[#1C1917] text-[#FAF9F6]'}`}>
+                  {step4CefrDone ? '✓' : '4'}
                 </span>
-                <h1 className="text-2xl font-black uppercase tracking-tight text-[#1C1917] mt-1">
-                  Nível de Fluência
-                </h1>
-                <p className="text-xs text-[#57534E] font-medium">
-                  Usaremos este nível para parear você com pares equivalentes.
-                </p>
-              </div>
+                QUAL SEU NÍVEL CEFR ATUAL? *
+              </span>
 
               <div className="flex flex-col gap-2.5">
                 {cefrLevelsInfo.map((item) => {
@@ -272,23 +309,26 @@ export const Onboarding: React.FC = () => {
                       key={item.code}
                       type="button"
                       onClick={() => setCefrLevel(item.code)}
-                      className={`p-3.5 rounded-xl border text-left flex items-center justify-between gap-4 transition-all ${
+                      className={`p-3.5 rounded-2xl border-2 text-left flex items-center justify-between gap-4 transition-all ${
                         isSelected
-                          ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]'
+                          ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917] shadow-sm'
                           : 'bg-[#FAF9F6] text-[#1C1917] border-[#E7E5E4] hover:border-[#1C1917]'
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <span className={`w-8 h-8 rounded-lg font-black text-xs flex items-center justify-center ${isSelected ? 'bg-[#292524] text-[#FAF9F6]' : 'bg-[#E7E5E4] text-[#1C1917]'}`}>
+                        <span className={`w-8 h-8 rounded-xl font-black text-xs flex items-center justify-center border-2 ${
+                          isSelected ? 'bg-[#FAF9F6] text-[#1C1917] border-[#FAF9F6]' : 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]'
+                        }`}>
                           {item.code}
                         </span>
                         <div className="flex flex-col">
-                          <span className="text-xs font-bold uppercase">{item.label}</span>
-                          <span className={`text-[11px] font-medium ${isSelected ? 'text-[#A8A29E]' : 'text-[#78716C]'}`}>
+                          <span className="text-xs font-black uppercase">{item.label}</span>
+                          <span className={`text-[11px] font-medium ${isSelected ? 'text-[#D6D3D1]' : 'text-[#78716C]'}`}>
                             {item.desc}
                           </span>
                         </div>
                       </div>
+                      {isSelected && <span className="text-xs font-black">✓</span>}
                     </button>
                   );
                 })}
@@ -296,33 +336,28 @@ export const Onboarding: React.FC = () => {
             </div>
           )}
 
-          {/* PASSO 3: TÓPICOS DE INTERESSE */}
-          {step === 3 && (
-            <div className="flex flex-col gap-6 animate-in fade-in duration-150">
-              <div className="flex flex-col gap-1 text-center">
-                <div className="flex items-center justify-center gap-2">
-                  <span className="text-[10px] font-black tracking-widest text-[#78716C] uppercase bg-[#F5F5F4] border border-[#E7E5E4] px-3 py-1 rounded-md">
-                    PASSO 03 / 03
+          {/* ITEM 5: TÓPICOS DE INTERESSE */}
+          {step4CefrDone && (
+            <div className="flex flex-col gap-4 animate-in fade-in duration-300">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-[#1C1917] uppercase tracking-wider flex items-center gap-2">
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${step5InterestsDone ? 'bg-emerald-600 text-white' : 'bg-[#1C1917] text-[#FAF9F6]'}`}>
+                    {step5InterestsDone ? '✓' : '5'}
                   </span>
-                  <span className="text-[10px] font-black uppercase bg-[#1C1917] text-[#FAF9F6] px-2 py-0.5 rounded">
-                    {selectedInterests.length}/5
-                  </span>
-                </div>
-                <h1 className="text-2xl font-black uppercase tracking-tight text-[#1C1917] mt-1">
-                  Interesses de Conversa
-                </h1>
-                <p className="text-xs text-[#57534E] font-medium">
-                  Selecione até 5 tópicos principais para personalização.
-                </p>
+                  ESCOLHA ATÉ 5 TÓPICOS DE INTERESSE *
+                </span>
+                <span className="text-[10px] font-black bg-[#1C1917] text-[#FAF9F6] px-2 py-0.5 rounded">
+                  {selectedInterests.length}/5
+                </span>
               </div>
 
               <div className="flex flex-col gap-4">
                 {topicsLibrary.map((cat) => (
-                  <div key={cat.category} className="flex flex-col gap-1.5">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-[#78716C]">
+                  <div key={cat.category} className="flex flex-col gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-[#78716C] bg-[#F5F5F4] px-2.5 py-0.5 rounded border border-[#E7E5E4] w-fit">
                       {cat.category}
                     </span>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-2">
                       {cat.items.map((item) => {
                         const isSelected = selectedInterests.includes(item);
                         return (
@@ -330,10 +365,10 @@ export const Onboarding: React.FC = () => {
                             key={item}
                             type="button"
                             onClick={() => toggleInterest(item)}
-                            className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${
+                            className={`px-3.5 py-2 rounded-xl border-2 text-xs font-black transition-all ${
                               isSelected
-                                ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]'
-                                : 'bg-[#FAF9F6] text-[#78716C] border-[#E7E5E4] hover:border-[#1C1917]'
+                                ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917] shadow-sm'
+                                : 'bg-[#FAF9F6] text-[#57534E] border-[#E7E5E4] hover:border-[#1C1917]'
                             }`}
                           >
                             {isSelected ? `✓ ${item}` : `+ ${item}`}
@@ -347,25 +382,18 @@ export const Onboarding: React.FC = () => {
             </div>
           )}
 
-          {/* BARRA DE BOTÕES INFERIOR */}
-          <div className="flex gap-3 pt-4 border-t border-[#E7E5E4]">
-            {step > 1 && (
-              <button
-                type="button"
-                onClick={() => setStep((prev) => prev - 1)}
-                className="flex-1 py-3 bg-[#F5F5F4] hover:bg-[#E7E5E4] text-[#1C1917] font-bold text-xs uppercase tracking-wider rounded-xl transition-all"
+          {/* BOTÃO FINAL */}
+          {step5InterestsDone && (
+            <div className="pt-4 border-t border-[#E7E5E4] animate-in fade-in duration-300">
+              <Button
+                variant="primary"
+                onClick={() => navigate('/dashboard')}
+                className="w-full py-4 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-black text-xs uppercase tracking-widest rounded-xl transition-all border-2 border-[#1C1917] shadow-lg"
               >
-                Voltar
-              </button>
-            )}
-            <Button
-              variant="primary"
-              onClick={handleNext}
-              className="flex-1 py-3 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-bold text-xs uppercase tracking-widest rounded-xl transition-all"
-            >
-              {step === 3 ? 'Concluir e Entrar' : 'Continuar'}
-            </Button>
-          </div>
+                Concluir Onboarding e Entrar
+              </Button>
+            </div>
+          )}
 
         </div>
       </main>
