@@ -8,6 +8,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Room } from './pages/Room';
 import { Profile } from './pages/Profile';
 import { VerifyCode } from './pages/VerifyCode';
+import { Onboarding } from './pages/Onboarding';
 
 export const App: React.FC = () => {
   return (
@@ -18,6 +19,8 @@ export const App: React.FC = () => {
         <Route path="/terms" element={<Terms />} />
         <Route path="/moderation" element={<Moderation />} />
         <Route path="/privacy" element={<Privacy />} />
+        <Route path="/verify-code" element={<VerifyCode />} />
+        <Route path="/onboarding" element={<Onboarding />} />
 
         {/* Rotas Privadas / Internas */}
         <Route path="/dashboard" element={<Dashboard />} />
