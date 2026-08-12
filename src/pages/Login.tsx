@@ -274,7 +274,11 @@ export const Login: React.FC = () => {
       return;
     }
 
-    alert(isLogin ? 'Login realizado com sucesso!' : 'Conta criada com sucesso!');
+    if (isLogin) {
+      navigate('/dashboard');
+    } else {
+      navigate('/verify-code');
+    }
   };
 
   const faqItems = [
