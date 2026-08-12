@@ -5,7 +5,7 @@ import { Button } from '../components/ui/Button';
 export const Onboarding: React.FC = () => {
   const navigate = useNavigate();
 
-  // Efeito de Cursor Sólido
+  // Efeito de Cursor Sólido Neutro
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
   const [cursorOpacity, setCursorOpacity] = useState(1);
@@ -47,10 +47,9 @@ export const Onboarding: React.FC = () => {
     return () => cancelAnimationFrame(animationFrameId);
   }, [mousePos]);
 
-  // Estados dos Campos e Confirmação de Etapas (Checklist em Cadeia)
+  // Estados dos Campos
   const defaultAvatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80';
   const [avatarUrl, setAvatarUrl] = useState(defaultAvatar);
-  const [hasChosenPhoto, setHasChosenPhoto] = useState(false);
   const [skipPhoto, setSkipPhoto] = useState(false);
 
   const [displayName, setDisplayName] = useState('');
@@ -58,40 +57,19 @@ export const Onboarding: React.FC = () => {
   const [showAgeInProfile, setShowAgeInProfile] = useState(true);
   const [gender, setGender] = useState('Masculino');
   const [pronouns, setPronouns] = useState('ele/dele (he/him)');
+
   const [bio, setBio] = useState('');
   const [cefrLevel, setCefrLevel] = useState('');
-  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
 
-  // Liberação Dinâmica dos Campos (Checklist)
-  const step1PhotoDone = hasChosenPhoto || skipPhoto;
-  const step2NameDone = step1PhotoDone && displayName.trim().length > 0;
-  const step3DetailsDone = step2NameDone && age !== '' && gender !== '' && pronouns !== '';
-  const step4CefrDone = step3DetailsDone && cefrLevel !== '';
-  const step5InterestsDone = step4CefrDone && selectedInterests.length > 0;
-
-  const topicsLibrary = [
-    { category: 'Tecnologia & Carreira', items: ['Tecnologia', 'Carreira & Negócios', 'Inteligência Artificial', 'Startups', 'Programação', 'Marketing Digital'] },
-    { category: 'Cultura & Entretenimento', items: ['Cinema & Séries', 'Música', 'Leitura', 'Jogos & eSports', 'Arte & Design', 'Fotografia'] },
-    { category: 'Estilo de Vida & Hobbies', items: ['Viagens', 'Esportes', 'Culinária', 'Saúde & Fitness', 'Gastronomia', 'Idiomas'] },
-  ];
-
-  const toggleInterest = (topic: string) => {
-    if (selectedInterests.includes(topic)) {
-      setSelectedInterests(selectedInterests.filter((t) => t !== topic));
-    } else {
-      if (selectedInterests.length >= 5) {
-        alert('Selecione no máximo 5 tópicos.');
-        return;
-      }
-      setSelectedInterests([...selectedInterests, topic]);
-    }
-  };
+  // Travas de Confirmação Manual (Divisões 1 e 2)
+  const [photoConfirmed, setPhotoConfirmed] = useState(false);
+  const [personalConfirmed, setPersonalConfirmed] = useState(false);
+  const [bioConfirmed, setBioConfirmed] = useState(false);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setAvatarUrl(URL.createObjectURL(file));
-      setHasChosenPhoto(true);
       setSkipPhoto(false);
     }
   };
@@ -129,7 +107,6 @@ export const Onboarding: React.FC = () => {
       <main className="flex-1 max-w-2xl w-full mx-auto p-6 lg:p-8 flex flex-col justify-center my-auto">
         <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-10 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-8 relative">
           
-          {/* TOPO: IDENTIDADE DO ESTUDO */}
           <div className="flex flex-col gap-1 text-center border-b border-[#E7E5E4] pb-4">
             <span className="text-[10px] font-black tracking-widest text-[#1C1917] uppercase bg-[#FAF9F6] border border-[#1C1917] px-3 py-1 rounded-lg w-fit mx-auto shadow-sm">
               ONBOARDING PROGRESSIVO
@@ -138,82 +115,101 @@ export const Onboarding: React.FC = () => {
               Identidade do Estudo
             </h1>
             <p className="text-xs text-[#57534E] font-medium">
-              Preencha os campos abaixo em ordem para desbloquear as opções do seu perfil.
+              Confirme cada seção para liberar a etapa seguinte.
             </p>
           </div>
 
-          {/* ITEM 1: SELEÇÃO DA FOTO */}
+          {/* DIVISÃO 1: FOTO DE PERFIL */}
           <div className="flex flex-col items-center gap-4 border-b border-[#E7E5E4] pb-6">
             <span className="text-xs font-black text-[#1C1917] uppercase tracking-wider flex items-center gap-2">
-              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${step1PhotoDone ? 'bg-emerald-600 text-white' : 'bg-[#1C1917] text-[#FAF9F6]'}`}>
-                {step1PhotoDone ? '✓' : '1'}
+              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${photoConfirmed ? 'bg-emerald-600 text-white' : 'bg-[#1C1917] text-[#FAF9F6]'}`}>
+                {photoConfirmed ? '✓' : '1'}
               </span>
-              SELECIONE UMA FOTO DE PERFIL
+              1. FOTO DE PERFIL
             </span>
 
             <div className="relative group w-24 h-24 rounded-2xl overflow-hidden border-2 border-[#1C1917] bg-[#F5F5F4] shrink-0 shadow-sm">
               <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-              <label className="absolute inset-0 bg-[#1C1917]/80 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center cursor-pointer transition-all text-center p-1">
-                <svg className="w-5 h-5 stroke-[#FAF9F6] fill-none stroke-2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
-                </svg>
-                <span className="text-[#FAF9F6] text-[9px] font-black uppercase mt-1">Alterar Foto</span>
-                <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
-              </label>
+              {!photoConfirmed && (
+                <label className="absolute inset-0 bg-[#1C1917]/80 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center cursor-pointer transition-all text-center p-1">
+                  <svg className="w-5 h-5 stroke-[#FAF9F6] fill-none stroke-2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                  </svg>
+                  <span className="text-[#FAF9F6] text-[9px] font-black uppercase mt-1">Alterar Foto</span>
+                  <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+                </label>
+              )}
             </div>
 
-            <label className="flex items-center gap-2 cursor-pointer bg-[#FAF9F6] border border-[#E7E5E4] px-3 py-1.5 rounded-xl hover:border-[#1C1917] transition-all">
-              <input
-                type="checkbox"
-                checked={skipPhoto}
-                onChange={(e) => {
-                  setSkipPhoto(e.target.checked);
-                  if (e.target.checked) {
-                    setHasChosenPhoto(false);
-                    setAvatarUrl(defaultAvatar);
-                  }
+            {!photoConfirmed && (
+              <label className="flex items-center gap-2 cursor-pointer bg-[#FAF9F6] border border-[#E7E5E4] px-3 py-1.5 rounded-xl hover:border-[#1C1917] transition-all">
+                <input
+                  type="checkbox"
+                  checked={skipPhoto}
+                  onChange={(e) => {
+                    setSkipPhoto(e.target.checked);
+                    if (e.target.checked) setAvatarUrl(defaultAvatar);
+                  }}
+                  className="rounded border-[#E7E5E4] text-[#1C1917] focus:ring-[#1C1917]"
+                />
+                <span className="text-xs font-bold text-[#1C1917] uppercase">Usar foto padrão</span>
+              </label>
+            )}
+
+            {!photoConfirmed ? (
+              <Button
+                variant="primary"
+                onClick={() => setPhotoConfirmed(true)}
+                className="py-2.5 px-6 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-black text-xs uppercase tracking-wider rounded-xl transition-all border-2 border-[#1C1917]"
+              >
+                Confirmar Foto
+              </Button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setPhotoConfirmed(false);
+                  setPersonalConfirmed(false);
+                  setBioConfirmed(false);
                 }}
-                className="rounded border-[#E7E5E4] text-[#1C1917] focus:ring-[#1C1917]"
-              />
-              <span className="text-xs font-bold text-[#1C1917] uppercase">Quero usar a foto padrão</span>
-            </label>
+                className="text-[10px] font-black uppercase text-[#78716C] underline hover:text-[#1C1917]"
+              >
+                Alterar Foto
+              </button>
+            )}
           </div>
 
-          {/* ITEM 2: NOME DE EXIBIÇÃO */}
-          {step1PhotoDone && (
-            <div className="flex flex-col gap-2 border-b border-[#E7E5E4] pb-6 animate-in fade-in duration-300">
+          {/* DIVISÃO 2: DADOS PESSOAIS */}
+          {photoConfirmed && (
+            <div className="flex flex-col gap-4 border-b border-[#E7E5E4] pb-6 animate-in fade-in slide-in-from-top-4 duration-500 ease-out">
               <span className="text-xs font-black text-[#1C1917] uppercase tracking-wider flex items-center gap-2">
-                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${step2NameDone ? 'bg-emerald-600 text-white' : 'bg-[#1C1917] text-[#FAF9F6]'}`}>
-                  {step2NameDone ? '✓' : '2'}
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${personalConfirmed ? 'bg-emerald-600 text-white' : 'bg-[#1C1917] text-[#FAF9F6]'}`}>
+                  {personalConfirmed ? '✓' : '2'}
                 </span>
-                QUAL É SEU NOME DE EXIBIÇÃO? *
-              </span>
-              <input
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Digite seu nome completo ou de preferência..."
-                className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] transition-all"
-              />
-            </div>
-          )}
-
-          {/* ITEM 3: IDADE, GÊNERO, PRONOMES E BIO */}
-          {step2NameDone && (
-            <div className="flex flex-col gap-4 border-b border-[#E7E5E4] pb-6 animate-in fade-in duration-300">
-              <span className="text-xs font-black text-[#1C1917] uppercase tracking-wider flex items-center gap-2">
-                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${step3DetailsDone ? 'bg-emerald-600 text-white' : 'bg-[#1C1917] text-[#FAF9F6]'}`}>
-                  {step3DetailsDone ? '✓' : '3'}
-                </span>
-                DETALHES PESSOAIS & SOCIAL
+                2. DADOS PESSOAIS
               </span>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5 sm:col-span-2">
+                  <label className="text-xs font-black text-[#1C1917] uppercase">
+                    Nome Completo / Exibição *
+                  </label>
+                  <input
+                    type="text"
+                    disabled={personalConfirmed}
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="Digite seu nome completo..."
+                    className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] disabled:opacity-75"
+                  />
+                </div>
+
                 <div className="flex flex-col gap-1.5">
                   <div className="flex justify-between items-center">
                     <label className="text-xs font-black text-[#1C1917] uppercase">Idade</label>
                     <button
                       type="button"
+                      disabled={personalConfirmed}
                       onClick={() => setShowAgeInProfile(!showAgeInProfile)}
                       className="text-[10px] font-black uppercase text-[#1C1917] hover:underline flex items-center gap-1.5 bg-[#FAF9F6] px-2 py-0.5 rounded border border-[#E7E5E4]"
                     >
@@ -239,18 +235,20 @@ export const Onboarding: React.FC = () => {
                     type="number"
                     min={18}
                     max={100}
+                    disabled={personalConfirmed}
                     value={age}
                     onChange={(e) => setAge(e.target.value)}
-                    className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+                    className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] disabled:opacity-75"
                   />
                 </div>
 
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-black text-[#1C1917] uppercase">Gênero</label>
                   <select
+                    disabled={personalConfirmed}
                     value={gender}
                     onChange={(e) => setGender(e.target.value)}
-                    className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+                    className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] disabled:opacity-75"
                   >
                     <option value="Masculino">Masculino</option>
                     <option value="Feminino">Feminino</option>
@@ -262,9 +260,10 @@ export const Onboarding: React.FC = () => {
                 <div className="flex flex-col gap-1.5 sm:col-span-2">
                   <label className="text-xs font-black text-[#1C1917] uppercase">Pronomes de Tratamento</label>
                   <select
+                    disabled={personalConfirmed}
                     value={pronouns}
                     onChange={(e) => setPronouns(e.target.value)}
-                    className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+                    className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] disabled:opacity-75"
                   >
                     <option value="ele/dele (he/him)">ele/dele (he/him)</option>
                     <option value="ela/dela (she/her)">ela/dela (she/her)</option>
@@ -272,33 +271,91 @@ export const Onboarding: React.FC = () => {
                     <option value="Qualquer pronome (any pronouns)">Qualquer pronome (any pronouns)</option>
                   </select>
                 </div>
-
-                <div className="flex flex-col gap-1.5 sm:col-span-2">
-                  <div className="flex justify-between items-center">
-                    <label className="text-xs font-black text-[#1C1917] uppercase">Mini Biografia (Opcional)</label>
-                    <span className="text-[10px] font-bold text-[#78716C] uppercase">{bio.length}/140</span>
-                  </div>
-                  <textarea
-                    rows={2}
-                    maxLength={140}
-                    value={bio}
-                    onChange={(e) => setBio(e.target.value)}
-                    placeholder="Conte um pouco sobre suas metas de conversa..."
-                    className="w-full p-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] resize-none"
-                  />
-                </div>
               </div>
+
+              {!personalConfirmed ? (
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    if (!displayName.trim()) {
+                      alert('Por favor, informe seu nome de exibição.');
+                      return;
+                    }
+                    setPersonalConfirmed(true);
+                  }}
+                  className="py-2.5 px-6 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-black text-xs uppercase tracking-wider rounded-xl transition-all border-2 border-[#1C1917] mt-2 self-start"
+                >
+                  Salvar Dados Pessoais
+                </Button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPersonalConfirmed(false);
+                    setBioConfirmed(false);
+                  }}
+                  className="text-[10px] font-black uppercase text-[#78716C] underline hover:text-[#1C1917] self-start"
+                >
+                  Editar Dados Pessoais
+                </button>
+              )}
             </div>
           )}
 
-          {/* ITEM 4: SELEÇÃO CEFR */}
-          {step3DetailsDone && (
-            <div className="flex flex-col gap-3 border-b border-[#E7E5E4] pb-6 animate-in fade-in duration-300">
+          {/* DIVISÃO 3: MINI BIOGRAFIA */}
+          {personalConfirmed && (
+            <div className="flex flex-col gap-4 border-b border-[#E7E5E4] pb-6 animate-in fade-in slide-in-from-top-4 duration-500 ease-out">
               <span className="text-xs font-black text-[#1C1917] uppercase tracking-wider flex items-center gap-2">
-                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${step4CefrDone ? 'bg-emerald-600 text-white' : 'bg-[#1C1917] text-[#FAF9F6]'}`}>
-                  {step4CefrDone ? '✓' : '4'}
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${bioConfirmed ? 'bg-emerald-600 text-white' : 'bg-[#1C1917] text-[#FAF9F6]'}`}>
+                  {bioConfirmed ? '✓' : '3'}
                 </span>
-                QUAL SEU NÍVEL CEFR ATUAL? *
+                3. MINI BIOGRAFIA
+              </span>
+
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-black text-[#1C1917] uppercase">Conte sobre você (Opcional)</label>
+                  <span className="text-[10px] font-bold text-[#78716C] uppercase">{bio.length}/140</span>
+                </div>
+                <textarea
+                  rows={2}
+                  maxLength={140}
+                  disabled={bioConfirmed}
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  placeholder="Conte um pouco sobre suas metas de conversa..."
+                  className="w-full p-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] resize-none disabled:opacity-75"
+                />
+              </div>
+
+              {!bioConfirmed ? (
+                <Button
+                  variant="primary"
+                  onClick={() => setBioConfirmed(true)}
+                  className="py-2.5 px-6 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-black text-xs uppercase tracking-wider rounded-xl transition-all border-2 border-[#1C1917] self-start"
+                >
+                  Confirmar Biografia
+                </Button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setBioConfirmed(false)}
+                  className="text-[10px] font-black uppercase text-[#78716C] underline hover:text-[#1C1917] self-start"
+                >
+                  Editar Biografia
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* DIVISÃO 4: NÍVEL DE INGLÊS */}
+          {bioConfirmed && (
+            <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-4 duration-500 ease-out">
+              <span className="text-xs font-black text-[#1C1917] uppercase tracking-wider flex items-center gap-2">
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${cefrLevel !== '' ? 'bg-emerald-600 text-white' : 'bg-[#1C1917] text-[#FAF9F6]'}`}>
+                  {cefrLevel !== '' ? '✓' : '4'}
+                </span>
+                4. NÍVEL DE INGLÊS (CEFR) *
               </span>
 
               <div className="flex flex-col gap-2.5">
@@ -336,55 +393,9 @@ export const Onboarding: React.FC = () => {
             </div>
           )}
 
-          {/* ITEM 5: TÓPICOS DE INTERESSE */}
-          {step4CefrDone && (
-            <div className="flex flex-col gap-4 animate-in fade-in duration-300">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-black text-[#1C1917] uppercase tracking-wider flex items-center gap-2">
-                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${step5InterestsDone ? 'bg-emerald-600 text-white' : 'bg-[#1C1917] text-[#FAF9F6]'}`}>
-                    {step5InterestsDone ? '✓' : '5'}
-                  </span>
-                  ESCOLHA ATÉ 5 TÓPICOS DE INTERESSE *
-                </span>
-                <span className="text-[10px] font-black bg-[#1C1917] text-[#FAF9F6] px-2 py-0.5 rounded">
-                  {selectedInterests.length}/5
-                </span>
-              </div>
-
-              <div className="flex flex-col gap-4">
-                {topicsLibrary.map((cat) => (
-                  <div key={cat.category} className="flex flex-col gap-2">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-[#78716C] bg-[#F5F5F4] px-2.5 py-0.5 rounded border border-[#E7E5E4] w-fit">
-                      {cat.category}
-                    </span>
-                    <div className="flex flex-wrap gap-2">
-                      {cat.items.map((item) => {
-                        const isSelected = selectedInterests.includes(item);
-                        return (
-                          <button
-                            key={item}
-                            type="button"
-                            onClick={() => toggleInterest(item)}
-                            className={`px-3.5 py-2 rounded-xl border-2 text-xs font-black transition-all ${
-                              isSelected
-                                ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917] shadow-sm'
-                                : 'bg-[#FAF9F6] text-[#57534E] border-[#E7E5E4] hover:border-[#1C1917]'
-                            }`}
-                          >
-                            {isSelected ? `✓ ${item}` : `+ ${item}`}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* BOTÃO FINAL */}
-          {step5InterestsDone && (
-            <div className="pt-4 border-t border-[#E7E5E4] animate-in fade-in duration-300">
+          {/* BOTÃO FINALIZAR */}
+          {bioConfirmed && cefrLevel !== '' && (
+            <div className="pt-4 border-t border-[#E7E5E4] animate-in fade-in slide-in-from-top-4 duration-500 ease-out">
               <Button
                 variant="primary"
                 onClick={() => navigate('/dashboard')}
