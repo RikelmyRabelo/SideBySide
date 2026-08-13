@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { FriendsManagerModal } from '../components/dashboard/FriendsManagerModal';
 import { DirectChatsModal } from '../components/dashboard/DirectChatsModal';
+import { BadgesModal } from '../components/dashboard/BadgesModal';
 
 // Banco de palavras com definições em português
 const FALLBACK_VOCAB_LIST = [
@@ -109,9 +110,10 @@ export const Dashboard: React.FC = () => {
     return () => cancelAnimationFrame(animationFrameId);
   }, [mousePos]);
 
-  // Estados dos Modais Sociais
+  // Estados dos Modais Sociais e Badges
   const [isFriendsOpen, setIsFriendsOpen] = useState(false);
   const [isDirectChatsOpen, setIsDirectChatsOpen] = useState(false);
+  const [isBadgesOpen, setIsBadgesOpen] = useState(false);
   const [selectedChatContact, setSelectedChatContact] = useState<{
     id: string;
     name: string;
@@ -163,17 +165,15 @@ export const Dashboard: React.FC = () => {
 
   // Manipulador de clique interativo nas notificações
   const handleNotificationClick = (item: typeof notifications[0]) => {
-    // Marca item clicado como lido
     setNotifications((prev) =>
       prev.map((n) => (n.id === item.id ? { ...n, unread: false } : n))
     );
     setShowNotifications(false);
 
-    // Executa a ação apropriada dependendo do tipo da notificação
     if (item.type === 'friend') {
       setIsFriendsOpen(true);
     } else if (item.type === 'badge') {
-      setActiveModal('goals');
+      setIsBadgesOpen(true);
     } else if (item.type === 'reminder') {
       setIsMatching(true);
     }
@@ -488,7 +488,7 @@ export const Dashboard: React.FC = () => {
             )}
           </div>
 
-          {/* Menu do Usuário Atualizado com Gestão Social */}
+          {/* Menu do Usuário Atualizado com Gestão Social e Badges */}
           <div className="relative" ref={userMenuRef}>
             <button
               type="button"
@@ -513,7 +513,7 @@ export const Dashboard: React.FC = () => {
               </svg>
             </button>
 
-            {/* Dropdown Menu Vertical com Amigos e Chats Diretos */}
+            {/* Dropdown Menu Vertical com Badges e Gestão Social */}
             {isUserMenuOpen && (
               <div className="absolute right-0 mt-3 w-64 bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl shadow-xl py-2 z-50 flex flex-col gap-1 animate-in fade-in slide-in-from-top-2 duration-150">
                 <div className="px-4 py-2 border-b border-[#E7E5E4] flex flex-col">
@@ -564,7 +564,7 @@ export const Dashboard: React.FC = () => {
                   type="button"
                   onClick={() => {
                     setIsUserMenuOpen(false);
-                    setActiveModal('goals');
+                    setIsBadgesOpen(true);
                   }}
                   className="px-4 py-2.5 hover:bg-[#FAF9F6] text-left flex items-center justify-between transition-colors group"
                 >
@@ -572,10 +572,10 @@ export const Dashboard: React.FC = () => {
                     <svg className="w-4 h-4 stroke-[#57534E] group-hover:stroke-[#1C1917] fill-none stroke-2" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
                     </svg>
-                    <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Metas & Gamificação</span>
+                    <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Badges & Conquistas</span>
                   </div>
                   <span className="text-[10px] font-black bg-[#F5F5F4] px-2 py-0.5 rounded text-[#1C1917]">
-                    {weeklyGoal.completed}/{weeklyGoal.target}
+                    4/8
                   </span>
                 </button>
 
@@ -1001,7 +1001,7 @@ export const Dashboard: React.FC = () => {
         </section>
       </main>
 
-      {/* Modais de Gerenciamento Social */}
+      {/* Modais de Gerenciamento Social e Badges */}
       <FriendsManagerModal
         isOpen={isFriendsOpen}
         onClose={() => setIsFriendsOpen(false)}
@@ -1015,6 +1015,11 @@ export const Dashboard: React.FC = () => {
         isOpen={isDirectChatsOpen}
         onClose={() => setIsDirectChatsOpen(false)}
         selectedContact={selectedChatContact}
+      />
+
+      <BadgesModal
+        isOpen={isBadgesOpen}
+        onClose={() => setIsBadgesOpen(false)}
       />
 
       {/* Modal de Confirmação para Entrar na Room pelo Tópico */}

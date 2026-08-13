@@ -1,0 +1,98 @@
+export interface Badge {
+  id: string;
+  title: string;
+  description: string;
+  category: 'streak' | 'time' | 'social' | 'topics';
+  icon: string; // Nome ou tipo do ícone SVG
+  unlocked: boolean;
+  progress: number;
+  maxProgress: number;
+  unlockedAt?: string;
+}
+
+export const BADGES_CATALOG: Badge[] = [
+  {
+    id: 'first-step',
+    title: 'Primeiro Passo',
+    description: 'Conclua sua primeira conversa P2P na plataforma.',
+    category: 'social',
+    icon: 'chat',
+    unlocked: true,
+    progress: 1,
+    maxProgress: 1,
+    unlockedAt: '10 de Ago, 2026',
+  },
+  {
+    id: 'streak-5',
+    title: 'Fogo Inicial',
+    description: 'Mantenha uma sequência de 5 dias seguidos praticando.',
+    category: 'streak',
+    icon: 'fire',
+    unlocked: true,
+    progress: 5,
+    maxProgress: 5,
+    unlockedAt: 'Hoje',
+  },
+  {
+    id: 'talkative-100',
+    title: 'Sem Parar',
+    description: 'Acumule 100 minutos de conversação ativa em salas.',
+    category: 'time',
+    icon: 'clock',
+    unlocked: true,
+    progress: 140,
+    maxProgress: 100,
+    unlockedAt: 'Ontem',
+  },
+  {
+    id: 'streak-15',
+    title: 'Hábito Inabalável',
+    description: 'Alcance uma ofensiva de 15 dias ininterruptos.',
+    category: 'streak',
+    icon: 'fire',
+    unlocked: false,
+    progress: 5,
+    maxProgress: 15,
+  },
+  {
+    id: 'topic-explorer',
+    title: 'Explorador de Temas',
+    description: 'Complete conversas em pelo menos 5 tópicos diferentes.',
+    category: 'topics',
+    icon: 'compass',
+    unlocked: false,
+    progress: 3,
+    maxProgress: 5,
+  },
+  {
+    id: 'social-butterfly',
+    title: 'Conector Global',
+    description: 'Adicione 5 parceiros à sua lista de amigos.',
+    category: 'social',
+    icon: 'users',
+    unlocked: false,
+    progress: 2,
+    maxProgress: 5,
+  },
+  {
+    id: 'top-rated',
+    title: 'Parceiro Exemplar',
+    description: 'Mantenha uma nota de reputação superior a 95 pontos.',
+    category: 'social',
+    icon: 'star',
+    unlocked: true,
+    progress: 98,
+    maxProgress: 100,
+    unlockedAt: '12 de Ago, 2026',
+  },
+  {
+    id: 'marathoner',
+    title: 'Maratonista da Fala',
+    description: 'Acumule 500 minutos praticando conversação.',
+    category: 'time',
+    icon: 'award',
+    unlocked: false,
+    progress: 140,
+    maxProgress: 500,
+  },
+];
