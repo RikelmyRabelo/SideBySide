@@ -25,7 +25,7 @@ export const Room: React.FC = () => {
   const [isSearchingNextPair, setIsSearchingNextPair] = useState(false);
   const [pendingAction, setPendingAction] = useState<'exit' | 'nextPair' | null>(null);
 
-  // Estado das etapas da animação contínua em looping (0: Limpo, 1: Primeiro "Side", 2: Barra "|", 3: "by", 4: Segundo "Side")
+  // Estado das etapas da animação (0: Limpo, 1: Primeiro "Side", 2: Barra "|", 3: Morph da segunda barra para "BY", 4: "SIDE" final)
   const [animStep, setAnimStep] = useState<0 | 1 | 2 | 3 | 4>(0);
 
   // Avatar do usuário para exibição em modo Apenas Áudio
@@ -87,7 +87,7 @@ export const Room: React.FC = () => {
     return () => cancelAnimationFrame(animationFrameId);
   }, [mousePos]);
 
-  // Loop contínuo de animação sequencial ("Side" -> "|" -> "by" -> segundo "Side" saindo da barra)
+  // Loop contínuo de animação com morphing de barra para o "B" do BY
   useEffect(() => {
     let interval: NodeJS.Timeout;
 
@@ -99,7 +99,7 @@ export const Room: React.FC = () => {
           if (prev === 4) return 0;
           return (prev + 1) as 0 | 1 | 2 | 3 | 4;
         });
-      }, 500);
+      }, 550);
     } else {
       setAnimStep(0);
     }
@@ -329,10 +329,10 @@ export const Room: React.FC = () => {
             <span>Conexão Excelente</span>
           </div>
 
-          {/* Overlay de Loading Looping: "Side" -> "|" -> "by" -> segundo "Side" saindo da barra */}
+          {/* Overlay de Loading com animação Side | BY SIDE com a barra virando B */}
           {isSearchingNextPair ? (
             <div className="absolute inset-0 bg-[#1C1917] z-50 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
-              <div className="flex items-center justify-center gap-3 mb-8 h-20 min-w-[360px]">
+              <div className="flex items-center justify-center gap-3 mb-8 h-20 min-w-[380px]">
                 {/* 1. Primeiro "Side" */}
                 <span
                   className={`text-4xl sm:text-6xl font-black uppercase text-[#FAF9F6] tracking-tighter transition-all duration-300 ${
@@ -342,7 +342,7 @@ export const Room: React.FC = () => {
                   Side
                 </span>
 
-                {/* 2. Barra "|" */}
+                {/* 2. Barra fixada "|" */}
                 <span
                   className={`text-4xl sm:text-6xl font-black text-[#FAF9F6] transition-all duration-300 ${
                     animStep >= 2 ? 'opacity-100 scale-y-100' : 'opacity-0 scale-y-0'
@@ -351,27 +351,37 @@ export const Room: React.FC = () => {
                   |
                 </span>
 
-                {/* 3. "by" */}
-                <span
-                  className={`text-2xl sm:text-4xl font-black text-[#A8A29E] uppercase tracking-wider transition-all duration-300 ${
-                    animStep >= 3 ? 'opacity-100 scale-100' : 'opacity-0 scale-50'
-                  }`}
-                >
-                  by
-                </span>
-
-                {/* 4. Segundo "Side" (Emerge da esquerda para a direita a partir do "by" e da barra) */}
-                <div className="overflow-hidden">
+                {/* 3. A segunda barra que se transforma (Morphing) no "BY" */}
+                <div className="relative inline-flex items-center">
+                  {/* Posição inicial: Segunda Barra "|" */}
                   <span
-                    className={`text-4xl sm:text-6xl font-black uppercase text-[#FAF9F6] tracking-tighter block transition-all duration-500 origin-left ${
-                      animStep >= 4
-                        ? 'opacity-100 translate-x-0 scale-x-100'
-                        : 'opacity-0 -translate-x-full scale-x-0'
+                    className={`text-4xl sm:text-6xl font-black text-[#A8A29E] transition-all duration-400 absolute left-0 ${
+                      animStep === 2 ? 'opacity-100 scale-100' : 'opacity-0 scale-x-0'
                     }`}
                   >
-                    Side
+                    |
+                  </span>
+
+                  {/* Posição final: A barra ganha curvas e vira "BY" */}
+                  <span
+                    className={`text-3xl sm:text-5xl font-black text-[#A8A29E] uppercase tracking-wider transition-all duration-500 origin-left ${
+                      animStep >= 3
+                        ? 'opacity-100 translate-x-0 scale-x-100'
+                        : 'opacity-0 translate-x-2 scale-x-0'
+                    }`}
+                  >
+                    BY
                   </span>
                 </div>
+
+                {/* 4. Segundo "SIDE" */}
+                <span
+                  className={`text-4xl sm:text-6xl font-black uppercase text-[#FAF9F6] tracking-tighter transition-all duration-500 ${
+                    animStep >= 4 ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-6'
+                  }`}
+                >
+                  SIDE
+                </span>
               </div>
 
               <div className="flex flex-col gap-3 max-w-sm">
