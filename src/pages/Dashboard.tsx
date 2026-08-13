@@ -120,6 +120,9 @@ export const Dashboard: React.FC = () => {
     avatar: string;
   } | null>(null);
 
+  // Contagem de solicitações pendentes de amizade
+  const [friendRequestsCount] = useState(1);
+
   // Estado das Notificações
   const [showNotifications, setShowNotifications] = useState(false);
   const notificationsRef = useRef<HTMLDivElement>(null);
@@ -340,37 +343,6 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  // Histórico de Conexões Recentes
-  const [recentConnections] = useState([
-    {
-      id: '1',
-      name: 'Elena Rostova',
-      avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&auto=format&fit=crop&q=80',
-      level: 'B1',
-      date: 'Hoje, 10:30',
-      duration: '15 min',
-      topic: 'Travel & Cultures',
-    },
-    {
-      id: '2',
-      name: 'Mateo Rossi',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
-      level: 'B2',
-      date: 'Ontem, 16:45',
-      duration: '20 min',
-      topic: 'Career & Tech',
-    },
-    {
-      id: '3',
-      name: 'Sarah Jenkins',
-      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80',
-      level: 'B1',
-      date: '09 de Ago',
-      duration: '12 min',
-      topic: 'Daily Routine',
-    },
-  ]);
-
   return (
     <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col font-sans relative selection:bg-[#1C1917] selection:text-[#FAF9F6]">
       {/* Cursor Solido Neutro */}
@@ -535,9 +507,11 @@ export const Dashboard: React.FC = () => {
                     </svg>
                     <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Lista de Amigos</span>
                   </div>
-                  <span className="text-[10px] font-black bg-red-100 text-red-600 px-2 py-0.5 rounded">
-                    1 Pista
-                  </span>
+                  {friendRequestsCount > 0 && (
+                    <span className="text-[10px] font-black bg-red-100 text-red-600 px-2 py-0.5 rounded">
+                      {friendRequestsCount}
+                    </span>
+                  )}
                 </button>
 
                 <button
@@ -896,73 +870,6 @@ export const Dashboard: React.FC = () => {
             </svg>
             PROCURAR PAR DE CONVERSA
           </Button>
-        </section>
-
-        {/* Histórico de Conexões Recentes */}
-        <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
-          <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-4">
-            <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
-              Conexões Recentes
-            </h2>
-            <span className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
-              {recentConnections.length} sessões registradas
-            </span>
-          </div>
-
-          {recentConnections.length > 0 ? (
-            <div className="flex flex-col gap-3">
-              {recentConnections.map((conn) => (
-                <div
-                  key={conn.id}
-                  className="bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:border-[#1C1917] transition-colors"
-                >
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-10 h-10 rounded-lg overflow-hidden border border-[#D6D3D1] bg-[#E7E5E4] shrink-0">
-                      <img src={conn.avatar} alt={conn.name} className="w-full h-full object-cover" />
-                    </div>
-                    <div className="flex flex-col">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-[#1C1917]">{conn.name}</span>
-                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-[#E7E5E4] text-[#1C1917] rounded-md">
-                          {conn.level}
-                        </span>
-                      </div>
-                      <span className="text-xs font-medium text-[#78716C]">{conn.topic}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between w-full sm:w-auto gap-6 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#E7E5E4]">
-                    <div className="flex flex-col text-left sm:text-right">
-                      <span className="text-xs font-bold text-[#1C1917]">{conn.date}</span>
-                      <span className="text-[11px] font-medium text-[#78716C]">{conn.duration}</span>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => setIsMatching(true)}
-                      className="px-3.5 py-2 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-bold text-[11px] uppercase tracking-wider rounded-lg transition-all"
-                    >
-                      Reconectar
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="py-12 flex flex-col items-center justify-center text-center gap-3 bg-[#FAF9F6] border border-dashed border-[#D6D3D1] rounded-xl">
-              <div className="w-12 h-12 rounded-full bg-[#E7E5E4] flex items-center justify-center text-[#78716C]">
-                <svg className="w-6 h-6 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.75 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
-                </svg>
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-sm font-bold text-[#1C1917]">Nenhuma conexão recente</span>
-                <p className="text-xs text-[#78716C] max-w-sm">
-                  Inicie sua primeira prática para visualizar o histórico de parceiros de conversa aqui.
-                </p>
-              </div>
-            </div>
-          )}
         </section>
 
         {/* Cards Informativos de Suporte */}
