@@ -85,6 +85,31 @@ export const Profile: React.FC = () => {
     'Carreira & Negócios',
   ]);
 
+  // Histórico de Comentários / Avaliações Recebidas de Outros Usuários
+  const [receivedFeedback] = useState([
+    {
+      id: 'fb-1',
+      author: 'Alex (Espanha)',
+      rating: 5,
+      date: 'Ontem',
+      comment: 'Excelente conversa! Fala com muita clareza e ajudou bastante a manter a fluidez do tópico.',
+    },
+    {
+      id: 'fb-2',
+      author: 'Elena Rostova',
+      rating: 5,
+      date: 'Há 3 dias',
+      comment: 'Muito paciente e com bom vocabulário sobre tecnologia. Recomendo a prática!',
+    },
+    {
+      id: 'fb-3',
+      author: 'Mateo Rossi',
+      rating: 4,
+      date: 'Há 1 semana',
+      comment: 'Ótima troca de ideias sobre viagens e cultura. Sessão super produtiva.',
+    },
+  ]);
+
   // Biblioteca de tópicos por categoria
   const topicsLibrary = [
     { category: 'Tecnologia & Carreira', items: ['Tecnologia', 'Carreira & Negócios', 'Inteligência Artificial', 'Startups', 'Programação', 'Marketing Digital'] },
@@ -1068,6 +1093,34 @@ export const Profile: React.FC = () => {
               <p className="text-xs text-[#57534E] font-medium leading-relaxed italic bg-[#FAF9F6] p-3 rounded-2xl border-2 border-[#E7E5E4] w-full text-left">
                 "{bio || 'Sem biografia informada.'}"
               </p>
+
+              {/* Seção SBS-62: Comentários e Avaliações Recebidas da Comunidade */}
+              <div className="flex flex-col gap-2 w-full pt-1 text-left border-t-2 border-[#E7E5E4] mt-1">
+                <span className="text-[10px] font-black uppercase text-[#78716C] tracking-wider">
+                  Avaliações e Comentários da Comunidade ({receivedFeedback.length}):
+                </span>
+                <div className="flex flex-col gap-2">
+                  {receivedFeedback.map((fb) => (
+                    <div
+                      key={fb.id}
+                      className="bg-[#FAF9F6] p-3 rounded-2xl border-2 border-[#E7E5E4] flex flex-col gap-1.5"
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="text-[11px] font-black text-[#1C1917]">{fb.author}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-black text-amber-600">
+                            {'★'.repeat(fb.rating)}
+                          </span>
+                          <span className="text-[9px] font-bold text-[#A8A29E] uppercase">{fb.date}</span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-[#57534E] font-medium italic leading-relaxed">
+                        "{fb.comment}"
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
               <div className="flex flex-col gap-1.5 w-full pt-1 text-left">
                 <span className="text-[10px] font-black uppercase text-[#78716C]">
