@@ -15,8 +15,6 @@ import { Onboarding } from '../pages/Onboarding';
 import { ResetPassword } from '../pages/ResetPassword';
 
 export const AppRoutes: React.FC = () => {
-  const isAuthenticated = true;
-
   return (
     <Routes>
       {/* Rotas Públicas */}
@@ -31,7 +29,7 @@ export const AppRoutes: React.FC = () => {
       <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* Rotas Protegidas / Internas */}
-      <Route element={<ProtectedRoute isAuthenticated={isAuthenticated} />}>
+      <Route element={<ProtectedRoute />}>
         <Route path="/onboarding" element={<Onboarding />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/room" element={<Room />} />
