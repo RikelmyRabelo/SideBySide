@@ -5,6 +5,7 @@ import { FriendsManagerModal } from '../components/dashboard/FriendsManagerModal
 import { DirectChatsModal } from '../components/dashboard/DirectChatsModal';
 import { BadgesModal } from '../components/dashboard/BadgesModal';
 import { DeviceCheckModal } from '../components/dashboard/DeviceCheckModal';
+import { SupportModal } from '../components/dashboard/SupportModal';
 
 // Banco de palavras com definições em português
 const FALLBACK_VOCAB_LIST = [
@@ -111,11 +112,12 @@ export const Dashboard: React.FC = () => {
     return () => cancelAnimationFrame(animationFrameId);
   }, [mousePos]);
 
-  // Estados dos Modais Sociais, Periféricos e Badges
+  // Estados dos Modais Sociais, Periféricos, Badges e Suporte
   const [isFriendsOpen, setIsFriendsOpen] = useState(false);
   const [isDirectChatsOpen, setIsDirectChatsOpen] = useState(false);
   const [isBadgesOpen, setIsBadgesOpen] = useState(false);
   const [isDeviceCheckOpen, setIsDeviceCheckOpen] = useState(false);
+  const [isSupportOpen, setIsSupportOpen] = useState(false);
   const [selectedChatContact, setSelectedChatContact] = useState<{
     id: string;
     name: string;
@@ -462,7 +464,7 @@ export const Dashboard: React.FC = () => {
             )}
           </div>
 
-          {/* Menu do Usuário Atualizado com Gestão Social e Badges */}
+          {/* Menu do Usuário Atualizado com Suporte */}
           <div className="relative" ref={userMenuRef}>
             <button
               type="button"
@@ -487,7 +489,7 @@ export const Dashboard: React.FC = () => {
               </svg>
             </button>
 
-            {/* Dropdown Menu Vertical com Badges e Gestão Social */}
+            {/* Dropdown Menu Vertical com Opção de Ajuda e Suporte */}
             {isUserMenuOpen && (
               <div className="absolute right-0 mt-3 w-64 bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl shadow-xl py-2 z-50 flex flex-col gap-1 animate-in fade-in slide-in-from-top-2 duration-150">
                 <div className="px-4 py-2 border-b border-[#E7E5E4] flex flex-col">
@@ -572,6 +574,22 @@ export const Dashboard: React.FC = () => {
                   <span className="text-[10px] font-bold text-[#78716C] uppercase">
                     {reminderEnabled ? reminderTime : 'Off'}
                   </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsUserMenuOpen(false);
+                    setIsSupportOpen(true);
+                  }}
+                  className="px-4 py-2.5 hover:bg-[#FAF9F6] text-left flex items-center justify-between transition-colors group"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <svg className="w-4 h-4 stroke-[#57534E] group-hover:stroke-[#1C1917] fill-none stroke-2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M12 18a.75.75 0 100-1.5.75.75 0 000 1.5z" />
+                    </svg>
+                    <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Ajuda & Suporte</span>
+                  </div>
                 </button>
 
                 <div className="border-t border-[#E7E5E4] mt-1 pt-1">
@@ -923,7 +941,7 @@ export const Dashboard: React.FC = () => {
         </section>
       </main>
 
-      {/* Modais de Gerenciamento Social, Badges e Dispositivos */}
+      {/* Modais de Gerenciamento Social, Badges, Dispositivos e Suporte */}
       <FriendsManagerModal
         isOpen={isFriendsOpen}
         onClose={() => setIsFriendsOpen(false)}
@@ -948,6 +966,11 @@ export const Dashboard: React.FC = () => {
         isOpen={isDeviceCheckOpen}
         onClose={() => setIsDeviceCheckOpen(false)}
         mediaMode={mediaMode}
+      />
+
+      <SupportModal
+        isOpen={isSupportOpen}
+        onClose={() => setIsSupportOpen(false)}
       />
 
       {/* Modal de Confirmação para Entrar na Room pelo Tópico */}
