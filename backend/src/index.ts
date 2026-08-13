@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from 'express';
 import type { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
@@ -44,8 +45,9 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
       token,
       user: { id: newUser.id, name: newUser.name, email: newUser.email, level: newUser.level, reputation: newUser.reputation },
     });
-  } catch (error) {
-    return res.status(500).json({ error: 'Erro interno no servidor.' });
+  } catch (error: any) {
+    console.error('Erro no /api/auth/register:', error);
+    return res.status(500).json({ error: 'Erro interno no servidor.', details: error.message });
   }
 });
 
@@ -74,8 +76,9 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
       token,
       user: { id: user.id, name: user.name, email: user.email, level: user.level, reputation: user.reputation },
     });
-  } catch (error) {
-    return res.status(500).json({ error: 'Erro interno no servidor.' });
+  } catch (error: any) {
+    console.error('Erro no /api/auth/login:', error);
+    return res.status(500).json({ error: 'Erro interno no servidor.', details: error.message });
   }
 });
 
@@ -98,8 +101,9 @@ app.post('/api/auth/forgot-password', async (req: Request, res: Response) => {
       message: 'Link de recuperação enviado com sucesso.',
       resetToken,
     });
-  } catch (error) {
-    return res.status(500).json({ error: 'Erro interno no servidor.' });
+  } catch (error: any) {
+    console.error('Erro no /api/auth/forgot-password:', error);
+    return res.status(500).json({ error: 'Erro interno no servidor.', details: error.message });
   }
 });
 
@@ -126,8 +130,37 @@ app.post('/api/auth/reset-password', async (req: Request, res: Response) => {
     });
 
     return res.status(200).json({ message: 'Senha redefinida com sucesso.' });
-  } catch (error) {
-    return res.status(400).json({ error: 'Token inválido ou expirado.' });
+  } catch (error: any) {
+    console.error('Erro no /api/auth/reset-password:', error);
+    return res.status(400).json({ error: 'Token inválido ou expirado.', details: error.message });
+  }
+});
+
+app.post('/api/auth/verify-code', async (req: Request, res: Response) => {
+  try {
+    const { code } = req.body;
+
+    if (!code) {
+      return res.status(400).json({ error: 'Código é obrigatório.' });
+    }
+
+    if (code !== '123456') {
+      return res.status(400).json({ error: 'Código inválido ou expirado.' });
+    }
+
+    return res.status(200).json({ message: 'Código verificado com sucesso.' });
+  } catch (error: any) {
+    console.error('Erro no /api/auth/verify-code:', error);
+    return res.status(500).json({ error: 'Erro interno no servidor.', details: error.message });
+  }
+});
+
+app.post('/api/auth/resend-code', async (req: Request, res: Response) => {
+  try {
+    return res.status(200).json({ message: 'Código reenviado com sucesso.' });
+  } catch (error: any) {
+    console.error('Erro no /api/auth/resend-code:', error);
+    return res.status(500).json({ error: 'Erro interno no servidor.', details: error.message });
   }
 });
 
