@@ -12,6 +12,17 @@ export const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [cefrLevel, setCefrLevel] = useState('B1');
   const [agreeTerms, setAgreeTerms] = useState(false);
+  
+// Estado da animação no rodapé
+const [footerAnimStep, setFooterAnimStep] = useState<0 | 1 | 2 | 3 | 4>(0);
+
+useEffect(() => {
+  const interval = setInterval(() => {
+    setFooterAnimStep((prev) => (prev === 4 ? 0 : ((prev + 1) as 0 | 1 | 2 | 3 | 4)));
+  }, 550);
+
+  return () => clearInterval(interval);
+}, []);
 
   // Estado de Consentimento de Cookies e LGPD
   const [showCookieBanner, setShowCookieBanner] = useState(false);
@@ -35,18 +46,15 @@ export const Login: React.FC = () => {
 
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
-      // Bloqueia múltiplos disparos enquanto a animação ocorre
       if (isScrollingRef.current) return;
 
       if (e.deltaY > 30) {
-        // Scroll para baixo
         setCurrentSectionIndex((prevIndex) => {
           const nextIndex = Math.min(prevIndex + 1, sectionIds.length - 1);
           scrollToSection(sectionIds[nextIndex]);
           return nextIndex;
         });
       } else if (e.deltaY < -30) {
-        // Scroll para cima
         setCurrentSectionIndex((prevIndex) => {
           const nextIndex = Math.max(prevIndex - 1, 0);
           scrollToSection(sectionIds[nextIndex]);
@@ -63,13 +71,11 @@ export const Login: React.FC = () => {
     isScrollingRef.current = true;
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
 
-    // Atualiza o índice caso a chamada venha de um botão
     const targetIdx = sectionIds.indexOf(id);
     if (targetIdx !== -1) {
       setCurrentSectionIndex(targetIdx);
     }
 
-    // Libera a rolagem após o término da animação suave
     setTimeout(() => {
       isScrollingRef.current = false;
     }, 850);
@@ -748,24 +754,24 @@ export const Login: React.FC = () => {
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                 setEmail(e.target.value);
                 if (errorMessage) setErrorMessage(null);
-                }}
-          />
+              }}
+            />
 
             {!isForgotPassword && (
               <div className="flex flex-col gap-1.5">
                 <div className="relative w-full">
                   <Input
-  label="Senha"
-  type={showPassword ? 'text' : 'password'}
-  placeholder="Sua senha"
-  value={password}
-  className="bg-[#FFFFFF] border-[#E7E5E4] text-[#1C1917] placeholder:text-[#A8A29E] focus:border-[#1C1917] focus:bg-[#FFFFFF] focus:text-[#1C1917]"
-  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-    setPassword(e.target.value);
-    if (errorMessage) setErrorMessage(null);
-  }}
-/>
-                  
+                    label="Senha"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Sua senha"
+                    value={password}
+                    className="bg-[#FFFFFF] border-[#E7E5E4] text-[#1C1917] placeholder:text-[#A8A29E] focus:border-[#1C1917] focus:bg-[#FFFFFF] focus:text-[#1C1917]"
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      setPassword(e.target.value);
+                      if (errorMessage) setErrorMessage(null);
+                    }}
+                  />
+                    
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
@@ -997,31 +1003,93 @@ export const Login: React.FC = () => {
       )}
 
       {/* FOOTER SLIDE */}
-      <footer id="footer" className="min-h-screen w-full bg-[#1C1917] border-t border-[#292524] px-6 lg:px-12 text-[#FAF9F6] flex flex-col justify-between pt-24 pb-12">
+      <footer id="footer" className="min-h-screen w-full bg-[#1C1917] border-t-4 border-[#1C1917] px-6 lg:px-12 text-[#FAF9F6] flex flex-col justify-between pt-24 pb-12">
         <div className="max-w-7xl mx-auto w-full grid grid-cols-1 md:grid-cols-2 gap-12 items-center my-auto">
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#FAF9F6] flex items-center justify-center font-black text-[#1C1917] text-xl shadow-[4px_4px_0px_0px_#A8A29E]">
+                S
+              </div>
+              <span className="text-2xl font-black tracking-tight text-[#FAF9F6] uppercase">SideBySide</span>
+            </div>
+
             <h2 className="text-4xl sm:text-6xl font-black uppercase tracking-tighter text-[#FAF9F6] leading-none">
-              SIDEBYSIDE <br />
-              <span className="text-[#A8A29E]">P2P SPEAKING</span>
+              P2P SPEAKING <br />
+              <span className="text-[#A8A29E]">COMMUNITY</span>
             </h2>
-            <p className="text-xs text-[#A8A29E] max-w-sm">
-              Conectando estudantes globais para prática ativa e segura de conversação em inglês.
+            <p className="text-xs text-[#A8A29E] max-w-sm leading-relaxed font-medium">
+              Conectando estudantes globais para prática ativa e segura de conversação em inglês sem filtros ou rodeios.
             </p>
+
+            <nav className="flex flex-wrap gap-4 text-xs font-black uppercase tracking-widest text-[#FAF9F6] pt-2">
+              <button type="button" onClick={() => scrollToSection('about')} className="hover:text-[#A8A29E] transition-colors underline">Método</button>
+              <button type="button" onClick={() => scrollToSection('features')} className="hover:text-[#A8A29E] transition-colors underline">Pilares</button>
+              <button type="button" onClick={() => scrollToSection('testimonials')} className="hover:text-[#A8A29E] transition-colors underline">Comunidade</button>
+              <button type="button" onClick={() => scrollToSection('faq')} className="hover:text-[#A8A29E] transition-colors underline">FAQ</button>
+            </nav>
           </div>
 
-          <div className="flex justify-start md:justify-end">
-            <div className="w-32 h-32 border border-[#44403C] bg-[#292524] flex items-center justify-center rounded-xl">
-              <span className="text-[#FAF9F6] font-black text-xl">S×S</span>
-            </div>
-          </div>
+            {/* CÓDIGO NOVO */}
+<div className="flex justify-start md:justify-end">
+  <div className="w-auto h-40 border-4 border-[#FAF9F6] bg-[#292524] px-8 flex items-center justify-center rounded-3xl shadow-[8px_8px_0px_0px_#FAF9F6] overflow-hidden">
+    <div className="flex items-center justify-center gap-2">
+      {/* 1. Primeiro "Side" */}
+      <span
+        className={`text-2xl sm:text-3xl font-black uppercase text-[#FAF9F6] tracking-tighter transition-all duration-300 ${
+          footerAnimStep >= 1 ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4'
+        }`}
+      >
+        Side
+      </span>
+
+      {/* 2. Barra fixada "|" */}
+      <span
+        className={`text-2xl sm:text-3xl font-black text-[#FAF9F6] transition-all duration-300 ${
+          footerAnimStep >= 2 ? 'opacity-100 scale-y-100' : 'opacity-0 scale-y-0'
+        }`}
+      >
+        |
+      </span>
+
+      {/* 3. Morphing da barra para "BY" */}
+      <div className="relative inline-flex items-center">
+        <span
+          className={`text-2xl sm:text-3xl font-black text-[#A8A29E] transition-all duration-300 absolute left-0 ${
+            footerAnimStep === 2 ? 'opacity-100 scale-100' : 'opacity-0 scale-x-0'
+          }`}
+        >
+          |
+        </span>
+        <span
+          className={`text-xl sm:text-2xl font-black text-[#A8A29E] uppercase tracking-wider transition-all duration-400 origin-left ${
+            footerAnimStep >= 3
+              ? 'opacity-100 translate-x-0 scale-x-100'
+              : 'opacity-0 translate-x-1 scale-x-0'
+          }`}
+        >
+          BY
+        </span>
+      </div>
+
+      {/* 4. Segundo "SIDE" */}
+      <span
+        className={`text-2xl sm:text-3xl font-black uppercase text-[#FAF9F6] tracking-tighter transition-all duration-400 ${
+          footerAnimStep >= 4 ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
+        }`}
+      >
+        SIDE
+      </span>
+    </div>
+  </div>
+</div>
         </div>
 
-        <div className="max-w-7xl mx-auto w-full pt-6 border-t border-[#292524] flex flex-col sm:flex-row items-center justify-between text-xs text-[#A8A29E] gap-4">
-          <p>© 2026 SideBySide. Todos os direitos reservados.</p>
-          <div className="flex gap-6">
-            <button type="button" onClick={() => navigate('/Terms')} className="hover:text-[#FAF9F6] transition-colors">Termos de Uso</button>
-            <button type="button" onClick={() => navigate('/Moderation')} className="hover:text-[#FAF9F6] transition-colors">Política de Moderação</button>
-            <button type="button" onClick={() => navigate('/Privacy')} className="hover:text-[#FAF9F6] transition-colors">Privacidade</button>
+        <div className="max-w-7xl mx-auto w-full pt-8 border-t-2 border-[#292524] flex flex-col sm:flex-row items-center justify-between text-xs text-[#A8A29E] gap-4 font-bold">
+          <p>© 2026 SIDEBYSIDE. TODOS OS DIREITOS RESERVADOS.</p>
+          <div className="flex gap-6 uppercase tracking-wider">
+            <button type="button" onClick={() => navigate('/Terms')} className="hover:text-[#FAF9F6] transition-colors underline">Termos de Uso</button>
+            <button type="button" onClick={() => navigate('/Moderation')} className="hover:text-[#FAF9F6] transition-colors underline">Política de Moderação</button>
+            <button type="button" onClick={() => navigate('/Privacy')} className="hover:text-[#FAF9F6] transition-colors underline">Privacidade</button>
           </div>
         </div>
       </footer>
