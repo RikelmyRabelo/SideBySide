@@ -7,7 +7,6 @@ import { BadgesModal } from '../components/dashboard/BadgesModal';
 import { DeviceCheckModal } from '../components/dashboard/DeviceCheckModal';
 import { SupportModal } from '../components/dashboard/SupportModal';
 
-// Banco de palavras com definições em português
 const FALLBACK_VOCAB_LIST = [
   {
     word: 'serendipity',
@@ -59,14 +58,36 @@ interface VocabResult {
 
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
+  const [userData, setUserData] = useState<any>(null);
   const [mediaMode, setMediaMode] = useState<'video' | 'audio'>('video');
   const [expandedMatching, setExpandedMatching] = useState(true);
   const [isMatching, setIsMatching] = useState(false);
 
-  // Efeito de cursor do mouse
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
   const [cursorOpacity, setCursorOpacity] = useState(1);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      const token = localStorage.getItem('token');
+      try {
+        const response = await fetch('http://localhost:3000/api/user/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setUserData(data);
+        }
+      } catch (err) {
+        console.error('Erro ao buscar dados do usuário', err);
+      }
+    };
+    
+    fetchUserData();
+  }, []);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -112,7 +133,6 @@ export const Dashboard: React.FC = () => {
     return () => cancelAnimationFrame(animationFrameId);
   }, [mousePos]);
 
-  // Estados dos Modais Sociais, Periféricos, Badges e Suporte
   const [isFriendsOpen, setIsFriendsOpen] = useState(false);
   const [isDirectChatsOpen, setIsDirectChatsOpen] = useState(false);
   const [isBadgesOpen, setIsBadgesOpen] = useState(false);
@@ -124,10 +144,7 @@ export const Dashboard: React.FC = () => {
     avatar: string;
   } | null>(null);
 
-  // Contagem de solicitações pendentes de amizade
   const [friendRequestsCount] = useState(1);
-
-  // Estado das Notificações
   const [showNotifications, setShowNotifications] = useState(false);
   const notificationsRef = useRef<HTMLDivElement>(null);
   const [notifications, setNotifications] = useState([
@@ -170,7 +187,6 @@ export const Dashboard: React.FC = () => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
   };
 
-  // Manipulador de clique interativo nas notificações
   const handleNotificationClick = (item: typeof notifications[0]) => {
     setNotifications((prev) =>
       prev.map((n) => (n.id === item.id ? { ...n, unread: false } : n))
@@ -186,7 +202,6 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  // Estado da Dica de Vocabulário Dinâmica
   const [vocabTip, setVocabTip] = useState<VocabResult>(FALLBACK_VOCAB_LIST[0]);
   const [isLoadingVocab, setIsLoadingVocab] = useState(false);
 
@@ -220,14 +235,9 @@ export const Dashboard: React.FC = () => {
     }
   }, [isMatching]);
 
-  // Estado do Menu Dropdown do Usuário
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
-
-  // Estados dos Modais Rápidos
   const [activeModal, setActiveModal] = useState<'goals' | 'reminders' | null>(null);
-
-  // Estado do Modal de Confirmação de Entrada no Tópico
   const [showTopicConfirmModal, setShowTopicConfirmModal] = useState(false);
   const [topicToJoin, setTopicToJoin] = useState<{
     id: string;
@@ -237,7 +247,6 @@ export const Dashboard: React.FC = () => {
     vocabPreview: string[];
   } | null>(null);
 
-  // Estado do Feedback da Última Sessão
   const [lastSessionFeedback] = useState({
     partnerName: 'Elena Rostova',
     partnerAvatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&auto=format&fit=crop&q=80',
@@ -248,7 +257,6 @@ export const Dashboard: React.FC = () => {
     vocabLearned: ['Wanderlust', 'Jet lag', 'Off the beaten path'],
   });
 
-  // Estado de Lembretes Diários
   const [reminderEnabled, setReminderEnabled] = useState(true);
   const [reminderTime, setReminderTime] = useState('19:00');
   const [selectedDays, setSelectedDays] = useState<string[]>(['Seg', 'Ter', 'Qua', 'Qui', 'Sex']);
@@ -262,7 +270,6 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  // Meta Semanal
   const weeklyGoal = {
     target: 5,
     completed: 3,
@@ -291,15 +298,13 @@ export const Dashboard: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Métricas Principais
   const userMetrics = {
-    currentStreak: 5,
+    currentStreak: userData?.streak || 5,
     hasPracticedToday: true,
-    totalMinutes: 140,
-    totalSessions: 12,
+    totalMinutes: userData?.totalMinutes || 140,
+    totalSessions: userData?.totalSessions || 12,
   };
 
-  // Tópicos Diários Recomendados
   const dailyTopics = [
     {
       id: 'travel',
@@ -347,9 +352,13 @@ export const Dashboard: React.FC = () => {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    navigate('/');
+  };
+
   return (
     <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col font-sans relative selection:bg-[#1C1917] selection:text-[#FAF9F6]">
-      {/* Cursor Solido Neutro */}
       <div
         className="pointer-events-none fixed z-50 w-3.5 h-3.5 rounded-full bg-[#1C1917] transition-opacity duration-300 ease-out -translate-x-1/2 -translate-y-1/2 hidden md:block"
         style={{
@@ -359,7 +368,6 @@ export const Dashboard: React.FC = () => {
         }}
       />
 
-      {/* Header Bar */}
       <header className="bg-[#FFFFFF] border-b border-[#E7E5E4] px-6 py-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
           <div className="w-8 h-8 rounded-md bg-[#1C1917] flex items-center justify-center font-black text-[#FAF9F6] text-base">
@@ -371,17 +379,16 @@ export const Dashboard: React.FC = () => {
         <div className="flex items-center gap-4">
           <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-[#F5F5F4] border border-[#E7E5E4] rounded-lg text-xs font-bold uppercase tracking-wider text-[#57534E]">
             <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
-            Nível: B1 Intermediário
+            Nível: {userData?.level || 'B1 Intermediário'}
           </div>
 
           <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-[#F5F5F4] border border-[#E7E5E4] rounded-lg text-xs font-bold uppercase tracking-wider text-[#57534E]">
             <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-2 text-[#1C1917]" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.105-2.574-.305-3.8A11.983 11.983 0 0112 2.714z" />
             </svg>
-            Reputação: 98/100
+            Reputação: {userData?.reputation || '98'}/100
           </div>
 
-          {/* Central de Notificações Clicáveis */}
           <div className="relative" ref={notificationsRef}>
             <button
               type="button"
@@ -399,7 +406,6 @@ export const Dashboard: React.FC = () => {
               )}
             </button>
 
-            {/* Popover de Notificações Clicáveis */}
             {showNotifications && (
               <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-[#FFFFFF] border-2 border-[#1C1917] rounded-2xl shadow-[6px_6px_0px_0px_#1C1917] py-3 z-50 flex flex-col gap-2 animate-in fade-in slide-in-from-top-2 duration-150">
                 <div className="px-4 py-2 border-b-2 border-[#E7E5E4] flex items-center justify-between">
@@ -464,7 +470,6 @@ export const Dashboard: React.FC = () => {
             )}
           </div>
 
-          {/* Menu do Usuário Atualizado com Suporte */}
           <div className="relative" ref={userMenuRef}>
             <button
               type="button"
@@ -473,12 +478,12 @@ export const Dashboard: React.FC = () => {
             >
               <div className="w-8 h-8 rounded-lg bg-[#E7E5E4] overflow-hidden border border-[#D6D3D1]">
                 <img
-                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
-                  alt="Lucas Silva"
+                  src={userData?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"}
+                  alt={userData?.name || "Lucas Silva"}
                   className="w-full h-full object-cover"
                 />
               </div>
-              <span className="text-xs font-bold text-[#1C1917] hidden md:inline-block">Lucas Silva</span>
+              <span className="text-xs font-bold text-[#1C1917] hidden md:inline-block">{userData?.name || 'Lucas Silva'}</span>
               <svg
                 className={`w-4 h-4 stroke-[#78716C] fill-none stroke-2 transition-transform duration-200 ${
                   isUserMenuOpen ? 'rotate-180' : 'rotate-0'
@@ -489,12 +494,11 @@ export const Dashboard: React.FC = () => {
               </svg>
             </button>
 
-            {/* Dropdown Menu Vertical com Opção de Ajuda e Suporte */}
             {isUserMenuOpen && (
               <div className="absolute right-0 mt-3 w-64 bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl shadow-xl py-2 z-50 flex flex-col gap-1 animate-in fade-in slide-in-from-top-2 duration-150">
                 <div className="px-4 py-2 border-b border-[#E7E5E4] flex flex-col">
-                  <span className="text-xs font-black text-[#1C1917]">Lucas Silva</span>
-                  <span className="text-[10px] font-bold text-[#78716C] uppercase">lucas.silva@email.com</span>
+                  <span className="text-xs font-black text-[#1C1917]">{userData?.name || 'Lucas Silva'}</span>
+                  <span className="text-[10px] font-bold text-[#78716C] uppercase">{userData?.email || 'lucas.silva@email.com'}</span>
                 </div>
 
                 <button
@@ -606,6 +610,16 @@ export const Dashboard: React.FC = () => {
                     </svg>
                     <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Meu Perfil</span>
                   </button>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="w-full px-4 py-2.5 hover:bg-red-50 text-left flex items-center gap-2.5 transition-colors group mt-1"
+                  >
+                    <svg className="w-4 h-4 stroke-red-600 fill-none stroke-2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+                    </svg>
+                    <span className="text-xs font-bold text-red-600">Sair da Conta</span>
+                  </button>
                 </div>
               </div>
             )}
@@ -613,22 +627,19 @@ export const Dashboard: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="flex-1 max-w-5xl w-full mx-auto p-6 lg:p-8 flex flex-col gap-6">
-        {/* Banner Boas-vindas */}
         <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-2">
           <span className="text-[10px] font-bold tracking-widest text-[#78716C] uppercase bg-[#F5F5F4] border border-[#E7E5E4] px-3 py-1 rounded-md w-fit">
             PAINEL DO ESTUDANTE
           </span>
           <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-[#1C1917] mt-1">
-            Olá, Lucas! Pronto para praticar?
+            Olá, {userData?.name ? userData.name.split(' ')[0] : 'Lucas'}! Pronto para praticar?
           </h1>
           <p className="text-xs sm:text-sm text-[#57534E] max-w-2xl leading-relaxed font-medium">
-            Conecte-se instantaneamente com estudantes de nível B1 de todo o mundo. Suas sessões são moderadas ativamente por IA para garantir um ambiente seguro, respeitoso e focado no aprendizado mútuo.
+            Conecte-se instantaneamente com estudantes de nível {userData?.level || 'B1'} de todo o mundo. Suas sessões são moderadas ativamente por IA para garantir um ambiente seguro, respeitoso e focado no aprendizado mútuo.
           </p>
         </section>
 
-        {/* Widget de Feedback da Última Sessão */}
         <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 shadow-sm flex flex-col gap-4">
           <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-3">
             <div className="flex items-center gap-2">
@@ -682,7 +693,6 @@ export const Dashboard: React.FC = () => {
           </div>
         </section>
 
-        {/* Métricas e Sequência */}
         <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="group bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 flex items-center gap-4 shadow-sm hover:border-[#1C1917] transition-all hover:shadow-md cursor-default">
             <div className="w-12 h-12 rounded-xl bg-[#F5F5F4] border border-[#E7E5E4] text-[#1C1917] flex items-center justify-center shrink-0 group-hover:bg-[#1C1917] group-hover:text-[#FAF9F6] transition-colors">
@@ -742,7 +752,6 @@ export const Dashboard: React.FC = () => {
           </div>
         </section>
 
-        {/* Tópicos Diários Recomendados */}
         <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
           <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-4">
             <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
@@ -816,7 +825,6 @@ export const Dashboard: React.FC = () => {
           </div>
         </section>
 
-        {/* Configurações de Conexão & CTA */}
         <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
           <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-4">
             <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
@@ -905,7 +913,6 @@ export const Dashboard: React.FC = () => {
           </Button>
         </section>
 
-        {/* Cards Informativos de Suporte */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 flex items-start gap-4 shadow-sm hover:border-[#1C1917] transition-colors">
             <div className="w-10 h-10 rounded-xl bg-[#F5F5F4] border border-[#E7E5E4] text-[#1C1917] flex items-center justify-center shrink-0">
@@ -941,7 +948,6 @@ export const Dashboard: React.FC = () => {
         </section>
       </main>
 
-      {/* Modais de Gerenciamento Social, Badges, Dispositivos e Suporte */}
       <FriendsManagerModal
         isOpen={isFriendsOpen}
         onClose={() => setIsFriendsOpen(false)}
@@ -973,7 +979,6 @@ export const Dashboard: React.FC = () => {
         onClose={() => setIsSupportOpen(false)}
       />
 
-      {/* Modal de Confirmação para Entrar na Room pelo Tópico */}
       {showTopicConfirmModal && (topicToJoin || selectedTopic) && (
         <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150">
@@ -1028,7 +1033,6 @@ export const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Modal de Busca por Par */}
       {isMatching && (
         <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-8 sm:p-10 max-w-lg w-full shadow-2xl flex flex-col items-center gap-8 animate-in fade-in zoom-in-95 duration-150">
@@ -1044,11 +1048,10 @@ export const Dashboard: React.FC = () => {
                 Buscando Par de Conversa...
               </h3>
               <p className="text-sm font-bold text-[#78716C]">
-                Procurando estudante no nível <span className="text-[#1C1917] underline">B1 Intermediário</span>
+                Procurando estudante no nível <span className="text-[#1C1917] underline">{userData?.level || 'B1 Intermediário'}</span>
               </p>
             </div>
 
-            {/* Dica de Vocabulário em Português */}
             <div className="w-full bg-[#FAF9F6] border border-[#E7E5E4] rounded-2xl p-6 flex flex-col gap-3 text-left">
               <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-3">
                 <span className="text-xs font-black uppercase tracking-widest text-[#78716C]">
@@ -1093,7 +1096,6 @@ export const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Modal de Metas Semanais */}
       {activeModal === 'goals' && (
         <div className="fixed inset-0 bg-[#1C1917]/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150">
@@ -1160,7 +1162,6 @@ export const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Modal de Lembretes Diários */}
       {activeModal === 'reminders' && (
         <div className="fixed inset-0 bg-[#1C1917]/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150">
