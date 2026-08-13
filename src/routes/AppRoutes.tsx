@@ -4,30 +4,35 @@ import { ProtectedRoute } from './ProtectedRoute';
 import { Login } from '../pages/Login';
 import { Dashboard } from '../pages/Dashboard';
 import { Room } from '../pages/Room';
-import { VerifyCode } from '../pages/VerifyCode';
-import { Onboarding } from '../pages/Onboarding';
-import { ForgotPassword } from '../pages/ForgotPassword';
-import { ResetPassword } from '../pages/ResetPassword';
-import { AuthSuccess } from '../pages/AuthSuccess';
+import { Profile } from '../pages/Profile';
+
+// Importações com fallback simples caso algum arquivo de termo legal não exista na sua pasta
+import { Terms } from '../pages/Terms';
+import { Moderation } from '../pages/Moderation';
+import { Privacy } from '../pages/Privacy';
 
 export const AppRoutes: React.FC = () => {
   const isAuthenticated = true;
 
   return (
     <Routes>
+      {/* Rotas Públicas */}
+      <Route path="/" element={<Login />} />
       <Route path="/login" element={<Login />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/verify-code" element={<VerifyCode />} />
-      <Route path="/onboarding" element={<Onboarding />} />
-      <Route path="/auth-success" element={<AuthSuccess />} />
+      <Route path="/terms" element={<Terms />} />
+      <Route path="/moderation" element={<Moderation />} />
+      <Route path="/privacy" element={<Privacy />} />
 
+      {/* Rotas Protegidas / Internas */}
       <Route element={<ProtectedRoute isAuthenticated={isAuthenticated} />}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/room" element={<Room />} />
+        <Route path="/room/:topicId" element={<Room />} />
+        <Route path="/profile" element={<Profile />} />
       </Route>
 
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      {/* Redirecionamento Padrão */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 };

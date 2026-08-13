@@ -89,7 +89,7 @@ export const Room: React.FC = () => {
 
   // Loop contínuo de animação com morphing de barra para o "B" do BY
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval> | undefined;
 
     if (isSearchingNextPair) {
       setAnimStep(1);

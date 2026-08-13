@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
+import { FriendsManagerModal } from '../components/dashboard/FriendsManagerModal';
+import { DirectChatsModal } from '../components/dashboard/DirectChatsModal';
 
 // Banco de palavras com definições em português
 const FALLBACK_VOCAB_LIST = [
@@ -106,6 +108,15 @@ export const Dashboard: React.FC = () => {
     animationFrameId = requestAnimationFrame(updateFollower);
     return () => cancelAnimationFrame(animationFrameId);
   }, [mousePos]);
+
+  // Estados dos Modais Sociais
+  const [isFriendsOpen, setIsFriendsOpen] = useState(false);
+  const [isDirectChatsOpen, setIsDirectChatsOpen] = useState(false);
+  const [selectedChatContact, setSelectedChatContact] = useState<{
+    id: string;
+    name: string;
+    avatar: string;
+  } | null>(null);
 
   // Estado das Notificações
   const [showNotifications, setShowNotifications] = useState(false);
@@ -455,7 +466,7 @@ export const Dashboard: React.FC = () => {
             )}
           </div>
 
-          {/* Menu do Usuário */}
+          {/* Menu do Usuário Atualizado com Gestão Social */}
           <div className="relative" ref={userMenuRef}>
             <button
               type="button"
@@ -480,13 +491,52 @@ export const Dashboard: React.FC = () => {
               </svg>
             </button>
 
-            {/* Dropdown Menu Vertical */}
+            {/* Dropdown Menu Vertical com Amigos e Chats Diretos */}
             {isUserMenuOpen && (
               <div className="absolute right-0 mt-3 w-64 bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl shadow-xl py-2 z-50 flex flex-col gap-1 animate-in fade-in slide-in-from-top-2 duration-150">
                 <div className="px-4 py-2 border-b border-[#E7E5E4] flex flex-col">
                   <span className="text-xs font-black text-[#1C1917]">Lucas Silva</span>
                   <span className="text-[10px] font-bold text-[#78716C] uppercase">lucas.silva@email.com</span>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsUserMenuOpen(false);
+                    setIsFriendsOpen(true);
+                  }}
+                  className="px-4 py-2.5 hover:bg-[#FAF9F6] text-left flex items-center justify-between transition-colors group"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <svg className="w-4 h-4 stroke-[#57534E] group-hover:stroke-[#1C1917] fill-none stroke-2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.75 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+                    </svg>
+                    <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Lista de Amigos</span>
+                  </div>
+                  <span className="text-[10px] font-black bg-red-100 text-red-600 px-2 py-0.5 rounded">
+                    1 Pista
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsUserMenuOpen(false);
+                    setSelectedChatContact(null);
+                    setIsDirectChatsOpen(true);
+                  }}
+                  className="px-4 py-2.5 hover:bg-[#FAF9F6] text-left flex items-center justify-between transition-colors group"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <svg className="w-4 h-4 stroke-[#57534E] group-hover:stroke-[#1C1917] fill-none stroke-2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+                    </svg>
+                    <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Chats Diretos</span>
+                  </div>
+                  <span className="text-[10px] font-black bg-[#F5F5F4] px-2 py-0.5 rounded text-[#1C1917]">
+                    2
+                  </span>
+                </button>
 
                 <button
                   type="button"
@@ -928,6 +978,22 @@ export const Dashboard: React.FC = () => {
           </div>
         </section>
       </main>
+
+      {/* Modais de Gerenciamento Social */}
+      <FriendsManagerModal
+        isOpen={isFriendsOpen}
+        onClose={() => setIsFriendsOpen(false)}
+        onOpenDirectChat={(friend) => {
+          setSelectedChatContact(friend);
+          setIsDirectChatsOpen(true);
+        }}
+      />
+
+      <DirectChatsModal
+        isOpen={isDirectChatsOpen}
+        onClose={() => setIsDirectChatsOpen(false)}
+        selectedContact={selectedChatContact}
+      />
 
       {/* Modal de Confirmação para Entrar na Room pelo Tópico */}
       {showTopicConfirmModal && (topicToJoin || selectedTopic) && (
