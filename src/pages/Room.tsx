@@ -25,20 +25,22 @@ export const Room: React.FC = () => {
   const [isSearchingNextPair, setIsSearchingNextPair] = useState(false);
   const [pendingAction, setPendingAction] = useState<'exit' | 'nextPair' | null>(null);
 
-  // Estado das etapas da animação (0: Limpo, 1: Primeiro "Side", 2: Barra "|", 3: Morph da segunda barra para "BY", 4: "SIDE" final)
+  // Estado das etapas da animação
   const [animStep, setAnimStep] = useState<0 | 1 | 2 | 3 | 4>(0);
 
-  // Avatar do usuário para exibição em modo Apenas Áudio
+  // Avatar do usuário
   const userAvatarUrl =
     'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80';
 
-  // Referência para o container de vídeo
+  // Referência para o container de vídeo e WebRTC
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const [mediaError, setMediaError] = useState<string | null>(null);
 
-  // Efeito de cursor do mouse
+  // Estado de Cursor Neutro
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
   const [cursorOpacity, setCursorOpacity] = useState(1);
@@ -109,7 +111,7 @@ export const Room: React.FC = () => {
     };
   }, [isSearchingNextPair]);
 
-  // Sincroniza estado de tela cheia com eventos nativos do navegador
+  // Sincroniza estado de tela cheia
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
@@ -119,7 +121,6 @@ export const Room: React.FC = () => {
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  // Alternar modo Fullscreen no container de vídeo
   const toggleFullscreen = async () => {
     try {
       if (!document.fullscreenElement) {
@@ -134,7 +135,7 @@ export const Room: React.FC = () => {
     }
   };
 
-  // Função para inicializar mídia com suporte a fallback de áudio
+  // Inicialização de Mídia e WebRTC simulado/conectado ao Backend
   const startMedia = async (videoConstraint = true) => {
     try {
       setMediaError(null);
@@ -153,10 +154,27 @@ export const Room: React.FC = () => {
       }
       setCamActive(videoConstraint);
       setMicActive(true);
+
+      // Configuração básica do RTCPeerConnection para WebRTC com servidor STUN público
+      const pc = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      });
+
+      userStream.getTracks().forEach(track => {
+        pc.addTrack(track, userStream);
+      });
+
+      pc.ontrack = (event) => {
+        if (remoteVideoRef.current && event.streams[0]) {
+          remoteVideoRef.current.srcObject = event.streams[0];
+        }
+      };
+
+      peerConnectionRef.current = pc;
     } catch (err: any) {
       console.error('Erro ao acessar dispositivos de mídia:', err);
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        setMediaError('Acesso bloqueado. Verifique as permissões de câmera/microfone no ícone do seu navegador.');
+        setMediaError('Acesso bloqueado. Verifique as permissões de câmera/microfone no navegador.');
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
         setMediaError('Nenhuma câmera ou microfone detectado no dispositivo.');
       } else {
@@ -168,14 +186,27 @@ export const Room: React.FC = () => {
   useEffect(() => {
     startMedia(true);
 
+    // Comunicação com o Backend via API de Salas/Sessão
+    const token = localStorage.getItem('token');
+    fetch('http://localhost:3000/api/room/join', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ topicId: currentTopic.id })
+    }).catch(err => console.error('Erro ao registrar entrada na sala:', err));
+
     return () => {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
       }
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+      }
     };
   }, []);
 
-  // Controle de Ativação/Desativação do Microfone
   const toggleMicrophone = () => {
     if (streamRef.current) {
       const audioTracks = streamRef.current.getAudioTracks();
@@ -186,7 +217,6 @@ export const Room: React.FC = () => {
     setMicActive(!micActive);
   };
 
-  // Controle de Ativação/Desativação da Câmera
   const toggleCamera = () => {
     if (streamRef.current) {
       const videoTracks = streamRef.current.getVideoTracks();
@@ -197,9 +227,21 @@ export const Room: React.FC = () => {
     setCamActive(!camActive);
   };
 
-  const handleConfirmReport = (reason: string) => {
-    console.log('Denúncia enviada:', reason);
+  const handleConfirmReport = async (reason: string) => {
     setIsReportOpen(false);
+    try {
+      const token = localStorage.getItem('token');
+      await fetch('http://localhost:3000/api/room/report', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ reason })
+      });
+    } catch (err) {
+      console.error('Erro ao enviar denúncia', err);
+    }
     setPendingAction('nextPair');
     setIsRatingOpen(true);
   };
@@ -214,9 +256,21 @@ export const Room: React.FC = () => {
     setIsRatingOpen(true);
   };
 
-  const handleRatingSubmit = (data: { partnerRating: number; platformRating: number; comment: string }) => {
-    console.log('Avaliação submetida:', data);
+  const handleRatingSubmit = async (data: { partnerRating: number; platformRating: number; comment: string }) => {
     setIsRatingOpen(false);
+    try {
+      const token = localStorage.getItem('token');
+      await fetch('http://localhost:3000/api/room/rate', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      });
+    } catch (err) {
+      console.error('Erro ao enviar avaliação', err);
+    }
     
     if (pendingAction === 'exit') {
       navigate('/dashboard');
@@ -236,6 +290,7 @@ export const Room: React.FC = () => {
 
   const triggerSearchNextPair = () => {
     setIsSearchingNextPair(true);
+    setCurrentTopic(getRandomTopic());
     setTimeout(() => {
       setIsSearchingNextPair(false);
     }, 6000);
@@ -243,7 +298,6 @@ export const Room: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col font-sans h-screen overflow-hidden relative selection:bg-[#1C1917] selection:text-[#FAF9F6]">
-      {/* Cursor Solido Neutro */}
       <div
         className="pointer-events-none fixed z-50 w-3.5 h-3.5 rounded-full bg-[#1C1917] transition-opacity duration-300 ease-out -translate-x-1/2 -translate-y-1/2 hidden md:block"
         style={{
@@ -253,7 +307,6 @@ export const Room: React.FC = () => {
         }}
       />
 
-      {/* Header Bar */}
       {!isFullscreen && (
         <header className="bg-[#FFFFFF] border-b border-[#E7E5E4] px-6 py-3 flex items-center justify-between shrink-0 z-30 shadow-sm">
           <div className="flex items-center gap-4">
@@ -273,7 +326,6 @@ export const Room: React.FC = () => {
             </div>
           </div>
 
-          {/* Tema da Conversa Dinâmico */}
           <div className="bg-[#FAF9F6] border border-[#E7E5E4] px-4 py-1.5 rounded-xl text-xs font-black uppercase text-[#1C1917] flex items-center gap-2">
             <span className="text-[10px] bg-[#E7E5E4] px-2 py-0.5 rounded text-[#78716C]">
               {currentTopic.category}
@@ -291,7 +343,6 @@ export const Room: React.FC = () => {
         </header>
       )}
 
-      {/* Banner de Erro de Permissão de Mídia */}
       {mediaError && !isFullscreen && (
         <div className="bg-amber-50 border-b border-amber-200 text-amber-800 px-6 py-2.5 text-xs font-bold flex items-center justify-between z-40">
           <span>⚠️ {mediaError}</span>
@@ -314,26 +365,21 @@ export const Room: React.FC = () => {
         </div>
       )}
 
-      {/* Main Container */}
       <div className={`flex-1 flex overflow-hidden ${isFullscreen ? 'p-0' : 'p-4 gap-4'}`}>
-        {/* Area do Vídeo Principal */}
         <div
           ref={videoContainerRef}
           className={`flex-1 bg-[#FFFFFF] relative flex flex-col justify-between overflow-hidden ${
             isFullscreen ? 'rounded-none border-none' : 'rounded-2xl border border-[#E7E5E4] shadow-sm'
           }`}
         >
-          {/* Status Conexão Topo Direita */}
           <div className="absolute top-4 right-4 z-20 flex items-center gap-2 bg-[#FFFFFF]/90 backdrop-blur-md px-3 py-1.5 rounded-xl text-[10px] font-black uppercase text-emerald-700 border border-[#E7E5E4] shadow-sm">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span>Conexão Excelente</span>
           </div>
 
-          {/* Overlay de Loading com animação Side | BY SIDE com a barra virando B */}
           {isSearchingNextPair ? (
             <div className="absolute inset-0 bg-[#1C1917] z-50 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
               <div className="flex items-center justify-center gap-3 mb-8 h-20 min-w-[380px]">
-                {/* 1. Primeiro "Side" */}
                 <span
                   className={`text-4xl sm:text-6xl font-black uppercase text-[#FAF9F6] tracking-tighter transition-all duration-300 ${
                     animStep >= 1 ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-6'
@@ -342,7 +388,6 @@ export const Room: React.FC = () => {
                   Side
                 </span>
 
-                {/* 2. Barra fixada "|" */}
                 <span
                   className={`text-4xl sm:text-6xl font-black text-[#FAF9F6] transition-all duration-300 ${
                     animStep >= 2 ? 'opacity-100 scale-y-100' : 'opacity-0 scale-y-0'
@@ -351,9 +396,7 @@ export const Room: React.FC = () => {
                   |
                 </span>
 
-                {/* 3. A segunda barra que se transforma (Morphing) no "BY" */}
                 <div className="relative inline-flex items-center">
-                  {/* Posição inicial: Segunda Barra "|" */}
                   <span
                     className={`text-4xl sm:text-6xl font-black text-[#A8A29E] transition-all duration-400 absolute left-0 ${
                       animStep === 2 ? 'opacity-100 scale-100' : 'opacity-0 scale-x-0'
@@ -362,7 +405,6 @@ export const Room: React.FC = () => {
                     |
                   </span>
 
-                  {/* Posição final: A barra ganha curvas e vira "BY" */}
                   <span
                     className={`text-3xl sm:text-5xl font-black text-[#A8A29E] uppercase tracking-wider transition-all duration-500 origin-left ${
                       animStep >= 3
@@ -374,7 +416,6 @@ export const Room: React.FC = () => {
                   </span>
                 </div>
 
-                {/* 4. Segundo "SIDE" */}
                 <span
                   className={`text-4xl sm:text-6xl font-black uppercase text-[#FAF9F6] tracking-tighter transition-all duration-500 ${
                     animStep >= 4 ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-6'
@@ -402,9 +443,10 @@ export const Room: React.FC = () => {
             </div>
           ) : (
             <div className="absolute inset-0 bg-[#F5F5F4] flex items-center justify-center">
-              <img
-                src="https://i.pinimg.com/originals/f5/1f/40/f51f40d8e9e75552feaa1d57597d8d3f.jpg"
-                alt="Alex (Parceiro de Conversa)"
+              <video
+                ref={remoteVideoRef}
+                autoPlay
+                playsInline
                 className="w-full h-full object-cover"
               />
               <div className="absolute bottom-4 left-6 bg-[#1C1917]/80 backdrop-blur-md px-3 py-1.5 rounded-xl text-xs font-black text-[#FAF9F6] uppercase z-10">
@@ -413,7 +455,6 @@ export const Room: React.FC = () => {
             </div>
           )}
 
-          {/* Feed PIP Local (Você) */}
           <div className="absolute bottom-5 right-6 left-auto top-auto z-30 w-44 h-28 rounded-2xl overflow-hidden border-2 border-[#FFFFFF] shadow-2xl bg-[#1C1917]">
             <video
               ref={localVideoRef}
@@ -441,7 +482,6 @@ export const Room: React.FC = () => {
             </div>
           </div>
 
-          {/* Barra de Controles Flutuante Inferior */}
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 bg-[#FFFFFF] border border-[#E7E5E4] p-2 rounded-2xl flex items-center gap-3 shadow-lg">
             <button
               type="button"
@@ -487,7 +527,6 @@ export const Room: React.FC = () => {
               )}
             </button>
 
-            {/* Botão de Fullscreen */}
             <button
               type="button"
               onClick={toggleFullscreen}
@@ -507,7 +546,6 @@ export const Room: React.FC = () => {
 
             <div className="w-px h-6 bg-[#E7E5E4]" />
 
-            {/* Botão de Denúncia com Ícone SVG */}
             <button
               type="button"
               onClick={() => setIsReportOpen(true)}
@@ -532,10 +570,8 @@ export const Room: React.FC = () => {
           </div>
         </div>
 
-        {/* Sidebar Direita (Tópicos Sequenciais Encadeados / Chat) */}
         {!isFullscreen && (
           <aside className="w-80 bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl flex flex-col overflow-hidden shrink-0 shadow-sm">
-            {/* Abas */}
             <div className="grid grid-cols-2 bg-[#F5F5F4] p-1 border-b border-[#E7E5E4] text-xs font-black uppercase tracking-wider">
               <button
                 type="button"
@@ -557,7 +593,6 @@ export const Room: React.FC = () => {
               </button>
             </div>
 
-            {/* Conteúdo das Abas */}
             <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
               {activeTab === 'topics' ? (
                 <div className="flex flex-col gap-3">
