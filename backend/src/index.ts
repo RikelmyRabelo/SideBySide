@@ -3,6 +3,7 @@ import type { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import cors from 'cors';
+import { prisma } from './lib/prisma';
 
 const app = express();
 app.use(express.json());
@@ -11,10 +12,6 @@ app.use(cors());
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'seu-segredo-super-seguro';
 
-// Banco de dados em memória temporário (depois substituiremos por banco real)
-const users: any[] = [];
-
-// Rota de Cadastro
 app.post('/api/auth/register', async (req: Request, res: Response) => {
   try {
     const { name, email, password, level } = req.body;
@@ -23,24 +20,22 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Nome, e-mail e senha são obrigatórios.' });
     }
 
-    const existingUser = users.find((u) => u.email === email);
+    const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       return res.status(400).json({ error: 'E-mail já cadastrado.' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const newUser = {
-      id: Math.random().toString(36).substring(2, 9),
-      name,
-      email,
-      password: hashedPassword,
-      level: level || 'B1',
-      reputation: 98,
-      createdAt: new Date().toISOString(),
-    };
-
-    users.push(newUser);
+    const newUser = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+        level: level || 'B1',
+        reputation: 98,
+      },
+    });
 
     const token = jwt.sign({ id: newUser.id, email: newUser.email }, JWT_SECRET, { expiresIn: '7d' });
 
@@ -54,7 +49,6 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
   }
 });
 
-// Rota de Login
 app.post('/api/auth/login', async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
@@ -63,7 +57,7 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'E-mail e senha são obrigatórios.' });
     }
 
-    const user = users.find((u) => u.email === email);
+    const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       return res.status(401).json({ error: 'Credenciais inválidas.' });
     }
@@ -85,7 +79,6 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
   }
 });
 
-// Rota de Solicitação de Recuperação de Senha
 app.post('/api/auth/forgot-password', async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
@@ -94,7 +87,7 @@ app.post('/api/auth/forgot-password', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'E-mail é obrigatório.' });
     }
 
-    const user = users.find((u) => u.email === email);
+    const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       return res.status(200).json({ message: 'Se o e-mail estiver cadastrado, um link de recuperação foi enviado.' });
     }
@@ -110,7 +103,6 @@ app.post('/api/auth/forgot-password', async (req: Request, res: Response) => {
   }
 });
 
-// Rota de Redefinição de Senha
 app.post('/api/auth/reset-password', async (req: Request, res: Response) => {
   try {
     const { token, newPassword } = req.body;
@@ -119,14 +111,19 @@ app.post('/api/auth/reset-password', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Token e nova senha são obrigatórios.' });
     }
 
-    const decoded: any = jwt.verify(token, JWT_SECRET);
-    const user = users.find((u) => u.id === decoded.id);
-
+    const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
+    
+    const user = await prisma.user.findUnique({ where: { id: decoded.id } });
     if (!user) {
       return res.status(400).json({ error: 'Token inválido ou expirado.' });
     }
 
-    user.password = await bcrypt.hash(newPassword, 10);
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await prisma.user.update({
+      where: { id: decoded.id },
+      data: { password: hashedPassword },
+    });
 
     return res.status(200).json({ message: 'Senha redefinida com sucesso.' });
   } catch (error) {
