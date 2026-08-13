@@ -4,6 +4,7 @@ import type { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import cors from 'cors';
+import nodemailer from 'nodemailer';
 import { prisma } from './lib/prisma';
 
 const app = express();
@@ -12,6 +13,18 @@ app.use(cors());
 
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'seu-segredo-super-seguro';
+
+const verificationCodes = new Map<string, string>();
+
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+  logger: true,
+  debug: true,
+});
 
 app.post('/api/auth/register', async (req: Request, res: Response) => {
   try {
@@ -38,10 +51,28 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
       },
     });
 
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    verificationCodes.set(email, code);
+
+    await transporter.sendMail({
+      from: '"SideBySide" <no-reply@sidebyside.com>',
+      to: email,
+      subject: 'Ative sua conta no SideBySide',
+      html: `
+        <div style="font-family: sans-serif; padding: 20px; color: #1C1917;">
+          <h2>Bem-vindo ao SideBySide!</h2>
+          <p>Seu código de verificação de 6 dígitos é:</p>
+          <div style="font-size: 24px; font-weight: bold; background: #FAF9F6; border: 2px solid #1C1917; padding: 12px 24px; display: inline-block; border-radius: 12px; margin: 10px 0;">
+            ${code}
+          </div>
+        </div>
+      `,
+    });
+
     const token = jwt.sign({ id: newUser.id, email: newUser.email }, JWT_SECRET, { expiresIn: '7d' });
 
     return res.status(201).json({
-      message: 'Usuário cadastrado com sucesso.',
+      message: 'Usuário cadastrado com sucesso. Verifique seu e-mail.',
       token,
       user: { id: newUser.id, name: newUser.name, email: newUser.email, level: newUser.level, reputation: newUser.reputation },
     });
@@ -92,47 +123,85 @@ app.post('/api/auth/forgot-password', async (req: Request, res: Response) => {
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
-      return res.status(200).json({ message: 'Se o e-mail estiver cadastrado, um link de recuperação foi enviado.' });
+      return res.status(200).json({ message: 'Se o e-mail estiver cadastrado, um código foi enviado.' });
     }
 
-    const resetToken = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '15m' });
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    verificationCodes.set(email, code);
 
-    return res.status(200).json({
-      message: 'Link de recuperação enviado com sucesso.',
-      resetToken,
+    await transporter.sendMail({
+      from: '"SideBySide" <no-reply@sidebyside.com>',
+      to: email,
+      subject: 'Recuperação de Senha - SideBySide',
+      html: `
+        <div style="font-family: sans-serif; padding: 20px; color: #1C1917;">
+          <h2>Redefinição de Senha</h2>
+          <p>Seu código de verificação é:</p>
+          <div style="font-size: 24px; font-weight: bold; background: #FAF9F6; border: 2px solid #1C1917; padding: 12px 24px; display: inline-block; border-radius: 12px; margin: 10px 0;">
+            ${code}
+          </div>
+        </div>
+      `,
     });
+
+    return res.status(200).json({ message: 'Código de recuperação enviado com sucesso.' });
   } catch (error: any) {
     console.error('Erro no /api/auth/forgot-password:', error);
     return res.status(500).json({ error: 'Erro interno no servidor.', details: error.message });
   }
 });
 
-app.post('/api/auth/reset-password', async (req: Request, res: Response) => {
+app.post('/api/auth/verify-reset-code', async (req: Request, res: Response) => {
   try {
-    const { token, newPassword } = req.body;
+    const { email, code } = req.body;
 
-    if (!token || !newPassword) {
-      return res.status(400).json({ error: 'Token e nova senha são obrigatórios.' });
+    if (!email || !code) {
+      return res.status(400).json({ error: 'E-mail e código são obrigatórios.' });
     }
 
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
-    
-    const user = await prisma.user.findUnique({ where: { id: decoded.id } });
+    const storedCode = verificationCodes.get(email);
+    if (!storedCode || storedCode !== code) {
+      return res.status(400).json({ error: 'Código inválido ou expirado.' });
+    }
+
+    return res.status(200).json({ message: 'Código verificado com sucesso.' });
+  } catch (error: any) {
+    console.error('Erro no /api/auth/verify-reset-code:', error);
+    return res.status(500).json({ error: 'Erro interno no servidor.', details: error.message });
+  }
+});
+
+app.post('/api/auth/reset-password', async (req: Request, res: Response) => {
+  try {
+    const { email, code, newPassword } = req.body;
+
+    if (!email || !code || !newPassword) {
+      return res.status(400).json({ error: 'E-mail, código e nova senha são obrigatórios.' });
+    }
+
+    const storedCode = verificationCodes.get(email);
+    if (!storedCode || storedCode !== code) {
+      return res.status(400).json({ error: 'Código inválido ou expirado.' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
-      return res.status(400).json({ error: 'Token inválido ou expirado.' });
+      return res.status(400).json({ error: 'Usuário não encontrado.' });
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     await prisma.user.update({
-      where: { id: decoded.id },
+      where: { id: user.id },
       data: { password: hashedPassword },
     });
+
+    verificationCodes.delete(email);
 
     return res.status(200).json({ message: 'Senha redefinida com sucesso.' });
   } catch (error: any) {
     console.error('Erro no /api/auth/reset-password:', error);
-    return res.status(400).json({ error: 'Token inválido ou expirado.', details: error.message });
+    return res.status(500).json({ error: 'Erro interno no servidor.', details: error.message });
   }
 });
 
@@ -144,9 +213,19 @@ app.post('/api/auth/verify-code', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Código é obrigatório.' });
     }
 
-    if (code !== '123456') {
+    let foundEmail = null;
+    for (const [email, storedCode] of verificationCodes.entries()) {
+      if (storedCode === code) {
+        foundEmail = email;
+        break;
+      }
+    }
+
+    if (!foundEmail) {
       return res.status(400).json({ error: 'Código inválido ou expirado.' });
     }
+
+    verificationCodes.delete(foundEmail);
 
     return res.status(200).json({ message: 'Código verificado com sucesso.' });
   } catch (error: any) {
@@ -157,6 +236,29 @@ app.post('/api/auth/verify-code', async (req: Request, res: Response) => {
 
 app.post('/api/auth/resend-code', async (req: Request, res: Response) => {
   try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'E-mail é obrigatório.' });
+    }
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    verificationCodes.set(email, code);
+
+    await transporter.sendMail({
+      from: '"SideBySide" <no-reply@sidebyside.com>',
+      to: email,
+      subject: 'Novo código de verificação - SideBySide',
+      html: `
+        <div style="font-family: sans-serif; padding: 20px; color: #1C1917;">
+          <h2>Novo Código de Verificação</h2>
+          <p>Seu novo código de 6 dígitos é:</p>
+          <div style="font-size: 24px; font-weight: bold; background: #FAF9F6; border: 2px solid #1C1917; padding: 12px 24px; display: inline-block; border-radius: 12px; margin: 10px 0;">
+            ${code}
+          </div>
+        </div>
+      `,
+    });
+
     return res.status(200).json({ message: 'Código reenviado com sucesso.' });
   } catch (error: any) {
     console.error('Erro no /api/auth/resend-code:', error);
