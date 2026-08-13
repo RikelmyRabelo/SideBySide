@@ -107,11 +107,50 @@ export const Dashboard: React.FC = () => {
     return () => cancelAnimationFrame(animationFrameId);
   }, [mousePos]);
 
+  // Estado das Notificações
+  const [showNotifications, setShowNotifications] = useState(false);
+  const notificationsRef = useRef<HTMLDivElement>(null);
+  const [notifications, setNotifications] = useState([
+    {
+      id: '1',
+      title: 'Solicitação de Amizade',
+      message: 'Elena Rostova enviou uma solicitação de amizade.',
+      time: 'Há 10 min',
+      unread: true,
+      type: 'friend',
+    },
+    {
+      id: '2',
+      title: 'Conquista Desbloqueada!',
+      message: 'Você completou 5 dias de ofensiva de prática contínua.',
+      time: 'Há 1 hora',
+      unread: true,
+      type: 'badge',
+    },
+    {
+      id: '3',
+      title: 'Horário de Pico Ativo',
+      message: 'Muitas salas em andamento! Aproveite para praticar agora.',
+      time: 'Há 3 horas',
+      unread: false,
+      type: 'reminder',
+    },
+  ]);
+
+  const unreadCount = notifications.filter((n) => n.unread).length;
+
+  const markAllAsRead = () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
+  };
+
+  const removeNotification = (id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  };
+
   // Estado da Dica de Vocabulário Dinâmica
   const [vocabTip, setVocabTip] = useState<VocabResult>(FALLBACK_VOCAB_LIST[0]);
   const [isLoadingVocab, setIsLoadingVocab] = useState(false);
 
-  // Função para buscar vocabulário com tradução padronizada
   const fetchDynamicVocab = async () => {
     setIsLoadingVocab(true);
     const randomFallback = FALLBACK_VOCAB_LIST[Math.floor(Math.random() * FALLBACK_VOCAB_LIST.length)];
@@ -204,6 +243,9 @@ export const Dashboard: React.FC = () => {
     const handleClickOutside = (event: MouseEvent) => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setIsUserMenuOpen(false);
+      }
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
+        setShowNotifications(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -329,6 +371,88 @@ export const Dashboard: React.FC = () => {
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.105-2.574-.305-3.8A11.983 11.983 0 0112 2.714z" />
             </svg>
             Reputação: 98/100
+          </div>
+
+          {/* Central de Notificações */}
+          <div className="relative" ref={notificationsRef}>
+            <button
+              type="button"
+              onClick={() => setShowNotifications(!showNotifications)}
+              className="p-2.5 bg-[#FAF9F6] border-2 border-[#1C1917] rounded-xl hover:bg-[#F5F5F4] transition-all relative flex items-center justify-center outline-none"
+              title="Notificações"
+            >
+              <svg className="w-4 h-4 stroke-current fill-none stroke-2 text-[#1C1917]" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+              </svg>
+              {unreadCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-600 text-white rounded-full text-[9px] font-black flex items-center justify-center border border-[#FFFFFF]">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* Popover de Notificações */}
+            {showNotifications && (
+              <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-[#FFFFFF] border-2 border-[#1C1917] rounded-2xl shadow-[6px_6px_0px_0px_#1C1917] py-3 z-50 flex flex-col gap-2 animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="px-4 py-2 border-b-2 border-[#E7E5E4] flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs font-black uppercase text-[#1C1917]">Notificações</h3>
+                    {unreadCount > 0 && (
+                      <span className="text-[10px] font-black bg-[#1C1917] text-[#FAF9F6] px-2 py-0.5 rounded">
+                        {unreadCount} novas
+                      </span>
+                    )}
+                  </div>
+                  {unreadCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={markAllAsRead}
+                      className="text-[10px] font-black uppercase text-[#78716C] hover:text-[#1C1917] underline"
+                    >
+                      Marcar lidas
+                    </button>
+                  )}
+                </div>
+
+                <div className="max-h-80 overflow-y-auto flex flex-col divide-y divide-[#E7E5E4]">
+                  {notifications.length > 0 ? (
+                    notifications.map((item) => (
+                      <div
+                        key={item.id}
+                        className={`p-3.5 flex items-start justify-between gap-3 transition-colors ${
+                          item.unread ? 'bg-[#FAF9F6]' : 'bg-[#FFFFFF]'
+                        }`}
+                      >
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-black text-[#1C1917] uppercase">{item.title}</span>
+                            {item.unread && (
+                              <span className="w-2 h-2 rounded-full bg-red-600" />
+                            )}
+                          </div>
+                          <p className="text-xs text-[#57534E] font-medium leading-relaxed">
+                            {item.message}
+                          </p>
+                          <span className="text-[10px] font-bold text-[#A8A29E] uppercase mt-0.5">{item.time}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeNotification(item.id)}
+                          className="text-xs font-bold text-[#A8A29E] hover:text-[#1C1917] shrink-0"
+                          title="Remover"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-6 text-center text-xs font-bold text-[#78716C] uppercase">
+                      Nenhuma notificação por enquanto.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Menu do Usuário */}
