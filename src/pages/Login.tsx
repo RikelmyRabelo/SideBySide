@@ -12,6 +12,7 @@ export const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [cefrLevel, setCefrLevel] = useState('B1');
   const [agreeTerms, setAgreeTerms] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
 // Estado da animação no rodapé
 const [footerAnimStep, setFooterAnimStep] = useState<0 | 1 | 2 | 3 | 4>(0);
@@ -246,7 +247,7 @@ useEffect(() => {
     return () => observer.disconnect();
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -256,7 +257,24 @@ useEffect(() => {
         setErrorMessage('Por favor, informe um e-mail válido para a recuperação.');
         return;
       }
-      setSuccessMessage('Enviamos um link de redefinição de senha para o seu e-mail!');
+
+      setIsSubmitting(true);
+      try {
+        const response = await fetch('http://localhost:3000/api/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Erro ao solicitar recuperação.');
+
+        setSuccessMessage(data.message || 'Enviamos um link de redefinição de senha para o seu e-mail!');
+      } catch (err: any) {
+        setErrorMessage(err.message || 'Erro ao conectar com o servidor.');
+      } finally {
+        setIsSubmitting(false);
+      }
       return;
     }
 
@@ -280,7 +298,43 @@ useEffect(() => {
       return;
     }
 
-    alert(isLogin ? 'Login realizado com sucesso!' : 'Conta criada com sucesso!');
+    setIsSubmitting(true);
+
+    try {
+      const endpoint = isLogin
+        ? 'http://localhost:3000/api/auth/login'
+        : 'http://localhost:3000/api/auth/register';
+
+      const payload = isLogin
+        ? { email, password }
+        : { name: email.split('@')[0], email, password, level: cefrLevel };
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao processar a requisição.');
+      }
+
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+      }
+
+      if (isLogin) {
+        navigate('/dashboard');
+      } else {
+        navigate('/verify-code');
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Erro ao conectar com o servidor.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const faqItems = [
@@ -895,8 +949,10 @@ useEffect(() => {
               </div>
             )}
 
-            <Button variant="primary" className="w-full py-3.5 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-bold text-xs uppercase tracking-widest rounded-xl transition-all">
-              {isForgotPassword
+            <Button disabled={isSubmitting} variant="primary" className="w-full py-3.5 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-bold text-xs uppercase tracking-widest rounded-xl transition-all">
+              {isSubmitting
+                ? 'Processando...'
+                : isForgotPassword
                 ? 'Enviar E-mail de Recuperação'
                 : isLogin
                 ? 'Entrar'
@@ -1029,59 +1085,54 @@ useEffect(() => {
             </nav>
           </div>
 
-            {/* CÓDIGO NOVO */}
-<div className="flex justify-start md:justify-end">
-  <div className="w-auto h-40 border-4 border-[#FAF9F6] bg-[#292524] px-8 flex items-center justify-center rounded-3xl shadow-[8px_8px_0px_0px_#FAF9F6] overflow-hidden">
-    <div className="flex items-center justify-center gap-2">
-      {/* 1. Primeiro "Side" */}
-      <span
-        className={`text-2xl sm:text-3xl font-black uppercase text-[#FAF9F6] tracking-tighter transition-all duration-300 ${
-          footerAnimStep >= 1 ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4'
-        }`}
-      >
-        Side
-      </span>
+          <div className="flex justify-start md:justify-end">
+            <div className="w-auto h-40 border-4 border-[#FAF9F6] bg-[#292524] px-8 flex items-center justify-center rounded-3xl shadow-[8px_8px_0px_0px_#FAF9F6] overflow-hidden">
+              <div className="flex items-center justify-center gap-2">
+                <span
+                  className={`text-2xl sm:text-3xl font-black uppercase text-[#FAF9F6] tracking-tighter transition-all duration-300 ${
+                    footerAnimStep >= 1 ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4'
+                  }`}
+                >
+                  Side
+                </span>
 
-      {/* 2. Barra fixada "|" */}
-      <span
-        className={`text-2xl sm:text-3xl font-black text-[#FAF9F6] transition-all duration-300 ${
-          footerAnimStep >= 2 ? 'opacity-100 scale-y-100' : 'opacity-0 scale-y-0'
-        }`}
-      >
-        |
-      </span>
+                <span
+                  className={`text-2xl sm:text-3xl font-black text-[#FAF9F6] transition-all duration-300 ${
+                    footerAnimStep >= 2 ? 'opacity-100 scale-y-100' : 'opacity-0 scale-y-0'
+                  }`}
+                >
+                  |
+                </span>
 
-      {/* 3. Morphing da barra para "BY" */}
-      <div className="relative inline-flex items-center">
-        <span
-          className={`text-2xl sm:text-3xl font-black text-[#A8A29E] transition-all duration-300 absolute left-0 ${
-            footerAnimStep === 2 ? 'opacity-100 scale-100' : 'opacity-0 scale-x-0'
-          }`}
-        >
-          |
-        </span>
-        <span
-          className={`text-xl sm:text-2xl font-black text-[#A8A29E] uppercase tracking-wider transition-all duration-400 origin-left ${
-            footerAnimStep >= 3
-              ? 'opacity-100 translate-x-0 scale-x-100'
-              : 'opacity-0 translate-x-1 scale-x-0'
-          }`}
-        >
-          BY
-        </span>
-      </div>
+                <div className="relative inline-flex items-center">
+                  <span
+                    className={`text-2xl sm:text-3xl font-black text-[#A8A29E] transition-all duration-300 absolute left-0 ${
+                      footerAnimStep === 2 ? 'opacity-100 scale-100' : 'opacity-0 scale-x-0'
+                    }`}
+                  >
+                    |
+                  </span>
+                  <span
+                    className={`text-xl sm:text-2xl font-black text-[#A8A29E] uppercase tracking-wider transition-all duration-400 origin-left ${
+                      footerAnimStep >= 3
+                        ? 'opacity-100 translate-x-0 scale-x-100'
+                        : 'opacity-0 translate-x-1 scale-x-0'
+                    }`}
+                  >
+                    BY
+                  </span>
+                </div>
 
-      {/* 4. Segundo "SIDE" */}
-      <span
-        className={`text-2xl sm:text-3xl font-black uppercase text-[#FAF9F6] tracking-tighter transition-all duration-400 ${
-          footerAnimStep >= 4 ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
-        }`}
-      >
-        SIDE
-      </span>
-    </div>
-  </div>
-</div>
+                <span
+                  className={`text-2xl sm:text-3xl font-black uppercase text-[#FAF9F6] tracking-tighter transition-all duration-400 ${
+                    footerAnimStep >= 4 ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
+                  }`}
+                >
+                  SIDE
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="max-w-7xl mx-auto w-full pt-8 border-t-2 border-[#292524] flex flex-col sm:flex-row items-center justify-between text-xs text-[#A8A29E] gap-4 font-bold">
