@@ -14,6 +14,7 @@ app.use(cors());
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'seu-segredo-super-seguro';
 
+const pendingUsers = new Map<string, { name: string; email: string; passwordHash: string; level: string; code: string }>();
 const verificationCodes = new Map<string, string>();
 
 const transporter = nodemailer.createTransport({
@@ -40,19 +41,15 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    const newUser = await prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        level: level || 'B1',
-        reputation: 98,
-      },
-    });
-
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    verificationCodes.set(email, code);
+
+    pendingUsers.set(email, {
+      name,
+      email,
+      passwordHash: hashedPassword,
+      level: level || 'B1',
+      code,
+    });
 
     await transporter.sendMail({
       from: '"SideBySide" <no-reply@sidebyside.com>',
@@ -69,12 +66,9 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
       `,
     });
 
-    const token = jwt.sign({ id: newUser.id, email: newUser.email }, JWT_SECRET, { expiresIn: '7d' });
-
     return res.status(201).json({
-      message: 'Usuário cadastrado com sucesso. Verifique seu e-mail.',
-      token,
-      user: { id: newUser.id, name: newUser.name, email: newUser.email, level: newUser.level, reputation: newUser.reputation },
+      message: 'Código de verificação enviado para o e-mail.',
+      email,
     });
   } catch (error: any) {
     console.error('Erro no /api/auth/register:', error);
@@ -207,27 +201,46 @@ app.post('/api/auth/reset-password', async (req: Request, res: Response) => {
 
 app.post('/api/auth/verify-code', async (req: Request, res: Response) => {
   try {
-    const { code } = req.body;
+    const { email, code } = req.body;
 
     if (!code) {
       return res.status(400).json({ error: 'Código é obrigatório.' });
     }
 
-    let foundEmail = null;
-    for (const [email, storedCode] of verificationCodes.entries()) {
-      if (storedCode === code) {
-        foundEmail = email;
-        break;
+    let targetEmail = email;
+    if (!targetEmail) {
+      for (const [pendingEmail, data] of pendingUsers.entries()) {
+        if (data.code === code) {
+          targetEmail = pendingEmail;
+          break;
+        }
       }
     }
 
-    if (!foundEmail) {
+    const pending = targetEmail ? pendingUsers.get(targetEmail) : null;
+    if (!pending || pending.code !== code) {
       return res.status(400).json({ error: 'Código inválido ou expirado.' });
     }
 
-    verificationCodes.delete(foundEmail);
+    pendingUsers.delete(targetEmail);
 
-    return res.status(200).json({ message: 'Código verificado com sucesso.' });
+    const newUser = await prisma.user.create({
+      data: {
+        name: pending.name,
+        email: pending.email,
+        password: pending.passwordHash,
+        level: pending.level,
+        reputation: 98,
+      },
+    });
+
+    const token = jwt.sign({ id: newUser.id, email: newUser.email }, JWT_SECRET, { expiresIn: '7d' });
+
+    return res.status(200).json({
+      message: 'Conta verificada e criada com sucesso.',
+      token,
+      user: { id: newUser.id, name: newUser.name, email: newUser.email, level: newUser.level, reputation: newUser.reputation }
+    });
   } catch (error: any) {
     console.error('Erro no /api/auth/verify-code:', error);
     return res.status(500).json({ error: 'Erro interno no servidor.', details: error.message });
@@ -241,8 +254,14 @@ app.post('/api/auth/resend-code', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'E-mail é obrigatório.' });
     }
 
+    const pending = pendingUsers.get(email);
+    if (!pending) {
+      return res.status(400).json({ error: 'Nenhum cadastro pendente encontrado para este e-mail.' });
+    }
+
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    verificationCodes.set(email, code);
+    pending.code = code;
+    pendingUsers.set(email, pending);
 
     await transporter.sendMail({
       from: '"SideBySide" <no-reply@sidebyside.com>',
