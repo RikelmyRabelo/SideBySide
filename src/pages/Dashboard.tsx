@@ -154,8 +154,29 @@ export const Dashboard: React.FC = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
   };
 
-  const removeNotification = (id: string) => {
+  const removeNotification = (id: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
     setNotifications((prev) => prev.filter((n) => n.id !== id));
+  };
+
+  // Manipulador de clique interativo nas notificações
+  const handleNotificationClick = (item: typeof notifications[0]) => {
+    // Marca item clicado como lido
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === item.id ? { ...n, unread: false } : n))
+    );
+    setShowNotifications(false);
+
+    // Executa a ação apropriada dependendo do tipo da notificação
+    if (item.type === 'friend') {
+      setIsFriendsOpen(true);
+    } else if (item.type === 'badge') {
+      setActiveModal('goals');
+    } else if (item.type === 'reminder') {
+      setIsMatching(true);
+    }
   };
 
   // Estado da Dica de Vocabulário Dinâmica
@@ -384,7 +405,7 @@ export const Dashboard: React.FC = () => {
             Reputação: 98/100
           </div>
 
-          {/* Central de Notificações */}
+          {/* Central de Notificações Clicáveis */}
           <div className="relative" ref={notificationsRef}>
             <button
               type="button"
@@ -402,7 +423,7 @@ export const Dashboard: React.FC = () => {
               )}
             </button>
 
-            {/* Popover de Notificações */}
+            {/* Popover de Notificações Clicáveis */}
             {showNotifications && (
               <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-[#FFFFFF] border-2 border-[#1C1917] rounded-2xl shadow-[6px_6px_0px_0px_#1C1917] py-3 z-50 flex flex-col gap-2 animate-in fade-in slide-in-from-top-2 duration-150">
                 <div className="px-4 py-2 border-b-2 border-[#E7E5E4] flex items-center justify-between">
@@ -430,7 +451,8 @@ export const Dashboard: React.FC = () => {
                     notifications.map((item) => (
                       <div
                         key={item.id}
-                        className={`p-3.5 flex items-start justify-between gap-3 transition-colors ${
+                        onClick={() => handleNotificationClick(item)}
+                        className={`p-3.5 flex items-start justify-between gap-3 transition-colors cursor-pointer hover:bg-[#F5F5F4] ${
                           item.unread ? 'bg-[#FAF9F6]' : 'bg-[#FFFFFF]'
                         }`}
                       >
@@ -448,8 +470,8 @@ export const Dashboard: React.FC = () => {
                         </div>
                         <button
                           type="button"
-                          onClick={() => removeNotification(item.id)}
-                          className="text-xs font-bold text-[#A8A29E] hover:text-[#1C1917] shrink-0"
+                          onClick={(e) => removeNotification(item.id, e)}
+                          className="text-xs font-bold text-[#A8A29E] hover:text-[#1C1917] shrink-0 p-1"
                           title="Remover"
                         >
                           ✕
