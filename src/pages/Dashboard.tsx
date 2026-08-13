@@ -4,6 +4,7 @@ import { Button } from '../components/ui/Button';
 import { FriendsManagerModal } from '../components/dashboard/FriendsManagerModal';
 import { DirectChatsModal } from '../components/dashboard/DirectChatsModal';
 import { BadgesModal } from '../components/dashboard/BadgesModal';
+import { DeviceCheckModal } from '../components/dashboard/DeviceCheckModal';
 
 // Banco de palavras com definições em português
 const FALLBACK_VOCAB_LIST = [
@@ -110,10 +111,11 @@ export const Dashboard: React.FC = () => {
     return () => cancelAnimationFrame(animationFrameId);
   }, [mousePos]);
 
-  // Estados dos Modais Sociais e Badges
+  // Estados dos Modais Sociais, Periféricos e Badges
   const [isFriendsOpen, setIsFriendsOpen] = useState(false);
   const [isDirectChatsOpen, setIsDirectChatsOpen] = useState(false);
   const [isBadgesOpen, setIsBadgesOpen] = useState(false);
+  const [isDeviceCheckOpen, setIsDeviceCheckOpen] = useState(false);
   const [selectedChatContact, setSelectedChatContact] = useState<{
     id: string;
     name: string;
@@ -798,9 +800,22 @@ export const Dashboard: React.FC = () => {
 
         {/* Configurações de Conexão & CTA */}
         <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
-          <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
-            Configurações de Conexão
-          </h2>
+          <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-4">
+            <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
+              Configurações de Conexão
+            </h2>
+
+            <button
+              type="button"
+              onClick={() => setIsDeviceCheckOpen(true)}
+              className="px-3.5 py-1.5 bg-[#FAF9F6] border-2 border-[#1C1917] rounded-xl text-[11px] font-black uppercase tracking-wider text-[#1C1917] hover:bg-[#1C1917] hover:text-[#FAF9F6] transition-all flex items-center gap-1.5"
+            >
+              <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.83m0 0a5.99 5.99 0 00-2.003-7.234L10.87 6.44a1.125 1.125 0 00-1.221.22L6.15 10.16a1.125 1.125 0 00-.22 1.221l2.302 2.498a5.99 5.99 0 007.188.291z" />
+              </svg>
+              Testar Equipamento
+            </button>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="flex flex-col gap-2">
@@ -908,7 +923,7 @@ export const Dashboard: React.FC = () => {
         </section>
       </main>
 
-      {/* Modais de Gerenciamento Social e Badges */}
+      {/* Modais de Gerenciamento Social, Badges e Dispositivos */}
       <FriendsManagerModal
         isOpen={isFriendsOpen}
         onClose={() => setIsFriendsOpen(false)}
@@ -927,6 +942,12 @@ export const Dashboard: React.FC = () => {
       <BadgesModal
         isOpen={isBadgesOpen}
         onClose={() => setIsBadgesOpen(false)}
+      />
+
+      <DeviceCheckModal
+        isOpen={isDeviceCheckOpen}
+        onClose={() => setIsDeviceCheckOpen(false)}
+        mediaMode={mediaMode}
       />
 
       {/* Modal de Confirmação para Entrar na Room pelo Tópico */}
