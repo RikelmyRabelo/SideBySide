@@ -12,7 +12,6 @@ export const VerifyCode: React.FC = () => {
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // Efeito de cursor do mouse
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
   const [cursorOpacity, setCursorOpacity] = useState(1);
@@ -61,7 +60,6 @@ export const VerifyCode: React.FC = () => {
     return () => cancelAnimationFrame(animationFrameId);
   }, [mousePos]);
 
-  // Contagem regressiva para reenviar o código
   useEffect(() => {
     let interval: number | undefined;
     if (timer > 0) {
@@ -78,7 +76,6 @@ export const VerifyCode: React.FC = () => {
     };
   }, [timer]);
 
-  // Foco no primeiro input ao carregar
   useEffect(() => {
     if (inputRefs.current[0]) {
       inputRefs.current[0].focus();
@@ -94,14 +91,12 @@ export const VerifyCode: React.FC = () => {
 
     setError(null);
 
-    // Mover para o próximo campo automaticamente
     if (value && index < 5 && inputRefs.current[index + 1]) {
       inputRefs.current[index + 1]?.focus();
     }
   };
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    // Voltar para o campo anterior ao pressionar Backspace se estiver vazio
     if (e.key === 'Backspace' && !code[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
@@ -122,12 +117,11 @@ export const VerifyCode: React.FC = () => {
     });
     setCode(newCode);
 
-    // Focar no último dígito colado ou no seguinte
     const focusIndex = Math.min(digits.length, 5);
     inputRefs.current[focusIndex]?.focus();
   };
 
-  const handleVerify = (e: React.FormEvent) => {
+  const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     const fullCode = code.join('');
 
@@ -137,29 +131,54 @@ export const VerifyCode: React.FC = () => {
     }
 
     setIsSubmitting(true);
+    setError(null);
 
-    // Simulação da validação da API
-    setTimeout(() => {
-      setIsSubmitting(false);
-      // Redireciona para a tela de onboarding (SBS-59)
+    try {
+      const response = await fetch('http://localhost:3000/api/auth/verify-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: fullCode }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Código inválido ou expirado.');
+      }
+
       navigate('/onboarding');
-    }, 1000);
+    } catch (err: any) {
+      setError(err.message || 'Erro ao conectar com o servidor.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleResendCode = () => {
+  const handleResendCode = async () => {
     if (!canResend) return;
-    setTimer(60);
-    setCanResend(false);
-    setCode(Array(6).fill(''));
-    setError(null);
-    if (inputRefs.current[0]) {
-      inputRefs.current[0].focus();
+
+    try {
+      const response = await fetch('http://localhost:3000/api/auth/resend-code', {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao reenviar o código.');
+      }
+
+      setTimer(60);
+      setCanResend(false);
+      setCode(Array(6).fill(''));
+      setError(null);
+      if (inputRefs.current[0]) {
+        inputRefs.current[0].focus();
+      }
+    } catch (err: any) {
+      setError(err.message || 'Erro ao reenviar código.');
     }
   };
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col font-sans relative overflow-hidden selection:bg-[#1C1917] selection:text-[#FAF9F6]">
-      {/* Cursor Solido Neutro */}
       <div
         className="pointer-events-none fixed z-50 w-3.5 h-3.5 rounded-full bg-[#1C1917] transition-opacity duration-300 ease-out -translate-x-1/2 -translate-y-1/2 hidden md:block"
         style={{
@@ -169,7 +188,6 @@ export const VerifyCode: React.FC = () => {
         }}
       />
 
-      {/* Header Bar Simplificada */}
       <header className="bg-[#FFFFFF] border-b border-[#E7E5E4] px-6 py-4 flex items-center justify-between z-30 shadow-sm">
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
           <div className="w-8 h-8 rounded-md bg-[#1C1917] flex items-center justify-center font-black text-[#FAF9F6] text-base">
@@ -179,7 +197,6 @@ export const VerifyCode: React.FC = () => {
         </div>
       </header>
 
-      {/* Conteúdo Principal */}
       <main className="flex-1 flex items-center justify-center p-6">
         <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-8 sm:p-10 max-w-md w-full shadow-sm flex flex-col gap-6">
           <div className="flex flex-col gap-2 text-center">
