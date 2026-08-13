@@ -14,6 +14,7 @@ export const ResetPassword: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -77,17 +78,47 @@ export const ResetPassword: React.FC = () => {
     }
   };
 
-  const handleVerifyCode = () => {
+  const handleVerifyCode = async () => {
     setErrorMessage(null);
     const fullCode = code.join('');
+    
     if (fullCode.length < 6) {
       setErrorMessage('Por favor, preencha o código de segurança completo (6 dígitos).');
       return;
     }
-    setIsCodeConfirmed(true);
+
+    if (!location.state?.email) {
+      setErrorMessage('E-mail não encontrado. Por favor, volte e tente novamente.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    
+    try {
+      const response = await fetch('http://localhost:3000/api/auth/verify-reset-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email: location.state.email, 
+          code: fullCode 
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Código inválido ou expirado.');
+      }
+
+      setIsCodeConfirmed(true);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Erro ao verificar o código.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
@@ -101,8 +132,38 @@ export const ResetPassword: React.FC = () => {
       return;
     }
 
-    alert('Senha alterada com sucesso!');
-    navigate('/');
+    if (!location.state?.email) {
+      setErrorMessage('E-mail não encontrado. Por favor, reinicie o processo.');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const fullCode = code.join('');
+      const response = await fetch('http://localhost:3000/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email: location.state.email, 
+          code: fullCode,
+          newPassword: password 
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao redefinir a senha.');
+      }
+
+      alert('Senha alterada com sucesso!');
+      navigate('/');
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Erro ao conectar com o servidor.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -172,12 +233,13 @@ export const ResetPassword: React.FC = () => {
               </div>
 
               <Button
+                disabled={isSubmitting}
                 variant="primary"
                 type="button"
                 onClick={handleVerifyCode}
                 className="w-full py-3 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-black text-xs uppercase tracking-widest rounded-xl transition-all border-2 border-[#1C1917]"
               >
-                Validar Código
+                {isSubmitting ? 'Validando...' : 'Validar Código'}
               </Button>
             </div>
           )}
@@ -222,11 +284,12 @@ export const ResetPassword: React.FC = () => {
               />
 
               <Button
+                disabled={isSubmitting}
                 variant="primary"
                 type="submit"
                 className="w-full py-3.5 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-black text-xs uppercase tracking-widest rounded-xl transition-all border-2 border-[#1C1917] shadow-md mt-2"
               >
-                Salvar Nova Senha
+                {isSubmitting ? 'Salvando...' : 'Salvar Nova Senha'}
               </Button>
             </form>
           )}
