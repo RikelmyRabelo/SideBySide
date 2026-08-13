@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ReportModal } from '../components/room/ReportModal';
-import { RatingModal } from '../components/room/RatingModal.tsx';
+import { RatingModal } from '../components/room/RatingModal';
 import { TOPICS_CATALOG, getRandomTopic, TopicItem } from '../data/topicsData';
 
 export const Room: React.FC = () => {
@@ -22,6 +22,11 @@ export const Room: React.FC = () => {
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [isRatingOpen, setIsRatingOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isSearchingNextPair, setIsSearchingNextPair] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'exit' | 'nextPair' | null>(null);
+
+  // Estado das etapas da animação contínua em looping (0: Limpo, 1: Primeiro "Side", 2: Barra "|", 3: "by", 4: Segundo "Side")
+  const [animStep, setAnimStep] = useState<0 | 1 | 2 | 3 | 4>(0);
 
   // Avatar do usuário para exibição em modo Apenas Áudio
   const userAvatarUrl =
@@ -81,6 +86,28 @@ export const Room: React.FC = () => {
     animationFrameId = requestAnimationFrame(updateFollower);
     return () => cancelAnimationFrame(animationFrameId);
   }, [mousePos]);
+
+  // Loop contínuo de animação sequencial ("Side" -> "|" -> "by" -> segundo "Side" saindo da barra)
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+
+    if (isSearchingNextPair) {
+      setAnimStep(1);
+
+      interval = setInterval(() => {
+        setAnimStep((prev) => {
+          if (prev === 4) return 0;
+          return (prev + 1) as 0 | 1 | 2 | 3 | 4;
+        });
+      }, 500);
+    } else {
+      setAnimStep(0);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isSearchingNextPair]);
 
   // Sincroniza estado de tela cheia com eventos nativos do navegador
   useEffect(() => {
@@ -173,17 +200,45 @@ export const Room: React.FC = () => {
   const handleConfirmReport = (reason: string) => {
     console.log('Denúncia enviada:', reason);
     setIsReportOpen(false);
+    setPendingAction('nextPair');
     setIsRatingOpen(true);
   };
 
   const handleEndCall = () => {
+    setPendingAction('exit');
+    setIsRatingOpen(true);
+  };
+
+  const handleNextPair = () => {
+    setPendingAction('nextPair');
     setIsRatingOpen(true);
   };
 
   const handleRatingSubmit = (data: { partnerRating: number; platformRating: number; comment: string }) => {
     console.log('Avaliação submetida:', data);
     setIsRatingOpen(false);
-    navigate('/dashboard');
+    
+    if (pendingAction === 'exit') {
+      navigate('/dashboard');
+    } else {
+      triggerSearchNextPair();
+    }
+  };
+
+  const handleRatingClose = () => {
+    setIsRatingOpen(false);
+    if (pendingAction === 'exit') {
+      navigate('/dashboard');
+    } else {
+      triggerSearchNextPair();
+    }
+  };
+
+  const triggerSearchNextPair = () => {
+    setIsSearchingNextPair(true);
+    setTimeout(() => {
+      setIsSearchingNextPair(false);
+    }, 6000);
   };
 
   return (
@@ -210,7 +265,10 @@ export const Room: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2 bg-[#FAF9F6] border border-[#E7E5E4] px-3 py-1 rounded-xl text-xs font-black text-[#1C1917] uppercase">
-              <span>⏱️</span>
+              <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="9" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l3 3" />
+              </svg>
               <span>12:45</span>
             </div>
           </div>
@@ -271,17 +329,79 @@ export const Room: React.FC = () => {
             <span>Conexão Excelente</span>
           </div>
 
-          {/* Feed de Vídeo Remoto (Parceiro) */}
-          <div className="absolute inset-0 bg-[#F5F5F4] flex items-center justify-center">
-            <img
-              src="https://i.pinimg.com/originals/f5/1f/40/f51f40d8e9e75552feaa1d57597d8d3f.jpg"
-              alt="Alex (Parceiro de Conversa)"
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute bottom-4 left-6 bg-[#1C1917]/80 backdrop-blur-md px-3 py-1.5 rounded-xl text-xs font-black text-[#FAF9F6] uppercase z-10">
-              Alex (Espanha)
+          {/* Overlay de Loading Looping: "Side" -> "|" -> "by" -> segundo "Side" saindo da barra */}
+          {isSearchingNextPair ? (
+            <div className="absolute inset-0 bg-[#1C1917] z-50 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
+              <div className="flex items-center justify-center gap-3 mb-8 h-20 min-w-[360px]">
+                {/* 1. Primeiro "Side" */}
+                <span
+                  className={`text-4xl sm:text-6xl font-black uppercase text-[#FAF9F6] tracking-tighter transition-all duration-300 ${
+                    animStep >= 1 ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-6'
+                  }`}
+                >
+                  Side
+                </span>
+
+                {/* 2. Barra "|" */}
+                <span
+                  className={`text-4xl sm:text-6xl font-black text-[#FAF9F6] transition-all duration-300 ${
+                    animStep >= 2 ? 'opacity-100 scale-y-100' : 'opacity-0 scale-y-0'
+                  }`}
+                >
+                  |
+                </span>
+
+                {/* 3. "by" */}
+                <span
+                  className={`text-2xl sm:text-4xl font-black text-[#A8A29E] uppercase tracking-wider transition-all duration-300 ${
+                    animStep >= 3 ? 'opacity-100 scale-100' : 'opacity-0 scale-50'
+                  }`}
+                >
+                  by
+                </span>
+
+                {/* 4. Segundo "Side" (Emerge da esquerda para a direita a partir do "by" e da barra) */}
+                <div className="overflow-hidden">
+                  <span
+                    className={`text-4xl sm:text-6xl font-black uppercase text-[#FAF9F6] tracking-tighter block transition-all duration-500 origin-left ${
+                      animStep >= 4
+                        ? 'opacity-100 translate-x-0 scale-x-100'
+                        : 'opacity-0 -translate-x-full scale-x-0'
+                    }`}
+                  >
+                    Side
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 max-w-sm">
+                <span className="text-[10px] font-black tracking-widest text-[#1C1917] uppercase bg-[#FAF9F6] px-3 py-1 rounded-lg w-fit mx-auto border-2 border-[#FAF9F6]">
+                  MANTENDO TÓPICO: {currentTopic.title}
+                </span>
+                <h2 className="text-xl font-black uppercase tracking-tight text-[#FAF9F6]">
+                  Procurando novo conversante...
+                </h2>
+                <p className="text-xs text-[#A8A29E] font-medium leading-relaxed">
+                  Conectando você a outro parceiro disponível no mesmo nível de fluência.
+                </p>
+              </div>
+
+              <div className="w-48 h-1.5 bg-[#FAF9F6]/20 rounded-full overflow-hidden mt-8">
+                <div className="h-full bg-[#FAF9F6] rounded-full animate-pulse w-2/3 mx-auto" />
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="absolute inset-0 bg-[#F5F5F4] flex items-center justify-center">
+              <img
+                src="https://i.pinimg.com/originals/f5/1f/40/f51f40d8e9e75552feaa1d57597d8d3f.jpg"
+                alt="Alex (Parceiro de Conversa)"
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute bottom-4 left-6 bg-[#1C1917]/80 backdrop-blur-md px-3 py-1.5 rounded-xl text-xs font-black text-[#FAF9F6] uppercase z-10">
+                Alex (Espanha)
+              </div>
+            </div>
+          )}
 
           {/* Feed PIP Local (Você) */}
           <div className="absolute bottom-5 right-6 left-auto top-auto z-30 w-44 h-28 rounded-2xl overflow-hidden border-2 border-[#FFFFFF] shadow-2xl bg-[#1C1917]">
@@ -377,21 +497,27 @@ export const Room: React.FC = () => {
 
             <div className="w-px h-6 bg-[#E7E5E4]" />
 
+            {/* Botão de Denúncia com Ícone SVG */}
             <button
               type="button"
               onClick={() => setIsReportOpen(true)}
               className="p-3 bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 rounded-xl transition-all text-xs font-bold"
               title="Denunciar Parceiro"
             >
-              🚩
+              <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0l2.77-1.385a1.125 1.125 0 011.008 0L10.5 15l3.722-1.861a1.125 1.125 0 011.008 0L19.5 15V4.5l-4.27-2.135a1.125 1.125 0 00-1.008 0L10.5 4.23 6.778 2.369a1.125 1.125 0 00-1.008 0L3 3.75V15z" />
+              </svg>
             </button>
 
             <button
               type="button"
-              onClick={handleEndCall}
+              onClick={handleNextPair}
               className="px-5 py-2.5 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 shadow-sm"
             >
-              <span>⏭</span> PRÓXIMO PAR
+              <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-[3]" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 8.25V18a2.25 2.25 0 002.25 2.25h13.5A2.25 2.25 0 0021 18V8.25m-18 0V6a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 6v2.25m-18 0h18M12 11.25v6m0 0l-3-3m3 3l3-3" />
+              </svg>
+              <span>PRÓXIMO PAR</span>
             </button>
           </div>
         </div>
@@ -512,7 +638,7 @@ export const Room: React.FC = () => {
 
       <RatingModal
         isOpen={isRatingOpen}
-        onClose={() => setIsRatingOpen(false)}
+        onClose={handleRatingClose}
         onSubmit={handleRatingSubmit}
         partnerName="Alex (Espanha)"
       />
