@@ -6,7 +6,6 @@ export const Profile: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'general' | 'social' | 'stats' | 'security'>('general');
 
-  // Estado do Efeito de Cursor Neutro
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
   const [cursorOpacity, setCursorOpacity] = useState(1);
@@ -55,18 +54,15 @@ export const Profile: React.FC = () => {
     return () => cancelAnimationFrame(animationFrameId);
   }, [mousePos]);
 
-  // Estado do Modal de Perfil Público e Solicitação de Amizade
   const [showPublicPreview, setShowPublicPreview] = useState(false);
   const [friendRequestSent, setFriendRequestSent] = useState(false);
 
-  // Estado do Modal de Adicionar Tópicos
   const [showTopicsModal, setShowTopicsModal] = useState(false);
   const [topicSearch, setTopicSearch] = useState('');
 
-  // Estados: Dados Pessoais, Nível CEFR, Idade, Sexo e Pronomes
-  const [name, setName] = useState('Lucas Silva');
-  const [email] = useState('lucas.silva@email.com');
-  const [age, setAge] = useState<number | string>(26);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [age, setAge] = useState<number | string>('');
   const [showAgeInProfile, setShowAgeInProfile] = useState(true);
   const [gender, setGender] = useState('Masculino');
   const [pronouns, setPronouns] = useState('ele/dele (he/him)');
@@ -75,17 +71,36 @@ export const Profile: React.FC = () => {
     'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80'
   );
 
-  // Estados: Biografia e Interesses ("Sobre Mim")
-  const [bio, setBio] = useState(
-    'Desenvolvedor de software focado em evoluir no inglês para entrevistas e reuniões internacionais.'
-  );
-  const [selectedInterests, setSelectedInterests] = useState<string[]>([
-    'Tecnologia',
-    'Viagens',
-    'Carreira & Negócios',
-  ]);
+  const [bio, setBio] = useState('');
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
 
-  // Histórico de Comentários / Avaliações Recebidas de Outros Usuários
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('http://localhost:3000/api/user/me', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setName(data.name || '');
+          setEmail(data.email || '');
+          setCefrLevel(data.level || 'B1');
+          if (data.avatar) setAvatarUrl(data.avatar);
+          if (data.bio) setBio(data.bio);
+          if (data.age) setAge(data.age);
+          if (data.gender) setGender(data.gender);
+          if (data.pronouns) setPronouns(data.pronouns);
+          if (data.interests) setSelectedInterests(data.interests);
+          if (data.showAgeInProfile !== undefined) setShowAgeInProfile(data.showAgeInProfile);
+        }
+      } catch (err) {
+        console.error('Erro ao carregar perfil', err);
+      }
+    };
+    fetchProfile();
+  }, []);
+
   const [receivedFeedback] = useState([
     {
       id: 'fb-1',
@@ -110,7 +125,6 @@ export const Profile: React.FC = () => {
     },
   ]);
 
-  // Biblioteca de tópicos por categoria
   const topicsLibrary = [
     { category: 'Tecnologia & Carreira', items: ['Tecnologia', 'Carreira & Negócios', 'Inteligência Artificial', 'Startups', 'Programação', 'Marketing Digital'] },
     { category: 'Cultura & Entretenimento', items: ['Cinema & Séries', 'Música', 'Leitura', 'Jogos & eSports', 'Arte & Design', 'Fotografia'] },
@@ -130,20 +144,17 @@ export const Profile: React.FC = () => {
     }
   };
 
-  // Estados da Verificação via E-mail para Trocar Senha
   const [emailCodeSent, setEmailCodeSent] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [isEmailCodeVerified, setIsEmailCodeVerified] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // Estados da Camada Reforçada de Exclusão de Conta
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletePasswordConfirm, setDeletePasswordConfirm] = useState('');
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
   const [agreeDeleteTerms, setAgreeDeleteTerms] = useState(false);
 
-  // Estados de Metas Semanais e Gamificação
   const [weeklyGoalTarget, setWeeklyGoalTarget] = useState(5);
   const [weeklyGoalCompleted] = useState(3);
   const [currentStreak] = useState(5);
@@ -155,12 +166,10 @@ export const Profile: React.FC = () => {
     { id: 'level_b2', title: 'Rumo ao B2', desc: '10 treinos no nível B1', unlocked: false, icon: '🎓' },
   ];
 
-  // Estatísticas Detalhadas
   const evolutionStats = {
     reputationScore: '98/100',
   };
 
-  // Parceiros Favoritos
   const [favoritePartners] = useState([
     {
       id: '1',
@@ -180,7 +189,6 @@ export const Profile: React.FC = () => {
     },
   ]);
 
-  // Agenda de Disponibilidade
   const timeSlots = ['Manhã (08h - 12h)', 'Tarde (12h - 18h)', 'Noite (18h - 22h)'];
   const weekDays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
   const [selectedAvailability, setSelectedAvailability] = useState<string[]>([
@@ -218,27 +226,82 @@ export const Profile: React.FC = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3000);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:3000/api/user/profile', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name,
+          age,
+          showAgeInProfile,
+          gender,
+          pronouns,
+          cefrLevel,
+          bio,
+          interests: selectedInterests,
+          avatar: avatarUrl
+        })
+      });
+      if (response.ok) {
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      } else {
+        alert('Erro ao salvar perfil');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Erro de conexão ao salvar perfil');
+    }
   };
 
-  const handleSendEmailCode = () => {
+  const handleSendEmailCode = async () => {
     setPasswordError(null);
-    setEmailCodeSent(true);
+    try {
+      const response = await fetch('http://localhost:3000/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      if (response.ok) {
+        setEmailCodeSent(true);
+      } else {
+        const data = await response.json();
+        setPasswordError(data.error || 'Erro ao enviar código.');
+      }
+    } catch (err) {
+      setPasswordError('Erro ao conectar com o servidor.');
+    }
   };
 
-  const handleVerifyEmailCode = () => {
+  const handleVerifyEmailCode = async () => {
     setPasswordError(null);
     if (!verificationCode || verificationCode.length < 6) {
       setPasswordError('Informe o código de 6 dígitos enviado ao e-mail.');
       return;
     }
-    setIsEmailCodeVerified(true);
+    try {
+      const response = await fetch('http://localhost:3000/api/auth/verify-reset-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code: verificationCode })
+      });
+      if (response.ok) {
+        setIsEmailCodeVerified(true);
+      } else {
+        setPasswordError('Código inválido ou expirado.');
+      }
+    } catch (err) {
+      setPasswordError('Erro ao verificar o código.');
+    }
   };
 
-  const handlePasswordChange = (e: React.FormEvent) => {
+  const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordError(null);
     setPasswordSuccess(null);
@@ -258,16 +321,30 @@ export const Profile: React.FC = () => {
       return;
     }
 
-    setPasswordSuccess('Senha alterada com sucesso!');
-    setEmailCodeSent(false);
-    setVerificationCode('');
-    setIsEmailCodeVerified(false);
-    setNewPassword('');
-    setConfirmPassword('');
-    setTimeout(() => setPasswordSuccess(null), 3000);
+    try {
+      const response = await fetch('http://localhost:3000/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code: verificationCode, newPassword })
+      });
+
+      if (response.ok) {
+        setPasswordSuccess('Senha alterada com sucesso!');
+        setEmailCodeSent(false);
+        setVerificationCode('');
+        setIsEmailCodeVerified(false);
+        setNewPassword('');
+        setConfirmPassword('');
+        setTimeout(() => setPasswordSuccess(null), 3000);
+      } else {
+        setPasswordError('Erro ao redefinir a senha.');
+      }
+    } catch (err) {
+      setPasswordError('Erro ao conectar com o servidor.');
+    }
   };
 
-  const handleDeleteAccount = () => {
+  const handleDeleteAccount = async () => {
     if (!deletePasswordConfirm) {
       alert('Por favor, informe sua senha atual para confirmar.');
       return;
@@ -276,16 +353,38 @@ export const Profile: React.FC = () => {
       alert('Você precisa aceitar os termos de exclusão permanente.');
       return;
     }
-    if (deleteConfirmationText === 'EXCLUIR PERMANENTEMENTE') {
-      alert('Sua conta e dados foram removidos permanentemente.');
-      navigate('/');
+    if (deleteConfirmationText !== 'EXCLUIR PERMANENTEMENTE') {
+      alert('Confirmação de exclusão incorreta.');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:3000/api/user/account', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ password: deletePasswordConfirm })
+      });
+
+      if (response.ok) {
+        alert('Sua conta e dados foram removidos permanentemente.');
+        localStorage.removeItem('token');
+        navigate('/');
+      } else {
+        const data = await response.json();
+        alert(data.error || 'Erro ao excluir a conta.');
+      }
+    } catch (err) {
+      alert('Erro de conexão ao excluir a conta.');
     }
   };
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col font-sans selection:bg-[#1C1917] selection:text-[#FAF9F6] relative overflow-x-hidden">
       
-      {/* Cursor Solido Neutro */}
       <div
         className="pointer-events-none fixed z-50 w-3.5 h-3.5 rounded-full bg-[#1C1917] transition-opacity duration-300 ease-out -translate-x-1/2 -translate-y-1/2 hidden md:block"
         style={{
@@ -295,7 +394,6 @@ export const Profile: React.FC = () => {
         }}
       />
 
-      {/* Header Bar */}
       <header className="bg-[#FFFFFF] border-b border-[#E7E5E4] px-6 py-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/dashboard')}>
           <div className="w-8 h-8 rounded-lg bg-[#1C1917] flex items-center justify-center font-black text-[#FAF9F6] text-base shadow-sm">
@@ -316,10 +414,8 @@ export const Profile: React.FC = () => {
         </button>
       </header>
 
-      {/* Main Content */}
       <main className="flex-1 max-w-4xl w-full mx-auto p-6 lg:p-8 flex flex-col gap-6">
         
-        {/* Top Header Card */}
         <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="relative group w-16 h-16 rounded-2xl overflow-hidden border-2 border-[#1C1917] bg-[#F5F5F4] shrink-0 shadow-sm">
@@ -366,7 +462,6 @@ export const Profile: React.FC = () => {
           </div>
         </section>
 
-        {/* Abas de Navegação */}
         <div className="grid grid-cols-2 sm:grid-cols-4 bg-[#FFFFFF] border-2 border-[#1C1917] p-1.5 rounded-2xl text-xs font-black uppercase tracking-wider shadow-[4px_4px_0px_0px_#1C1917]">
           <button
             type="button"
@@ -406,7 +501,6 @@ export const Profile: React.FC = () => {
           </button>
         </div>
 
-        {/* Mensagem de Sucesso */}
         {saveSuccess && (
           <div className="p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-600 text-emerald-800 text-xs font-black flex items-center gap-2.5 animate-in fade-in duration-150 shadow-sm">
             <svg className="w-4 h-4 shrink-0 fill-current text-emerald-600" viewBox="0 0 20 20">
@@ -416,7 +510,6 @@ export const Profile: React.FC = () => {
           </div>
         )}
 
-        {/* CONTEÚDO DA ABA 1: GERAL & BIO */}
         {activeTab === 'general' && (
           <div className="flex flex-col gap-6 animate-in fade-in duration-150">
             <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-6">
@@ -606,7 +699,6 @@ export const Profile: React.FC = () => {
           </div>
         )}
 
-        {/* CONTEÚDO DA ABA 2: AGENDA & PARCEIROS */}
         {activeTab === 'social' && (
           <div className="flex flex-col gap-6 animate-in fade-in duration-150">
             <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-6">
@@ -678,7 +770,6 @@ export const Profile: React.FC = () => {
           </div>
         )}
 
-        {/* CONTEÚDO DA ABA 3: METAS & EVOLUÇÃO */}
         {activeTab === 'stats' && (
           <div className="flex flex-col gap-6 animate-in fade-in duration-150">
             <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-6">
@@ -729,10 +820,8 @@ export const Profile: React.FC = () => {
           </div>
         )}
 
-        {/* CONTEÚDO DA ABA 4: SEGURANÇA (VERIFICAÇÃO VIA E-MAIL) */}
         {activeTab === 'security' && (
           <div className="flex flex-col gap-6 animate-in fade-in duration-150">
-            {/* Bloco de Alteração de Senha via Validação por E-mail */}
             <form onSubmit={handlePasswordChange} className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-5">
               <div className="flex flex-col gap-1 border-b-2 border-[#E7E5E4] pb-3">
                 <span className="text-[10px] font-black uppercase tracking-widest text-[#FAF9F6] bg-[#1C1917] px-2.5 py-0.5 rounded w-fit">
@@ -746,7 +835,6 @@ export const Profile: React.FC = () => {
               {passwordError && <div className="p-3 rounded-xl bg-red-50 border-2 border-red-600 text-red-700 text-xs font-black">{passwordError}</div>}
               {passwordSuccess && <div className="p-3 rounded-xl bg-emerald-50 border-2 border-emerald-600 text-emerald-800 text-xs font-black">{passwordSuccess}</div>}
 
-              {/* Etapa 1: Envio do Código por E-mail */}
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-black text-[#1C1917] uppercase tracking-wider flex items-center gap-2">
                   <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${isEmailCodeVerified ? 'bg-emerald-600 text-white' : 'bg-[#1C1917] text-[#FAF9F6]'}`}>
@@ -804,7 +892,6 @@ export const Profile: React.FC = () => {
                 )}
               </div>
 
-              {/* Etapa 2: Definição da Nova Senha (Liberada após verificação por e-mail) */}
               {isEmailCodeVerified && (
                 <div className="flex flex-col gap-3 pt-2 animate-in fade-in slide-in-from-top-4 duration-300 border-t-2 border-[#E7E5E4]">
                   <label className="text-xs font-black text-[#1C1917] uppercase tracking-wider flex items-center gap-2">
@@ -839,7 +926,6 @@ export const Profile: React.FC = () => {
               )}
             </form>
 
-            {/* Bloco de Exclusão com Camada Dupla */}
             <section className="bg-[#FFFFFF] border-2 border-red-600 rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#DC2626] flex flex-col gap-3">
               <span className="text-[10px] font-black uppercase tracking-widest text-red-600 bg-red-50 px-2.5 py-0.5 rounded border border-red-200 w-fit">
                 ZONA CRÍTICA
@@ -858,7 +944,6 @@ export const Profile: React.FC = () => {
         )}
       </main>
 
-      {/* Modal de Exclusão Reforçado com Dupla Verificação */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-[#FFFFFF] border-2 border-red-600 rounded-3xl p-6 sm:p-8 max-w-md w-full flex flex-col gap-5 shadow-[8px_8px_0px_0px_#DC2626] animate-in fade-in zoom-in-95 duration-200">
@@ -880,7 +965,6 @@ export const Profile: React.FC = () => {
             </p>
 
             <div className="flex flex-col gap-3 border-t-2 border-[#E7E5E4] pt-4">
-              {/* Camada 1: Digitar a Senha do Usuário */}
               <div className="flex flex-col gap-1">
                 <label className="text-[11px] font-black text-[#1C1917] uppercase">1. Digite sua Senha do Perfil *</label>
                 <input
@@ -892,7 +976,6 @@ export const Profile: React.FC = () => {
                 />
               </div>
 
-              {/* Camada 2: Marcar Termo de Ciência */}
               <label className="flex items-start gap-2.5 cursor-pointer bg-[#FAF9F6] p-3 rounded-xl border-2 border-[#E7E5E4]">
                 <input
                   type="checkbox"
@@ -905,7 +988,6 @@ export const Profile: React.FC = () => {
                 </span>
               </label>
 
-              {/* Camada 3: Digitar Frase Exata */}
               <div className="flex flex-col gap-1">
                 <label className="text-[11px] font-black text-[#1C1917] uppercase">
                   2. Digite "EXCLUIR PERMANENTEMENTE" *
@@ -945,7 +1027,6 @@ export const Profile: React.FC = () => {
         </div>
       )}
 
-      {/* Modal de Adicionar Tópicos */}
       {showTopicsModal && (
         <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150 max-h-[85vh] overflow-y-auto">
@@ -1022,7 +1103,6 @@ export const Profile: React.FC = () => {
         </div>
       )}
 
-      {/* Modal de Visualização do Perfil Público */}
       {showPublicPreview && (
         <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
@@ -1094,7 +1174,6 @@ export const Profile: React.FC = () => {
                 "{bio || 'Sem biografia informada.'}"
               </p>
 
-              {/* Seção SBS-62: Comentários e Avaliações Recebidas da Comunidade */}
               <div className="flex flex-col gap-2 w-full pt-1 text-left border-t-2 border-[#E7E5E4] mt-1">
                 <span className="text-[10px] font-black uppercase text-[#78716C] tracking-wider">
                   Avaliações e Comentários da Comunidade ({receivedFeedback.length}):
