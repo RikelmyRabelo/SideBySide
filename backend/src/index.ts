@@ -28,7 +28,6 @@ const transporter = nodemailer.createTransport({
   debug: true,
 });
 
-// Middleware genérico de validação com Zod
 const validateRequest = (schema: z.ZodTypeAny) => (req: Request, res: Response, next: NextFunction) => {
   try {
     req.body = schema.parse(req.body);
@@ -41,7 +40,23 @@ const validateRequest = (schema: z.ZodTypeAny) => (req: Request, res: Response, 
   }
 };
 
-// Schemas de Validação
+const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'Acesso negado. Token não fornecido.' });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(403).json({ error: 'Token inválido ou expirado.' });
+    }
+    (req as any).user = decoded;
+    next();
+  });
+};
+
 const registerSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório.').regex(/^[A-Za-zÀ-ÿ\s]+$/, 'O nome deve conter apenas letras.'),
   email: z.string().email('E-mail inválido.'),
@@ -296,6 +311,25 @@ app.post('/api/auth/resend-code', validateRequest(emailOnlySchema), async (req: 
     return res.status(200).json({ message: 'Código reenviado com sucesso.' });
   } catch (error: any) {
     console.error('Erro no /api/auth/resend-code:', error);
+    return res.status(500).json({ error: 'Erro interno no servidor.', details: error.message });
+  }
+});
+
+app.get('/api/user/me', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.id;
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, email: true, level: true, reputation: true }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+
+    return res.status(200).json(user);
+  } catch (error: any) {
+    console.error('Erro no /api/user/me:', error);
     return res.status(500).json({ error: 'Erro interno no servidor.', details: error.message });
   }
 });
