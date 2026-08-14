@@ -1,10 +1,11 @@
 import "dotenv/config";
 import express from 'express';
-import type { Request, Response } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import cors from 'cors';
 import nodemailer from 'nodemailer';
+import { z, ZodError } from 'zod';
 import { prisma } from './lib/prisma';
 
 const app = express();
@@ -27,13 +28,50 @@ const transporter = nodemailer.createTransport({
   debug: true,
 });
 
-app.post('/api/auth/register', async (req: Request, res: Response) => {
+// Middleware genérico de validação com Zod
+const validateRequest = (schema: z.ZodTypeAny) => (req: Request, res: Response, next: NextFunction) => {
+  try {
+    req.body = schema.parse(req.body);
+    next();
+  } catch (error) {
+    if (error instanceof ZodError) {
+      return res.status(400).json({ error: 'Dados inválidos.', details: error.issues });
+    }
+    next(error);
+  }
+};
+
+// Schemas de Validação
+const registerSchema = z.object({
+  name: z.string().min(1, 'Nome é obrigatório.').regex(/^[A-Za-zÀ-ÿ\s]+$/, 'O nome deve conter apenas letras.'),
+  email: z.string().email('E-mail inválido.'),
+  password: z.string().min(6, 'A senha deve ter no mínimo 6 caracteres.'),
+  level: z.string().optional(),
+});
+
+const loginSchema = z.object({
+  email: z.string().email('E-mail inválido.'),
+  password: z.string().min(1, 'Senha é obrigatória.'),
+});
+
+const emailOnlySchema = z.object({
+  email: z.string().email('E-mail inválido.'),
+});
+
+const verifyCodeSchema = z.object({
+  email: z.string().email('E-mail inválido.').optional().or(z.literal('')),
+  code: z.string().min(1, 'Código é obrigatório.'),
+});
+
+const resetPasswordSchema = z.object({
+  email: z.string().email('E-mail inválido.'),
+  code: z.string().min(1, 'Código é obrigatório.'),
+  newPassword: z.string().min(6, 'A nova senha deve ter no mínimo 6 caracteres.'),
+});
+
+app.post('/api/auth/register', validateRequest(registerSchema), async (req: Request, res: Response) => {
   try {
     const { name, email, password, level } = req.body;
-
-    if (!name || !email || !password) {
-      return res.status(400).json({ error: 'Nome, e-mail e senha são obrigatórios.' });
-    }
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
@@ -76,13 +114,9 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
   }
 });
 
-app.post('/api/auth/login', async (req: Request, res: Response) => {
+app.post('/api/auth/login', validateRequest(loginSchema), async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ error: 'E-mail e senha são obrigatórios.' });
-    }
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
@@ -107,13 +141,9 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
   }
 });
 
-app.post('/api/auth/forgot-password', async (req: Request, res: Response) => {
+app.post('/api/auth/forgot-password', validateRequest(emailOnlySchema), async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
-
-    if (!email) {
-      return res.status(400).json({ error: 'E-mail é obrigatório.' });
-    }
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
@@ -145,13 +175,9 @@ app.post('/api/auth/forgot-password', async (req: Request, res: Response) => {
   }
 });
 
-app.post('/api/auth/verify-reset-code', async (req: Request, res: Response) => {
+app.post('/api/auth/verify-reset-code', validateRequest(verifyCodeSchema), async (req: Request, res: Response) => {
   try {
     const { email, code } = req.body;
-
-    if (!email || !code) {
-      return res.status(400).json({ error: 'E-mail e código são obrigatórios.' });
-    }
 
     const storedCode = verificationCodes.get(email);
     if (!storedCode || storedCode !== code) {
@@ -165,13 +191,9 @@ app.post('/api/auth/verify-reset-code', async (req: Request, res: Response) => {
   }
 });
 
-app.post('/api/auth/reset-password', async (req: Request, res: Response) => {
+app.post('/api/auth/reset-password', validateRequest(resetPasswordSchema), async (req: Request, res: Response) => {
   try {
     const { email, code, newPassword } = req.body;
-
-    if (!email || !code || !newPassword) {
-      return res.status(400).json({ error: 'E-mail, código e nova senha são obrigatórios.' });
-    }
 
     const storedCode = verificationCodes.get(email);
     if (!storedCode || storedCode !== code) {
@@ -199,13 +221,9 @@ app.post('/api/auth/reset-password', async (req: Request, res: Response) => {
   }
 });
 
-app.post('/api/auth/verify-code', async (req: Request, res: Response) => {
+app.post('/api/auth/verify-code', validateRequest(verifyCodeSchema), async (req: Request, res: Response) => {
   try {
     const { email, code } = req.body;
-
-    if (!code) {
-      return res.status(400).json({ error: 'Código é obrigatório.' });
-    }
 
     let targetEmail = email;
     if (!targetEmail) {
@@ -247,12 +265,9 @@ app.post('/api/auth/verify-code', async (req: Request, res: Response) => {
   }
 });
 
-app.post('/api/auth/resend-code', async (req: Request, res: Response) => {
+app.post('/api/auth/resend-code', validateRequest(emailOnlySchema), async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
-    if (!email) {
-      return res.status(400).json({ error: 'E-mail é obrigatório.' });
-    }
 
     const pending = pendingUsers.get(email);
     if (!pending) {

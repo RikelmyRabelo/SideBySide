@@ -1,4 +1,3 @@
-// Dashboard.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
@@ -67,6 +66,26 @@ export const Dashboard: React.FC = () => {
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
   const [cursorOpacity, setCursorOpacity] = useState(1);
+
+  // Histórico detalhado das métricas
+  const [activeMetricModal, setActiveMetricModal] = useState<'streak' | 'minutes' | 'sessions' | null>(null);
+
+  const mockSessionsHistory = [
+    { id: '1', date: 'Hoje, 10:30', partner: 'Elena Rostova', duration: 15, topic: 'Viagens & Culturas', rating: 5 },
+    { id: '2', date: 'Ontem, 19:00', partner: 'Mateo Rossi', duration: 20, topic: 'Tecnologia', rating: 4 },
+    { id: '3', date: '12 Ago, 14:15', partner: 'Alex', duration: 15, topic: 'Hobbies', rating: 5 },
+    { id: '4', date: '10 Ago, 20:00', partner: 'Sarah', duration: 30, topic: 'Carreira', rating: 5 },
+  ];
+
+  const mockMinutesHistory = [
+    { day: 'Seg', min: 30 },
+    { day: 'Ter', min: 0 },
+    { day: 'Qua', min: 15 },
+    { day: 'Qui', min: 20 },
+    { day: 'Sex', min: 15 },
+    { day: 'Sáb', min: 0 },
+    { day: 'Dom', min: 0 },
+  ];
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -724,7 +743,11 @@ export const Dashboard: React.FC = () => {
         </section>
 
         <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="group bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 flex items-center gap-4 shadow-sm hover:border-[#1C1917] transition-all hover:shadow-md cursor-default">
+          <button
+            type="button"
+            onClick={() => setActiveMetricModal('streak')}
+            className="w-full text-left group bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 flex items-center gap-4 shadow-sm hover:border-[#1C1917] transition-all hover:shadow-md cursor-pointer outline-none"
+          >
             <div className="w-12 h-12 rounded-xl bg-[#F5F5F4] border border-[#E7E5E4] text-[#1C1917] flex items-center justify-center shrink-0 group-hover:bg-[#1C1917] group-hover:text-[#FAF9F6] transition-colors">
               {userMetrics.hasPracticedToday ? (
                 <svg
@@ -749,9 +772,13 @@ export const Dashboard: React.FC = () => {
                 {userMetrics.hasPracticedToday ? 'Sequência Ativa 🔥' : 'Congelado Hoje 🧊'}
               </span>
             </div>
-          </div>
+          </button>
 
-          <div className="group bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 flex items-center gap-4 shadow-sm hover:border-[#1C1917] transition-all hover:shadow-md cursor-default">
+          <button
+            type="button"
+            onClick={() => setActiveMetricModal('minutes')}
+            className="w-full text-left group bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 flex items-center gap-4 shadow-sm hover:border-[#1C1917] transition-all hover:shadow-md cursor-pointer outline-none"
+          >
             <div className="w-12 h-12 rounded-xl bg-[#F5F5F4] border border-[#E7E5E4] text-[#1C1917] flex items-center justify-center shrink-0 group-hover:bg-[#1C1917] group-hover:text-[#FAF9F6] transition-colors">
               <svg
                 className="w-6 h-6 fill-none stroke-current stroke-2 group-hover:rotate-[360deg] transition-transform duration-700 ease-in-out"
@@ -762,11 +789,15 @@ export const Dashboard: React.FC = () => {
             </div>
             <div className="flex flex-col">
               <span className="text-2xl font-black text-[#1C1917] tracking-tight">{userMetrics.totalMinutes} Minutos</span>
-              <span className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Praticados no Mês</span>
+              <span className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Praticados na Semana</span>
             </div>
-          </div>
+          </button>
 
-          <div className="group bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 flex items-center gap-4 shadow-sm hover:border-[#1C1917] transition-all hover:shadow-md cursor-default">
+          <button
+            type="button"
+            onClick={() => setActiveMetricModal('sessions')}
+            className="w-full text-left group bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 flex items-center gap-4 shadow-sm hover:border-[#1C1917] transition-all hover:shadow-md cursor-pointer outline-none"
+          >
             <div className="w-12 h-12 rounded-xl bg-[#F5F5F4] border border-[#E7E5E4] text-[#1C1917] flex items-center justify-center shrink-0 group-hover:bg-[#1C1917] group-hover:text-[#FAF9F6] transition-colors">
               <svg
                 className="w-6 h-6 fill-none stroke-current stroke-2 group-hover:scale-125 transition-transform duration-300"
@@ -779,7 +810,7 @@ export const Dashboard: React.FC = () => {
               <span className="text-2xl font-black text-[#1C1917] tracking-tight">{userMetrics.totalSessions} Conexões</span>
               <span className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Sessões Realizadas</span>
             </div>
-          </div>
+          </button>
         </section>
 
         <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
@@ -1300,6 +1331,151 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* MODAL: HISTÓRICO DAS MÉTRICAS */}
+      {activeMetricModal && (
+        <div className="fixed inset-0 bg-[#1C1917]/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 max-w-lg w-full shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-4">
+              <h3 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
+                {activeMetricModal === 'streak' && 'Histórico de Ofensiva'}
+                {activeMetricModal === 'minutes' && 'Minutos Praticados'}
+                {activeMetricModal === 'sessions' && 'Histórico de Sessões'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setActiveMetricModal(null)}
+                className="text-[#78716C] hover:text-[#1C1917] text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* CONTEÚDO STREAK */}
+            {activeMetricModal === 'streak' && (
+              <div className="flex flex-col gap-6">
+                <div className="flex items-center justify-between bg-[#FAF9F6] p-4 rounded-xl border border-[#E7E5E4]">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold text-[#78716C] uppercase tracking-wider">Sequência Máxima</span>
+                    <span className="text-xl font-black text-[#1C1917]">14 Dias</span>
+                  </div>
+                  <div className="w-px h-8 bg-[#E7E5E4]" />
+                  <div className="flex flex-col gap-1 text-right">
+                    <span className="text-[10px] font-bold text-[#78716C] uppercase tracking-wider">Sequência Atual</span>
+                    <span className="text-xl font-black text-emerald-600">{userMetrics.currentStreak} Dias 🔥</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#1C1917]">Últimos 7 dias</span>
+                  <div className="grid grid-cols-7 gap-2">
+                    {weeklyGoal.days.map((item, index) => (
+                      <div key={index} className="flex flex-col items-center gap-1.5">
+                        <div
+                          className={`w-10 h-10 rounded-xl border flex items-center justify-center font-bold text-xs transition-colors ${
+                            item.completed
+                              ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]'
+                              : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4]'
+                          }`}
+                        >
+                          {item.completed ? '🔥' : '🧊'}
+                        </div>
+                        <span className="text-[10px] font-bold text-[#78716C] uppercase">{item.day}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* CONTEÚDO MINUTOS */}
+            {activeMetricModal === 'minutes' && (
+              <div className="flex flex-col gap-6">
+                <div className="flex items-center justify-between bg-[#FAF9F6] p-4 rounded-xl border border-[#E7E5E4]">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold text-[#78716C] uppercase tracking-wider">Total na Semana</span>
+                    <span className="text-xl font-black text-[#1C1917]">{userMetrics.totalMinutes} min</span>
+                  </div>
+                  <div className="w-px h-8 bg-[#E7E5E4]" />
+                  <div className="flex flex-col gap-1 text-right">
+                    <span className="text-[10px] font-bold text-[#78716C] uppercase tracking-wider">Média por Sessão</span>
+                    <span className="text-xl font-black text-[#1C1917]">18 min</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#1C1917]">Distribuição Semanal</span>
+                  <div className="flex items-end justify-between h-32 pt-4 border-b border-[#E7E5E4]">
+                    {mockMinutesHistory.map((item, index) => (
+                      <div key={index} className="flex flex-col items-center gap-2 group w-full">
+                        <div className="relative w-full flex justify-center h-full items-end">
+                          <div
+                            className={`w-6 sm:w-8 rounded-t-md transition-all duration-300 ${item.min > 0 ? 'bg-[#1C1917] group-hover:bg-[#57534E]' : 'bg-[#E7E5E4]'}`}
+                            style={{ height: `${item.min === 0 ? 4 : (item.min / 40) * 100}%` }}
+                          />
+                          {item.min > 0 && (
+                            <span className="absolute -top-6 text-[9px] font-black text-[#1C1917] opacity-0 group-hover:opacity-100 transition-opacity">
+                              {item.min}m
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] font-bold text-[#78716C] uppercase mt-1">{item.day}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* CONTEÚDO SESSÕES */}
+            {activeMetricModal === 'sessions' && (
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#1C1917]">Sessões Recentes</span>
+                  <span className="text-[10px] font-bold text-[#78716C] uppercase">Últimos 30 dias: {userMetrics.totalSessions}</span>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  {mockSessionsHistory.map((session) => (
+                    <div key={session.id} className="bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl p-4 flex flex-col gap-3 hover:border-[#1C1917] transition-colors">
+                      <div className="flex justify-between items-start">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-xs font-black text-[#1C1917] uppercase">{session.partner}</span>
+                          <span className="text-[10px] font-bold text-[#78716C]">{session.date}</span>
+                        </div>
+                        <div className="flex items-center gap-1 bg-[#FFFFFF] border border-[#E7E5E4] px-2 py-1 rounded-lg">
+                          <span className="text-[10px] font-black text-amber-500">{'★'.repeat(session.rating)}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 pt-2 border-t border-[#E7E5E4]">
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] font-bold text-[#A8A29E] uppercase">Duração:</span>
+                          <span className="text-[10px] font-black text-[#1C1917]">{session.duration} min</span>
+                        </div>
+                        <span className="text-[10px] text-[#E7E5E4]">|</span>
+                        <div className="flex items-center gap-1 truncate">
+                          <span className="text-[10px] font-bold text-[#A8A29E] uppercase">Tópico:</span>
+                          <span className="text-[10px] font-black text-[#1C1917] truncate">{session.topic}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <Button
+              variant="primary"
+              onClick={() => setActiveMetricModal(null)}
+              className="w-full py-3 mt-2 text-xs font-bold uppercase tracking-widest bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl"
+            >
+              Fechar Visualização
+            </Button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
