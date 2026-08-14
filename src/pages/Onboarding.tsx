@@ -5,7 +5,6 @@ import { Button } from '../components/ui/Button';
 export const Onboarding: React.FC = () => {
   const navigate = useNavigate();
 
-  // Efeito de Cursor Sólido Neutro
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
   const [cursorOpacity, setCursorOpacity] = useState(1);
@@ -47,21 +46,23 @@ export const Onboarding: React.FC = () => {
     return () => cancelAnimationFrame(animationFrameId);
   }, [mousePos]);
 
-  // Estados dos Campos
   const defaultAvatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80';
   const [avatarUrl, setAvatarUrl] = useState(defaultAvatar);
   const [skipPhoto, setSkipPhoto] = useState(false);
 
   const [displayName, setDisplayName] = useState('');
-  const [age, setAge] = useState<number | string>(24);
+  const [nameError, setNameError] = useState('');
+  
+  const [birthDate, setBirthDate] = useState('');
+  const [birthDateError, setBirthDateError] = useState('');
   const [showAgeInProfile, setShowAgeInProfile] = useState(true);
+  
   const [gender, setGender] = useState('Masculino');
   const [pronouns, setPronouns] = useState('ele/dele (he/him)');
 
   const [bio, setBio] = useState('');
   const [cefrLevel, setCefrLevel] = useState('');
 
-  // Travas de Confirmação Manual (Divisões 1 e 2)
   const [photoConfirmed, setPhotoConfirmed] = useState(false);
   const [personalConfirmed, setPersonalConfirmed] = useState(false);
   const [bioConfirmed, setBioConfirmed] = useState(false);
@@ -72,6 +73,17 @@ export const Onboarding: React.FC = () => {
       setAvatarUrl(URL.createObjectURL(file));
       setSkipPhoto(false);
     }
+  };
+
+  const calculateAge = (dob: string) => {
+    const birthDateObj = new Date(dob);
+    const today = new Date();
+    let calculatedAge = today.getFullYear() - birthDateObj.getFullYear();
+    const m = today.getMonth() - birthDateObj.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDateObj.getDate())) {
+      calculatedAge--;
+    }
+    return calculatedAge;
   };
 
   const cefrLevelsInfo = [
@@ -85,7 +97,6 @@ export const Onboarding: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col font-sans selection:bg-[#1C1917] selection:text-[#FAF9F6] relative overflow-x-hidden">
       
-      {/* Cursor Solido Neutro */}
       <div
         className="pointer-events-none fixed z-50 w-3.5 h-3.5 rounded-full bg-[#1C1917] transition-opacity duration-300 ease-out -translate-x-1/2 -translate-y-1/2 hidden md:block"
         style={{
@@ -196,17 +207,24 @@ export const Onboarding: React.FC = () => {
                   </label>
                   <input
                     type="text"
+                    maxLength={50}
                     disabled={personalConfirmed}
                     value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
+                    onChange={(e) => {
+                      setDisplayName(e.target.value);
+                      setNameError('');
+                    }}
                     placeholder="Digite seu nome completo..."
-                    className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] disabled:opacity-75"
+                    className={`px-4 py-3 bg-[#FAF9F6] border-2 rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] disabled:opacity-75 ${nameError ? 'border-red-500' : 'border-[#E7E5E4]'}`}
                   />
+                  {nameError && (
+                    <span className="text-[10px] font-bold text-red-500 uppercase mt-1">{nameError}</span>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-1.5">
                   <div className="flex justify-between items-center">
-                    <label className="text-xs font-black text-[#1C1917] uppercase">Idade</label>
+                    <label className="text-xs font-black text-[#1C1917] uppercase">Data de Nascimento *</label>
                     <button
                       type="button"
                       disabled={personalConfirmed}
@@ -232,14 +250,18 @@ export const Onboarding: React.FC = () => {
                     </button>
                   </div>
                   <input
-                    type="number"
-                    min={18}
-                    max={100}
+                    type="date"
                     disabled={personalConfirmed}
-                    value={age}
-                    onChange={(e) => setAge(e.target.value)}
-                    className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] disabled:opacity-75"
+                    value={birthDate}
+                    onChange={(e) => {
+                      setBirthDate(e.target.value);
+                      setBirthDateError('');
+                    }}
+                    className={`px-4 py-3 bg-[#FAF9F6] border-2 rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] disabled:opacity-75 ${birthDateError ? 'border-red-500' : 'border-[#E7E5E4]'}`}
                   />
+                  {birthDateError && (
+                    <span className="text-[10px] font-bold text-red-500 uppercase mt-1">{birthDateError}</span>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-1.5">
@@ -277,11 +299,32 @@ export const Onboarding: React.FC = () => {
                 <Button
                   variant="primary"
                   onClick={() => {
-                    if (!displayName.trim()) {
-                      alert('Por favor, informe seu nome de exibição.');
-                      return;
+                    let hasError = false;
+                    const trimmedName = displayName.trim();
+                    
+                    if (trimmedName.length < 1) {
+                      setNameError('O nome não pode ficar vazio.');
+                      hasError = true;
+                    } else if (!/^[A-Za-zÀ-ÿ\s]+$/.test(trimmedName)) {
+                      setNameError('O nome deve conter apenas letras.');
+                      hasError = true;
+                    } else {
+                      setNameError('');
                     }
-                    setPersonalConfirmed(true);
+
+                    if (!birthDate) {
+                      setBirthDateError('A data de nascimento é obrigatória.');
+                      hasError = true;
+                    } else if (calculateAge(birthDate) < 18) {
+                      setBirthDateError('Você deve ter pelo menos 18 anos.');
+                      hasError = true;
+                    } else {
+                      setBirthDateError('');
+                    }
+
+                    if (!hasError) {
+                      setPersonalConfirmed(true);
+                    }
                   }}
                   className="py-2.5 px-6 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-black text-xs uppercase tracking-wider rounded-xl transition-all border-2 border-[#1C1917] mt-2 self-start"
                 >
