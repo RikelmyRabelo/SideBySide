@@ -149,20 +149,10 @@ export const Room: React.FC = () => {
     reconnectAttempts.current += 1;
 
     try {
-      // Padrão moderno de fallback WebRTC para oscilação de rede sem derrubar a chamada
       if (typeof pc.restartIce === 'function') {
         pc.restartIce();
       }
 
-      /* 
-        Aqui seria disparada a re-criação da oferta via Signaling Server.
-        Exemplo:
-        const offer = await pc.createOffer({ iceRestart: true });
-        await pc.setLocalDescription(offer);
-        socket.emit('renegotiate', { offer });
-      */
-
-      // Simulação de recuperação da rede após oscilação (para UI)
       setTimeout(() => {
         if (peerConnectionRef.current && peerConnectionRef.current.iceConnectionState !== 'connected') {
           setConnectionStatus('connected');
@@ -194,7 +184,6 @@ export const Room: React.FC = () => {
       setCamActive(videoConstraint);
       setMicActive(true);
 
-      // Configuração básica do RTCPeerConnection para WebRTC com servidor STUN público
       const pc = new RTCPeerConnection({
         iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
       });
@@ -209,7 +198,6 @@ export const Room: React.FC = () => {
         }
       };
 
-      // Escuta as mudanças de estado da rede
       pc.oniceconnectionstatechange = () => {
         const state = pc.iceConnectionState;
         if (state === 'disconnected' || state === 'failed') {
@@ -237,7 +225,6 @@ export const Room: React.FC = () => {
   useEffect(() => {
     startMedia(true);
 
-    // Comunicação com o Backend via API de Salas/Sessão
     const token = localStorage.getItem('token');
     fetch('http://localhost:3000/api/room/join', {
       method: 'POST',
@@ -641,7 +628,7 @@ export const Room: React.FC = () => {
             <button
               type="button"
               onClick={handleNextPair}
-              className="px-5 py-2.5 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 shadow-sm"
+              className="px-5 py-2.5 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 shadow-sm pointer-events-auto"
             >
               <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-[3]" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 8.25V18a2.25 2.25 0 002.25 2.25h13.5A2.25 2.25 0 0021 18V8.25m-18 0V6a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 6v2.25m-18 0h18M12 11.25v6m0 0l-3-3m3 3l3-3" />
@@ -649,6 +636,20 @@ export const Room: React.FC = () => {
               <span>PRÓXIMO PAR</span>
             </button>
           </div>
+
+          {/* Modais reposicionados DENTRO do container de vídeo para aparecerem em Tela Cheia */}
+          <ReportModal
+            isOpen={isReportOpen}
+            onClose={() => setIsReportOpen(false)}
+            onConfirm={handleConfirmReport}
+          />
+
+          <RatingModal
+            isOpen={isRatingOpen}
+            onClose={handleRatingClose}
+            onSubmit={handleRatingSubmit}
+            partnerName="Alex (Espanha)"
+          />
         </div>
 
         {!isFullscreen && (
@@ -755,19 +756,6 @@ export const Room: React.FC = () => {
           </aside>
         )}
       </div>
-
-      <ReportModal
-        isOpen={isReportOpen}
-        onClose={() => setIsReportOpen(false)}
-        onConfirm={handleConfirmReport}
-      />
-
-      <RatingModal
-        isOpen={isRatingOpen}
-        onClose={handleRatingClose}
-        onSubmit={handleRatingSubmit}
-        partnerName="Alex (Espanha)"
-      />
     </div>
   );
 };
