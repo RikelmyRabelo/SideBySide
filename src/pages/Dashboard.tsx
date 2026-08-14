@@ -1,3 +1,4 @@
+// Dashboard.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
@@ -150,27 +151,35 @@ export const Dashboard: React.FC = () => {
   const [notifications, setNotifications] = useState([
     {
       id: '1',
+      title: 'Lembrete de Sessão',
+      message: 'Sua sessão agendada (Sexta - Noite) inicia em 15 minutos. Prepare seu microfone!',
+      time: 'Agora',
+      unread: true,
+      type: 'reminder',
+    },
+    {
+      id: '2',
+      title: 'Meta Semanal Quase Lá',
+      message: 'Faltam apenas 2 sessões para você bater sua meta semanal de 5 práticas.',
+      time: 'Há 2 horas',
+      unread: true,
+      type: 'goal',
+    },
+    {
+      id: '3',
       title: 'Solicitação de Amizade',
       message: 'Elena Rostova enviou uma solicitação de amizade.',
-      time: 'Há 10 min',
+      time: 'Há 3 horas',
       unread: true,
       type: 'friend',
     },
     {
-      id: '2',
+      id: '4',
       title: 'Conquista Desbloqueada!',
       message: 'Você completou 5 dias de ofensiva de prática contínua.',
-      time: 'Há 1 hora',
-      unread: true,
-      type: 'badge',
-    },
-    {
-      id: '3',
-      title: 'Horário de Pico Ativo',
-      message: 'Muitas salas em andamento! Aproveite para praticar agora.',
-      time: 'Há 3 horas',
+      time: 'Há 1 dia',
       unread: false,
-      type: 'reminder',
+      type: 'badge',
     },
   ]);
 
@@ -199,6 +208,8 @@ export const Dashboard: React.FC = () => {
       setIsBadgesOpen(true);
     } else if (item.type === 'reminder') {
       setIsMatching(true);
+    } else if (item.type === 'goal') {
+      setActiveModal('goals');
     }
   };
 
@@ -393,7 +404,7 @@ export const Dashboard: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowNotifications(!showNotifications)}
-              className="p-2.5 bg-[#FAF9F6] border-2 border-[#1C1917] rounded-xl hover:bg-[#F5F5F4] transition-all relative flex items-center justify-center outline-none"
+              className="p-2.5 bg-[#FAF9F6] border-2 border-[#1C1917] rounded-xl hover:bg-[#F5F5F4] transition-all relative flex items-center justify-center outline-none shadow-sm"
               title="Notificações"
             >
               <svg className="w-4 h-4 stroke-current fill-none stroke-2 text-[#1C1917]" viewBox="0 0 24 24">
@@ -410,7 +421,7 @@ export const Dashboard: React.FC = () => {
               <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-[#FFFFFF] border-2 border-[#1C1917] rounded-2xl shadow-[6px_6px_0px_0px_#1C1917] py-3 z-50 flex flex-col gap-2 animate-in fade-in slide-in-from-top-2 duration-150">
                 <div className="px-4 py-2 border-b-2 border-[#E7E5E4] flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-xs font-black uppercase text-[#1C1917]">Notificações</h3>
+                    <h3 className="text-xs font-black uppercase text-[#1C1917]">Notificações & Lembretes</h3>
                     {unreadCount > 0 && (
                       <span className="text-[10px] font-black bg-[#1C1917] text-[#FAF9F6] px-2 py-0.5 rounded">
                         {unreadCount} novas
@@ -440,7 +451,13 @@ export const Dashboard: React.FC = () => {
                       >
                         <div className="flex flex-col gap-1">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-black text-[#1C1917] uppercase">{item.title}</span>
+                            <span className="text-xs font-black text-[#1C1917] uppercase">
+                              {item.type === 'reminder' && '🔔 '}
+                              {item.type === 'goal' && '🎯 '}
+                              {item.type === 'friend' && '👤 '}
+                              {item.type === 'badge' && '🏆 '}
+                              {item.title}
+                            </span>
                             {item.unread && (
                               <span className="w-2 h-2 rounded-full bg-red-600" />
                             )}
@@ -465,6 +482,19 @@ export const Dashboard: React.FC = () => {
                       Nenhuma notificação por enquanto.
                     </div>
                   )}
+                </div>
+
+                <div className="px-3 pt-2 border-t-2 border-[#E7E5E4]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowNotifications(false);
+                      navigate('/profile');
+                    }}
+                    className="w-full py-2 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] text-[10px] font-black uppercase tracking-wider rounded-xl hover:bg-[#1C1917] hover:text-[#FAF9F6] transition-all"
+                  >
+                    Gerenciar Lembretes e Metas
+                  </button>
                 </div>
               </div>
             )}
@@ -571,7 +601,7 @@ export const Dashboard: React.FC = () => {
                 >
                   <div className="flex items-center gap-2.5">
                     <svg className="w-4 h-4 stroke-[#57534E] group-hover:stroke-[#1C1917] fill-none stroke-2" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.257 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
                     </svg>
                     <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Lembretes Diários</span>
                   </div>
@@ -1151,13 +1181,25 @@ export const Dashboard: React.FC = () => {
               </div>
             </div>
 
-            <Button
-              variant="primary"
-              onClick={() => setActiveModal(null)}
-              className="w-full py-3 text-xs font-bold uppercase tracking-widest bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl"
-            >
-              Fechar
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="primary"
+                onClick={() => {
+                  setActiveModal(null);
+                  navigate('/profile');
+                }}
+                className="flex-1 py-3 text-xs font-bold uppercase tracking-widest bg-[#FAF9F6] border border-[#1C1917] text-[#1C1917] hover:bg-[#F5F5F4] rounded-xl"
+              >
+                Ajustar no Perfil
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => setActiveModal(null)}
+                className="flex-1 py-3 text-xs font-bold uppercase tracking-widest bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl"
+              >
+                Fechar
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -1236,13 +1278,25 @@ export const Dashboard: React.FC = () => {
               </div>
             )}
 
-            <Button
-              variant="primary"
-              onClick={() => setActiveModal(null)}
-              className="w-full py-3 text-xs font-bold uppercase tracking-widest bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl"
-            >
-              Salvar Preferências
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="primary"
+                onClick={() => {
+                  setActiveModal(null);
+                  navigate('/profile');
+                }}
+                className="flex-1 py-3 text-xs font-bold uppercase tracking-widest bg-[#FAF9F6] border border-[#1C1917] text-[#1C1917] hover:bg-[#F5F5F4] rounded-xl"
+              >
+                Gerenciar no Perfil
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => setActiveModal(null)}
+                className="flex-1 py-3 text-xs font-bold uppercase tracking-widest bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl"
+              >
+                Salvar Preferências
+              </Button>
+            </div>
           </div>
         </div>
       )}

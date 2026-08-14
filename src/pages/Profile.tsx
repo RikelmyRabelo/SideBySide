@@ -74,6 +74,11 @@ export const Profile: React.FC = () => {
   const [bio, setBio] = useState('');
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
 
+  // Estados de Notificação
+  const [notifyEmail, setNotifyEmail] = useState(true);
+  const [notifyPush, setNotifyPush] = useState(true);
+  const [notifyAdvance, setNotifyAdvance] = useState('15');
+
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -93,6 +98,9 @@ export const Profile: React.FC = () => {
           if (data.pronouns) setPronouns(data.pronouns);
           if (data.interests) setSelectedInterests(data.interests);
           if (data.showAgeInProfile !== undefined) setShowAgeInProfile(data.showAgeInProfile);
+          if (data.notifyEmail !== undefined) setNotifyEmail(data.notifyEmail);
+          if (data.notifyPush !== undefined) setNotifyPush(data.notifyPush);
+          if (data.notifyAdvance !== undefined) setNotifyAdvance(data.notifyAdvance);
         }
       } catch (err) {
         console.error('Erro ao carregar perfil', err);
@@ -245,7 +253,10 @@ export const Profile: React.FC = () => {
           cefrLevel,
           bio,
           interests: selectedInterests,
-          avatar: avatarUrl
+          avatar: avatarUrl,
+          notifyEmail,
+          notifyPush,
+          notifyAdvance
         })
       });
       if (response.ok) {
@@ -739,6 +750,56 @@ export const Profile: React.FC = () => {
                       })}
                     </div>
                   ))}
+                </div>
+              </div>
+            </section>
+
+            {/* Nova Seção de Lembretes de Prática */}
+            <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-5">
+              <div className="flex justify-between items-center border-b-2 border-[#E7E5E4] pb-3">
+                <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
+                  Lembretes de Prática
+                </h2>
+                <span className="text-[10px] font-black uppercase bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded-lg">
+                  Ativo
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-4">
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-black uppercase text-[#1C1917]">Notificações Push</span>
+                    <span className="text-[10px] font-bold text-[#78716C]">Receba alertas rápidos do sistema</span>
+                  </div>
+                  <div className={`w-11 h-6 rounded-full border-2 border-[#1C1917] flex items-center p-0.5 transition-all ${notifyPush ? 'bg-[#1C1917]' : 'bg-[#FAF9F6]'}`}>
+                    <div className={`w-4 h-4 rounded-full bg-[#FAF9F6] border-2 border-[#1C1917] transition-all ${notifyPush ? 'translate-x-5 border-[#FAF9F6]' : 'translate-x-0'}`} />
+                  </div>
+                  <input type="checkbox" className="hidden" checked={notifyPush} onChange={(e) => setNotifyPush(e.target.checked)} />
+                </label>
+
+                <label className="flex items-center justify-between cursor-pointer border-t-2 border-[#F5F5F4] pt-4">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-black uppercase text-[#1C1917]">Alertas por E-mail</span>
+                    <span className="text-[10px] font-bold text-[#78716C]">Lembretes direto na sua caixa de entrada</span>
+                  </div>
+                  <div className={`w-11 h-6 rounded-full border-2 border-[#1C1917] flex items-center p-0.5 transition-all ${notifyEmail ? 'bg-[#1C1917]' : 'bg-[#FAF9F6]'}`}>
+                    <div className={`w-4 h-4 rounded-full bg-[#FAF9F6] border-2 border-[#1C1917] transition-all ${notifyEmail ? 'translate-x-5 border-[#FAF9F6]' : 'translate-x-0'}`} />
+                  </div>
+                  <input type="checkbox" className="hidden" checked={notifyEmail} onChange={(e) => setNotifyEmail(e.target.checked)} />
+                </label>
+
+                <div className="flex flex-col gap-1.5 border-t-2 border-[#F5F5F4] pt-4">
+                  <label className="text-xs font-black text-[#1C1917] uppercase tracking-wider">Avisar com antecedência de:</label>
+                  <select
+                    value={notifyAdvance}
+                    onChange={(e) => setNotifyAdvance(e.target.value)}
+                    className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+                  >
+                    <option value="5">5 minutos antes da sessão agendada</option>
+                    <option value="15">15 minutos antes da sessão agendada</option>
+                    <option value="30">30 minutos antes da sessão agendada</option>
+                    <option value="60">1 hora antes da sessão agendada</option>
+                  </select>
                 </div>
               </div>
             </section>
