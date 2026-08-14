@@ -62,7 +62,7 @@ export const Profile: React.FC = () => {
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [age, setAge] = useState<number | string>('');
+  const [birthDate, setBirthDate] = useState('');
   const [showAgeInProfile, setShowAgeInProfile] = useState(true);
   const [gender, setGender] = useState('Masculino');
   const [pronouns, setPronouns] = useState('ele/dele (he/him)');
@@ -93,7 +93,7 @@ export const Profile: React.FC = () => {
           setCefrLevel(data.level || 'B1');
           if (data.avatar) setAvatarUrl(data.avatar);
           if (data.bio) setBio(data.bio);
-          if (data.age) setAge(data.age);
+          if (data.birthDate) setBirthDate(data.birthDate);
           if (data.gender) setGender(data.gender);
           if (data.pronouns) setPronouns(data.pronouns);
           if (data.interests) setSelectedInterests(data.interests);
@@ -178,24 +178,17 @@ export const Profile: React.FC = () => {
     reputationScore: '98/100',
   };
 
-  const [favoritePartners] = useState([
-    {
-      id: '1',
-      name: 'Elena Rostova',
-      avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&auto=format&fit=crop&q=80',
-      level: 'B1',
-      isOnline: true,
-      note: 'Engenheira de Software. Excelente pronúncia e fala calma.',
-    },
-    {
-      id: '2',
-      name: 'Mateo Rossi',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
-      level: 'B2',
-      isOnline: false,
-      note: 'Gosta de falar sobre tecnologia e viagens na Europa.',
-    },
-  ]);
+  const calculateAge = (dob: string) => {
+    if (!dob) return '';
+    const birthDateObj = new Date(dob);
+    const today = new Date();
+    let calculatedAge = today.getFullYear() - birthDateObj.getFullYear();
+    const m = today.getMonth() - birthDateObj.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDateObj.getDate())) {
+      calculatedAge--;
+    }
+    return calculatedAge;
+  };
 
   const timeSlots = ['Manhã (08h - 12h)', 'Tarde (12h - 18h)', 'Noite (18h - 22h)'];
   const weekDays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
@@ -246,7 +239,7 @@ export const Profile: React.FC = () => {
         },
         body: JSON.stringify({
           name,
-          age,
+          birthDate,
           showAgeInProfile,
           gender,
           pronouns,
@@ -490,7 +483,7 @@ export const Profile: React.FC = () => {
               activeTab === 'social' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C] hover:text-[#1C1917]'
             }`}
           >
-            Agenda & Parceiros
+            Agenda & Alertas
           </button>
           <button
             type="button"
@@ -551,7 +544,7 @@ export const Profile: React.FC = () => {
 
                 <div className="flex flex-col gap-1.5">
                   <div className="flex justify-between items-center">
-                    <label className="text-xs font-black text-[#1C1917] uppercase tracking-wider">Idade</label>
+                    <label className="text-xs font-black text-[#1C1917] uppercase tracking-wider">Data de Nascimento</label>
                     <button
                       type="button"
                       onClick={() => setShowAgeInProfile(!showAgeInProfile)}
@@ -576,11 +569,9 @@ export const Profile: React.FC = () => {
                     </button>
                   </div>
                   <input
-                    type="number"
-                    min={18}
-                    max={100}
-                    value={age}
-                    onChange={(e) => setAge(e.target.value)}
+                    type="date"
+                    value={birthDate}
+                    onChange={(e) => setBirthDate(e.target.value)}
                     className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
                   />
                 </div>
@@ -801,31 +792,6 @@ export const Profile: React.FC = () => {
                     <option value="60">1 hora antes da sessão agendada</option>
                   </select>
                 </div>
-              </div>
-            </section>
-
-            <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-4">
-              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917] border-b-2 border-[#E7E5E4] pb-3">
-                Parceiros Favoritos
-              </h2>
-
-              <div className="flex flex-col gap-3">
-                {favoritePartners.map((partner) => (
-                  <div key={partner.id} className="bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-2xl p-4 flex flex-col gap-2">
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-3">
-                        <img src={partner.avatar} alt={partner.name} className="w-10 h-10 rounded-xl object-cover border-2 border-[#1C1917]" />
-                        <div className="flex flex-col">
-                          <span className="text-xs font-black text-[#1C1917]">{partner.name} ({partner.level})</span>
-                          <span className="text-[10px] font-bold text-[#78716C]">{partner.isOnline ? 'Online' : 'Offline'}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <p className="text-xs text-[#57534E] italic bg-[#FFFFFF] p-2.5 rounded-xl border-2 border-[#E7E5E4]">
-                      "{partner.note}"
-                    </p>
-                  </div>
-                ))}
               </div>
             </section>
           </div>
@@ -1194,8 +1160,8 @@ export const Profile: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2 text-xs font-bold text-[#78716C]">
-                  {showAgeInProfile && <span>{age} anos</span>}
-                  {showAgeInProfile && <span>•</span>}
+                  {showAgeInProfile && birthDate && <span>{calculateAge(birthDate)} anos</span>}
+                  {showAgeInProfile && birthDate && <span>•</span>}
                   <span>{gender}</span>
                   <span>•</span>
                   <span className="italic">{pronouns}</span>
