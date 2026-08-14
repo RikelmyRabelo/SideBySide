@@ -10,7 +10,6 @@ export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [cefrLevel, setCefrLevel] = useState('B1');
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -307,7 +306,7 @@ useEffect(() => {
 
       const payload = isLogin
         ? { email, password }
-        : { name: email.split('@')[0], email, password, level: cefrLevel };
+        : { name: email.split('@')[0], email, password, level: 'B1' }; // Defaulting to B1 or handled differently in backend now
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -745,7 +744,7 @@ useEffect(() => {
                 ? 'Digite seu e-mail para receber o link de redefinição.'
                 : isLogin
                 ? 'Insira suas credenciais para entrar na plataforma.'
-                : 'Selecione seu nível CEFR inicial e comece hoje.'}
+                : 'Comece a praticar seu inglês hoje mesmo.'}
             </p>
           </div>
 
@@ -874,25 +873,6 @@ useEffect(() => {
                     </div>
                   </div>
                 )}
-              </div>
-            )}
-
-            {!isLogin && !isForgotPassword && (
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
-                  Nível CEFR Inicial
-                </label>
-                <select
-                  value={cefrLevel}
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCefrLevel(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-[#FFFFFF] border border-[#E7E5E4] text-[#1C1917] text-xs rounded-xl outline-none focus:border-[#1C1917] font-bold"
-                >
-                  <option value="A1">A1 - Iniciante</option>
-                  <option value="A2">A2 - Básico</option>
-                  <option value="B1">B1 - Intermediário</option>
-                  <option value="B2">B2 - Intermediário Avançado</option>
-                  <option value="C1">C1 - Avançado</option>
-                </select>
               </div>
             )}
 
