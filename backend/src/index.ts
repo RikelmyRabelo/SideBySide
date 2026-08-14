@@ -6,6 +6,7 @@ import jwt from 'jsonwebtoken';
 import cors from 'cors';
 import nodemailer from 'nodemailer';
 import { z, ZodError } from 'zod';
+import rateLimit from 'express-rate-limit';
 import { prisma } from './lib/prisma';
 
 const app = express();
@@ -28,13 +29,29 @@ const transporter = nodemailer.createTransport({
   debug: true,
 });
 
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { error: 'Muitas requisições a partir deste IP, tente novamente após 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const passwordResetLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: { error: 'Muitas tentativas de recuperação de senha deste IP, tente novamente após 1 hora.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 const validateRequest = (schema: z.ZodTypeAny) => (req: Request, res: Response, next: NextFunction) => {
   try {
     req.body = schema.parse(req.body);
     next();
   } catch (error) {
     if (error instanceof ZodError) {
-      return res.status(400).json({ error: 'Dados inválidos.', details: error.issues });
+      return res.status(400).json({ error: 'Dados inválidos.', details: error.errors });
     }
     next(error);
   }
@@ -84,7 +101,7 @@ const resetPasswordSchema = z.object({
   newPassword: z.string().min(6, 'A nova senha deve ter no mínimo 6 caracteres.'),
 });
 
-app.post('/api/auth/register', validateRequest(registerSchema), async (req: Request, res: Response) => {
+app.post('/api/auth/register', authLimiter, validateRequest(registerSchema), async (req: Request, res: Response) => {
   try {
     const { name, email, password, level } = req.body;
 
@@ -129,7 +146,7 @@ app.post('/api/auth/register', validateRequest(registerSchema), async (req: Requ
   }
 });
 
-app.post('/api/auth/login', validateRequest(loginSchema), async (req: Request, res: Response) => {
+app.post('/api/auth/login', authLimiter, validateRequest(loginSchema), async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
@@ -156,7 +173,7 @@ app.post('/api/auth/login', validateRequest(loginSchema), async (req: Request, r
   }
 });
 
-app.post('/api/auth/forgot-password', validateRequest(emailOnlySchema), async (req: Request, res: Response) => {
+app.post('/api/auth/forgot-password', passwordResetLimiter, validateRequest(emailOnlySchema), async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
 
@@ -190,7 +207,7 @@ app.post('/api/auth/forgot-password', validateRequest(emailOnlySchema), async (r
   }
 });
 
-app.post('/api/auth/verify-reset-code', validateRequest(verifyCodeSchema), async (req: Request, res: Response) => {
+app.post('/api/auth/verify-reset-code', passwordResetLimiter, validateRequest(verifyCodeSchema), async (req: Request, res: Response) => {
   try {
     const { email, code } = req.body;
 
@@ -206,7 +223,7 @@ app.post('/api/auth/verify-reset-code', validateRequest(verifyCodeSchema), async
   }
 });
 
-app.post('/api/auth/reset-password', validateRequest(resetPasswordSchema), async (req: Request, res: Response) => {
+app.post('/api/auth/reset-password', passwordResetLimiter, validateRequest(resetPasswordSchema), async (req: Request, res: Response) => {
   try {
     const { email, code, newPassword } = req.body;
 
@@ -236,7 +253,7 @@ app.post('/api/auth/reset-password', validateRequest(resetPasswordSchema), async
   }
 });
 
-app.post('/api/auth/verify-code', validateRequest(verifyCodeSchema), async (req: Request, res: Response) => {
+app.post('/api/auth/verify-code', authLimiter, validateRequest(verifyCodeSchema), async (req: Request, res: Response) => {
   try {
     const { email, code } = req.body;
 
@@ -280,7 +297,7 @@ app.post('/api/auth/verify-code', validateRequest(verifyCodeSchema), async (req:
   }
 });
 
-app.post('/api/auth/resend-code', validateRequest(emailOnlySchema), async (req: Request, res: Response) => {
+app.post('/api/auth/resend-code', passwordResetLimiter, validateRequest(emailOnlySchema), async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
 
