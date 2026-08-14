@@ -17,6 +17,9 @@ app.use(cors());
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'seu-segredo-super-seguro';
 
+const pendingUsers = new Map<string, { name: string; email: string; passwordHash: string; level: string; code: string }>();
+const verificationCodes = new Map<string, string>();
+
 const logger = winston.createLogger({
   level: 'info',
   format: winston.format.combine(
@@ -39,9 +42,6 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   logger.info(`[${req.method}] ${req.url} - IP: ${req.ip}`);
   next();
 });
-
-const pendingUsers = new Map<string, { name: string; email: string; passwordHash: string; level: string; code: string }>();
-const verificationCodes = new Map<string, string>();
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -127,13 +127,12 @@ const resetPasswordSchema = z.object({
   newPassword: z.string().min(6, 'A nova senha deve ter no mínimo 6 caracteres.'),
 });
 
-app.post('/api/auth/register', authLimiter, validateRequest(registerSchema), async (req: Request, res: Response) => {
+app.post('/api/auth/register', authLimiter, validateRequest(registerSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { name, email, password, level } = req.body;
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
-      logger.info(`Falha de registro: E-mail já cadastrado (${email})`);
       return res.status(400).json({ error: 'E-mail já cadastrado.' });
     }
 
@@ -169,24 +168,21 @@ app.post('/api/auth/register', authLimiter, validateRequest(registerSchema), asy
       email,
     });
   } catch (error: any) {
-    logger.error('Erro no /api/auth/register:', { error: error.message, stack: error.stack });
-    return res.status(500).json({ error: 'Erro interno no servidor.', details: error.message });
+    next(error);
   }
 });
 
-app.post('/api/auth/login', authLimiter, validateRequest(loginSchema), async (req: Request, res: Response) => {
+app.post('/api/auth/login', authLimiter, validateRequest(loginSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, password } = req.body;
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
-      logger.info(`Falha de login: E-mail não encontrado (${email})`);
       return res.status(401).json({ error: 'Credenciais inválidas.' });
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      logger.info(`Falha de login: Senha incorreta (${email})`);
       return res.status(401).json({ error: 'Credenciais inválidas.' });
     }
 
@@ -199,18 +195,16 @@ app.post('/api/auth/login', authLimiter, validateRequest(loginSchema), async (re
       user: { id: user.id, name: user.name, email: user.email, level: user.level, reputation: user.reputation },
     });
   } catch (error: any) {
-    logger.error('Erro no /api/auth/login:', { error: error.message, stack: error.stack });
-    return res.status(500).json({ error: 'Erro interno no servidor.', details: error.message });
+    next(error);
   }
 });
 
-app.post('/api/auth/forgot-password', passwordResetLimiter, validateRequest(emailOnlySchema), async (req: Request, res: Response) => {
+app.post('/api/auth/forgot-password', passwordResetLimiter, validateRequest(emailOnlySchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email } = req.body;
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
-      logger.info(`Recuperação de senha: E-mail não encontrado (${email})`);
       return res.status(200).json({ message: 'Se o e-mail estiver cadastrado, um código foi enviado.' });
     }
 
@@ -235,42 +229,36 @@ app.post('/api/auth/forgot-password', passwordResetLimiter, validateRequest(emai
     logger.info(`Código de recuperação enviado para: ${email}`);
     return res.status(200).json({ message: 'Código de recuperação enviado com sucesso.' });
   } catch (error: any) {
-    logger.error('Erro no /api/auth/forgot-password:', { error: error.message, stack: error.stack });
-    return res.status(500).json({ error: 'Erro interno no servidor.', details: error.message });
+    next(error);
   }
 });
 
-app.post('/api/auth/verify-reset-code', passwordResetLimiter, validateRequest(verifyCodeSchema), async (req: Request, res: Response) => {
+app.post('/api/auth/verify-reset-code', passwordResetLimiter, validateRequest(verifyCodeSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, code } = req.body;
 
     const storedCode = verificationCodes.get(email);
     if (!storedCode || storedCode !== code) {
-      logger.warn(`Falha na verificação de código de reset: Inválido para o email ${email}`);
       return res.status(400).json({ error: 'Código inválido ou expirado.' });
     }
 
-    logger.info(`Código de reset verificado com sucesso para: ${email}`);
     return res.status(200).json({ message: 'Código verificado com sucesso.' });
   } catch (error: any) {
-    logger.error('Erro no /api/auth/verify-reset-code:', { error: error.message, stack: error.stack });
-    return res.status(500).json({ error: 'Erro interno no servidor.', details: error.message });
+    next(error);
   }
 });
 
-app.post('/api/auth/reset-password', passwordResetLimiter, validateRequest(resetPasswordSchema), async (req: Request, res: Response) => {
+app.post('/api/auth/reset-password', passwordResetLimiter, validateRequest(resetPasswordSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, code, newPassword } = req.body;
 
     const storedCode = verificationCodes.get(email);
     if (!storedCode || storedCode !== code) {
-      logger.warn(`Falha no reset de senha: Código inválido para o email ${email}`);
       return res.status(400).json({ error: 'Código inválido ou expirado.' });
     }
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
-      logger.warn(`Falha no reset de senha: Usuário não encontrado (${email})`);
       return res.status(400).json({ error: 'Usuário não encontrado.' });
     }
 
@@ -286,12 +274,11 @@ app.post('/api/auth/reset-password', passwordResetLimiter, validateRequest(reset
     logger.info(`Senha redefinida com sucesso para: ${email}`);
     return res.status(200).json({ message: 'Senha redefinida com sucesso.' });
   } catch (error: any) {
-    logger.error('Erro no /api/auth/reset-password:', { error: error.message, stack: error.stack });
-    return res.status(500).json({ error: 'Erro interno no servidor.', details: error.message });
+    next(error);
   }
 });
 
-app.post('/api/auth/verify-code', authLimiter, validateRequest(verifyCodeSchema), async (req: Request, res: Response) => {
+app.post('/api/auth/verify-code', authLimiter, validateRequest(verifyCodeSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, code } = req.body;
 
@@ -307,7 +294,6 @@ app.post('/api/auth/verify-code', authLimiter, validateRequest(verifyCodeSchema)
 
     const pending = targetEmail ? pendingUsers.get(targetEmail) : null;
     if (!pending || pending.code !== code) {
-      logger.warn(`Falha na verificação de código de registro: Inválido para o email ${targetEmail || 'Desconhecido'}`);
       return res.status(400).json({ error: 'Código inválido ou expirado.' });
     }
 
@@ -332,18 +318,16 @@ app.post('/api/auth/verify-code', authLimiter, validateRequest(verifyCodeSchema)
       user: { id: newUser.id, name: newUser.name, email: newUser.email, level: newUser.level, reputation: newUser.reputation }
     });
   } catch (error: any) {
-    logger.error('Erro no /api/auth/verify-code:', { error: error.message, stack: error.stack });
-    return res.status(500).json({ error: 'Erro interno no servidor.', details: error.message });
+    next(error);
   }
 });
 
-app.post('/api/auth/resend-code', passwordResetLimiter, validateRequest(emailOnlySchema), async (req: Request, res: Response) => {
+app.post('/api/auth/resend-code', passwordResetLimiter, validateRequest(emailOnlySchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email } = req.body;
 
     const pending = pendingUsers.get(email);
     if (!pending) {
-      logger.warn(`Reenvio de código falhou: Nenhum cadastro pendente para ${email}`);
       return res.status(400).json({ error: 'Nenhum cadastro pendente encontrado para este e-mail.' });
     }
 
@@ -369,12 +353,11 @@ app.post('/api/auth/resend-code', passwordResetLimiter, validateRequest(emailOnl
     logger.info(`Código de verificação reenviado para: ${email}`);
     return res.status(200).json({ message: 'Código reenviado com sucesso.' });
   } catch (error: any) {
-    logger.error('Erro no /api/auth/resend-code:', { error: error.message, stack: error.stack });
-    return res.status(500).json({ error: 'Erro interno no servidor.', details: error.message });
+    next(error);
   }
 });
 
-app.get('/api/user/me', authenticateToken, async (req: Request, res: Response) => {
+app.get('/api/user/me', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user.id;
     const user = await prisma.user.findUnique({
@@ -383,16 +366,32 @@ app.get('/api/user/me', authenticateToken, async (req: Request, res: Response) =
     });
 
     if (!user) {
-      logger.warn(`Requisição /api/user/me falhou: Usuário não encontrado para o ID ${userId}`);
       return res.status(404).json({ error: 'Usuário não encontrado.' });
     }
 
-    logger.info(`Dados do usuário retornados com sucesso para o ID: ${userId}`);
     return res.status(200).json(user);
   } catch (error: any) {
-    logger.error('Erro no /api/user/me:', { error: error.message, stack: error.stack });
-    return res.status(500).json({ error: 'Erro interno no servidor.', details: error.message });
+    next(error);
   }
+});
+
+// Middleware Global de Tratamento de Erros
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  logger.error('Erro não tratado capturado pelo middleware global:', {
+    message: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method,
+  });
+
+  const statusCode = err.statusCode || err.status || 500;
+  const errorMessage = err.message || 'Erro interno no servidor.';
+
+  return res.status(statusCode).json({
+    success: false,
+    error: errorMessage,
+    ...(process.env.NODE_ENV === 'development' && { details: err.stack }),
+  });
 });
 
 app.listen(PORT, () => {
