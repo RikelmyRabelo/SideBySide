@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, memo } from 'react';
 import { Button } from '../ui/Button';
 
 interface RatingModalProps {
@@ -8,7 +8,7 @@ interface RatingModalProps {
   partnerName: string;
 }
 
-export const RatingModal: React.FC<RatingModalProps> = ({
+export const RatingModal: React.FC<RatingModalProps> = memo(({
   isOpen,
   onClose,
   onSubmit,
@@ -18,16 +18,20 @@ export const RatingModal: React.FC<RatingModalProps> = ({
   const [platformRating, setPlatformRating] = useState<number>(0);
   const [comment, setComment] = useState<string>('');
 
-  if (!isOpen) return null;
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (partnerRating === 0 || platformRating === 0) {
       alert('Por favor, selecione uma nota para ambos os quesitos.');
       return;
     }
     onSubmit({ partnerRating, platformRating, comment });
-  };
+  }, [partnerRating, platformRating, comment, onSubmit]);
+
+  const handleCommentChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setComment(e.target.value);
+  }, []);
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
@@ -102,7 +106,7 @@ export const RatingModal: React.FC<RatingModalProps> = ({
               rows={3}
               maxLength={140}
               value={comment}
-              onChange={(e) => setComment(e.target.value)}
+              onChange={handleCommentChange}
               placeholder="Deixe uma nota positiva no perfil do usuário ou sugestão sobre a chamada..."
               className="w-full p-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] resize-none"
             />
@@ -128,4 +132,6 @@ export const RatingModal: React.FC<RatingModalProps> = ({
       </div>
     </div>
   );
-};
+});
+
+RatingModal.displayName = 'RatingModal';
