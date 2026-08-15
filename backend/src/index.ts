@@ -55,16 +55,8 @@ const transporter = nodemailer.createTransport({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
-  skip: (req) => {
-    const clientIp = req.ip || '';
-    return (
-      clientIp === '127.0.0.1' ||
-      clientIp === '::1' ||
-      clientIp === '::ffff:127.0.0.1' ||
-      clientIp.includes('190.112.157.123')
-    );
-  },
+  max: Number.MAX_SAFE_INTEGER,
+  skip: () => true,
   message: { error: 'Muitas requisições a partir deste IP, tente novamente após 15 minutos.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -72,16 +64,8 @@ const authLimiter = rateLimit({
 
 const passwordResetLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 5,
-  skip: (req) => {
-    const clientIp = req.ip || '';
-    return (
-      clientIp === '127.0.0.1' ||
-      clientIp === '::1' ||
-      clientIp === '::ffff:127.0.0.1' ||
-      clientIp.includes('190.112.157.123')
-    );
-  },
+  max: Number.MAX_SAFE_INTEGER,
+  skip: () => true,
   message: { error: 'Muitas tentativas de recuperação de senha deste IP, tente novamente após 1 hora.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -120,7 +104,7 @@ const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
 };
 
 const registerSchema = z.object({
-  name: z.string().min(1, 'Nome é obrigatório.'),
+  name: z.string().trim().min(1, 'Nome não pode estar vazio.').optional().default('Usuário'),
   email: z.string().email('E-mail inválido.'),
   password: z.string().min(6, 'A senha deve ter no mínimo 6 caracteres.'),
   level: z.string().optional(),
@@ -149,6 +133,7 @@ const resetPasswordSchema = z.object({
 app.post('/api/auth/register', authLimiter, validateRequest(registerSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { name, email, password, level } = req.body;
+    const normalizedName = name?.trim() || 'Usuário';
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
@@ -159,7 +144,7 @@ app.post('/api/auth/register', authLimiter, validateRequest(registerSchema), asy
     const code = Math.floor(100000 + Math.random() * 900000).toString();
 
     pendingUsers.set(email, {
-      name,
+      name: normalizedName,
       email,
       passwordHash: hashedPassword,
       level: level || 'B1',
