@@ -29,13 +29,18 @@ export const Room: React.FC = () => {
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'reconnecting' | 'failed'>('connected');
   const reconnectAttempts = useRef(0);
   const MAX_RECONNECT_ATTEMPTS = 5;
+  const [sessionElapsedSeconds, setSessionElapsedSeconds] = useState(0);
+  const sessionStartedAtRef = useRef<number | null>(null);
 
   // Estado das etapas da animação
   const [animStep, setAnimStep] = useState<0 | 1 | 2 | 3 | 4>(0);
+  const [chatMessages, setChatMessages] = useState<{ id: number; sender: 'me' | 'other'; text: string }[]>([]);
+  const [chatInput, setChatInput] = useState('');
 
   // Avatar do usuário
-  const userAvatarUrl =
+  const defaultUserAvatarUrl =
     'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80';
+  const [userAvatarUrl, setUserAvatarUrl] = useState<string>(defaultUserAvatarUrl);
 
   // Referência para o container de vídeo e WebRTC
   const videoContainerRef = useRef<HTMLDivElement>(null);
@@ -115,6 +120,34 @@ export const Room: React.FC = () => {
       if (interval) clearInterval(interval);
     };
   }, [isSearchingNextPair]);
+
+  useEffect(() => {
+    if (connectionStatus === 'connected') {
+      if (!sessionStartedAtRef.current) {
+        sessionStartedAtRef.current = Date.now();
+      }
+
+      const timer = window.setInterval(() => {
+        if (!sessionStartedAtRef.current) return;
+        setSessionElapsedSeconds(Math.floor((Date.now() - sessionStartedAtRef.current) / 1000));
+      }, 1000);
+
+      return () => window.clearInterval(timer);
+    }
+
+    if (connectionStatus === 'reconnecting' || connectionStatus === 'failed') {
+      sessionStartedAtRef.current = null;
+      setSessionElapsedSeconds(0);
+    }
+
+    return undefined;
+  }, [connectionStatus]);
+
+  const formatSessionTimer = (seconds: number) => {
+    const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const secs = (seconds % 60).toString().padStart(2, '0');
+    return `${mins}:${secs}`;
+  };
 
   // Sincroniza estado de tela cheia
   useEffect(() => {
@@ -223,6 +256,25 @@ export const Room: React.FC = () => {
   };
 
   useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('http://localhost:3000/api/user/me', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.avatar) {
+            setUserAvatarUrl(data.avatar);
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao carregar avatar do usuário:', err);
+      }
+    };
+
+    loadUserProfile();
     startMedia(true);
 
     const token = localStorage.getItem('token');
@@ -334,6 +386,18 @@ export const Room: React.FC = () => {
     }, 6000);
   };
 
+  const handleSendMessage = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const trimmed = chatInput.trim();
+    if (!trimmed) return;
+
+    setChatMessages((prev) => [
+      ...prev,
+      { id: Date.now(), sender: 'me', text: trimmed }
+    ]);
+    setChatInput('');
+  };
+
   return (
     <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col font-sans h-screen overflow-hidden relative selection:bg-[#1C1917] selection:text-[#FAF9F6]">
       <div
@@ -360,7 +424,7 @@ export const Room: React.FC = () => {
                 <circle cx="12" cy="12" r="9" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l3 3" />
               </svg>
-              <span>12:45</span>
+              <span>{formatSessionTimer(sessionElapsedSeconds)}</span>
             </div>
           </div>
 
@@ -456,32 +520,16 @@ export const Room: React.FC = () => {
                   Side
                 </span>
 
-                <span
-                  className={`text-4xl sm:text-6xl font-black text-[#FAF9F6] transition-all duration-300 ${
-                    animStep >= 2 ? 'opacity-100 scale-y-100' : 'opacity-0 scale-y-0'
-                  }`}
-                >
-                  |
-                </span>
-
-                <div className="relative inline-flex items-center">
-                  <span
-                    className={`text-4xl sm:text-6xl font-black text-[#A8A29E] transition-all duration-400 absolute left-0 ${
-                      animStep === 2 ? 'opacity-100 scale-100' : 'opacity-0 scale-x-0'
+                <div className="relative flex h-16 w-12 items-center justify-center transition-all duration-500">
+                  <div
+                    className={`flex flex-col items-center justify-center leading-none text-[#A8A29E] transition-all duration-500 ${
+                      animStep >= 3 ? 'opacity-100 translate-x-0 scale-100' : 'opacity-0 translate-x-2 scale-75'
                     }`}
+                    style={{ transform: 'rotate(-12deg) skewX(-8deg)' }}
                   >
-                    |
-                  </span>
-
-                  <span
-                    className={`text-3xl sm:text-5xl font-black text-[#A8A29E] uppercase tracking-wider transition-all duration-500 origin-left ${
-                      animStep >= 3
-                        ? 'opacity-100 translate-x-0 scale-x-100'
-                        : 'opacity-0 translate-x-2 scale-x-0'
-                    }`}
-                  >
-                    BY
-                  </span>
+                    <span className="text-3xl sm:text-5xl font-black tracking-tight leading-none">B</span>
+                    <span className="text-3xl sm:text-5xl font-black tracking-tight leading-none -mt-1">Y</span>
+                  </div>
                 </div>
 
                 <span
@@ -671,7 +719,7 @@ export const Room: React.FC = () => {
                   activeTab === 'chat' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C]'
                 }`}
               >
-                Chat (2)
+                Chat (0)
               </button>
             </div>
 
@@ -729,27 +777,45 @@ export const Room: React.FC = () => {
                 </div>
               ) : (
                 <div className="flex flex-col h-full justify-between gap-3">
-                  <div className="flex flex-col gap-2">
-                    <div className="bg-[#FAF9F6] p-2.5 rounded-xl border border-[#E7E5E4] text-xs">
-                      <span className="font-black text-[#1C1917] text-[10px] uppercase">Alex: </span>
-                      <span className="text-[#57534E] font-medium">Hi! How is it going?</span>
-                    </div>
-                    <div className="bg-[#1C1917] p-2.5 rounded-xl text-xs self-end text-[#FAF9F6]">
-                      <span className="font-black text-[#FAF9F6] text-[10px] uppercase">Você: </span>
-                      <span className="font-medium">Hey! All good, ready to practice!</span>
-                    </div>
+                  <div className="flex flex-col gap-2 min-h-0 overflow-y-auto pr-1">
+                    {chatMessages.length === 0 ? (
+                      <div className="flex h-full items-center justify-center text-center text-[11px] font-bold uppercase tracking-wide text-[#78716C] border border-dashed border-[#E7E5E4] rounded-xl p-4">
+                        Nenhuma mensagem ainda.
+                      </div>
+                    ) : (
+                      chatMessages.map((message) => (
+                        <div
+                          key={message.id}
+                          className={`p-2.5 rounded-xl text-xs ${
+                            message.sender === 'me'
+                              ? 'bg-[#1C1917] text-[#FAF9F6] self-end'
+                              : 'bg-[#FAF9F6] text-[#1C1917] border border-[#E7E5E4]'
+                          }`}
+                        >
+                          <span className="font-black text-[10px] uppercase">
+                            {message.sender === 'me' ? 'Você' : 'Alex'}: 
+                          </span>
+                          <span className="font-medium">{message.text}</span>
+                        </div>
+                      ))
+                    )}
                   </div>
 
-                  <div className="flex gap-2">
+                  <form onSubmit={handleSendMessage} className="flex gap-2">
                     <input
                       type="text"
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
                       placeholder="Digite uma mensagem..."
                       className="flex-1 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl px-3 py-2 text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
                     />
-                    <button type="button" className="bg-[#1C1917] hover:bg-[#292524] px-3 py-2 rounded-xl text-xs font-bold text-[#FAF9F6]">
+                    <button
+                      type="submit"
+                      className="bg-[#1C1917] hover:bg-[#292524] px-3 py-2 rounded-xl text-xs font-bold text-[#FAF9F6]"
+                    >
                       ➔
                     </button>
-                  </div>
+                  </form>
                 </div>
               )}
             </div>

@@ -3,34 +3,8 @@ import { useState } from 'react';
 export const FriendsManagerModal = ({ isOpen, onClose, onOpenDirectChat, }) => {
     const [activeTab, setActiveTab] = useState('friends');
     const [selectedUserProfile, setSelectedUserProfile] = useState(null);
-    const [friendsList, setFriendsList] = useState([
-        {
-            id: 'f-1',
-            name: 'Elena Rostova',
-            avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&auto=format&fit=crop&q=80',
-            level: 'B1',
-            isOnline: true,
-        },
-        {
-            id: 'f-2',
-            name: 'Mateo Rossi',
-            avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
-            level: 'B2',
-            isOnline: false,
-        },
-    ]);
-    const [requestsList, setRequestsList] = useState([
-        {
-            id: 'req-1',
-            name: 'Sarah Jenkins',
-            avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80',
-            level: 'B1',
-            time: 'Há 2 horas',
-            bio: 'Estudante de engenharia praticando inglês para entrevistas de trabalho remoto.',
-            gender: 'Feminino',
-            pronouns: 'ela/dela',
-        },
-    ]);
+    const [friendsList, setFriendsList] = useState([]);
+    const [requestsList, setRequestsList] = useState([]);
     if (!isOpen)
         return null;
     const handleAcceptRequest = (req) => {

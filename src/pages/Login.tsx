@@ -7,7 +7,6 @@ export const Login: React.FC = () => {
   const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -16,14 +15,9 @@ export const Login: React.FC = () => {
 
   useEffect(() => {
     const savedEmail = localStorage.getItem('sidebyside_last_email');
-    const savedName = localStorage.getItem('sidebyside_last_name');
 
     if (savedEmail) {
       setEmail(savedEmail);
-    }
-
-    if (savedName) {
-      setName(savedName);
     }
   }, []);
   
@@ -311,11 +305,6 @@ useEffect(() => {
       return;
     }
 
-    if (!isLogin && !name.trim()) {
-      setErrorMessage('Por favor, informe seu nome para criar a conta.');
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
@@ -325,7 +314,7 @@ useEffect(() => {
 
       const payload = isLogin
         ? { email, password }
-        : { name: name.trim(), email, password, level: 'B1' };
+        : { email, password, level: 'B1' };
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -340,18 +329,16 @@ useEffect(() => {
       }
 
       localStorage.setItem('sidebyside_last_email', email);
-      localStorage.setItem('sidebyside_last_name', name.trim());
 
       if (data.token) {
         localStorage.setItem('token', data.token);
-        localStorage.setItem('sidebyside_user', JSON.stringify(data.user || { email, name: name.trim() }));
+        localStorage.setItem('sidebyside_user', JSON.stringify(data.user || { email }));
       }
 
       if (isLogin) {
         navigate('/dashboard');
       } else {
         localStorage.setItem('sidebyside_pending_email', email);
-        localStorage.setItem('sidebyside_pending_name', name.trim());
         navigate('/verify-code');
       }
     } catch (err: any) {
@@ -823,20 +810,6 @@ useEffect(() => {
           )}
 
           <form className="flex flex-col gap-3.5" onSubmit={handleSubmit}>
-            {!isLogin && !isForgotPassword && (
-              <Input
-                label="Nome"
-                type="text"
-                placeholder="Seu nome completo"
-                value={name}
-                className="bg-[#FFFFFF] border-[#E7E5E4] text-[#1C1917] placeholder:text-[#A8A29E] focus:border-[#1C1917] focus:bg-[#FFFFFF] focus:text-[#1C1917]"
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  setName(e.target.value);
-                  if (errorMessage) setErrorMessage(null);
-                }}
-              />
-            )}
-
             <Input
               label="E-mail"
               type="email"

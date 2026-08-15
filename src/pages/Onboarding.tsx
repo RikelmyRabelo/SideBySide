@@ -61,6 +61,7 @@ export const Onboarding: React.FC = () => {
   const [pronouns, setPronouns] = useState('ele/dele (he/him)');
 
   const [bio, setBio] = useState('');
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [cefrLevel, setCefrLevel] = useState('');
 
   const [photoConfirmed, setPhotoConfirmed] = useState(false);
@@ -84,6 +85,26 @@ export const Onboarding: React.FC = () => {
       calculatedAge--;
     }
     return calculatedAge;
+  };
+
+  const topicsLibrary = [
+    { category: 'Tecnologia & Carreira', items: ['Tecnologia', 'Carreira & Negócios', 'Inteligência Artificial', 'Startups', 'Programação', 'Marketing Digital'] },
+    { category: 'Cultura & Entretenimento', items: ['Cinema & Séries', 'Música', 'Leitura', 'Jogos & eSports', 'Arte & Design', 'Fotografia'] },
+    { category: 'Estilo de Vida & Hobbies', items: ['Viagens', 'Esportes', 'Culinária', 'Saúde & Fitness', 'Gastronomia', 'Idiomas'] },
+    { category: 'Sociedade & Atualidades', items: ['Economia', 'Meio Ambiente', 'Psicologia', 'História', 'Filosofia', 'Moda'] },
+  ];
+
+  const toggleInterest = (interest: string) => {
+    setSelectedInterests((prev) => {
+      if (prev.includes(interest)) {
+        return prev.filter((item) => item !== interest);
+      }
+      if (prev.length >= 5) {
+        alert('Você só pode selecionar até 5 tópicos de interesse.');
+        return prev;
+      }
+      return [...prev, interest];
+    });
   };
 
   const cefrLevelsInfo = [
@@ -391,14 +412,58 @@ export const Onboarding: React.FC = () => {
             </div>
           )}
 
-          {/* DIVISÃO 4: NÍVEL DE INGLÊS */}
+          {/* DIVISÃO 4: TÓPICOS DE INTERESSE */}
           {bioConfirmed && (
             <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-4 duration-500 ease-out">
               <span className="text-xs font-black text-[#1C1917] uppercase tracking-wider flex items-center gap-2">
-                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${cefrLevel !== '' ? 'bg-emerald-600 text-white' : 'bg-[#1C1917] text-[#FAF9F6]'}`}>
-                  {cefrLevel !== '' ? '✓' : '4'}
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${selectedInterests.length > 0 ? 'bg-emerald-600 text-white' : 'bg-[#1C1917] text-[#FAF9F6]'}`}>
+                  {selectedInterests.length > 0 ? '✓' : '4'}
                 </span>
-                4. NÍVEL DE INGLÊS (CEFR) *
+                4. TÓPICOS DE INTERESSE
+              </span>
+
+              <div className="flex flex-col gap-4 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-2xl p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-[#78716C]">Selecione até 5</span>
+                  <span className="text-[10px] font-black bg-[#1C1917] text-[#FAF9F6] px-2 py-0.5 rounded-full">{selectedInterests.length}/5</span>
+                </div>
+
+                {topicsLibrary.map((group) => (
+                  <div key={group.category} className="flex flex-col gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-[#78716C]">{group.category}</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {group.items.map((item) => {
+                        const isSelected = selectedInterests.includes(item);
+                        return (
+                          <button
+                            key={item}
+                            type="button"
+                            onClick={() => toggleInterest(item)}
+                            className={`px-3 py-1.5 rounded-xl border-2 text-[10px] font-black transition-all ${
+                              isSelected
+                                ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]'
+                                : 'bg-[#FFFFFF] text-[#78716C] border-[#E7E5E4] hover:border-[#1C1917]'
+                            }`}
+                          >
+                            {isSelected ? `✓ ${item}` : `+ ${item}`}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* DIVISÃO 5: NÍVEL DE INGLÊS */}
+          {bioConfirmed && selectedInterests.length > 0 && (
+            <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-4 duration-500 ease-out">
+              <span className="text-xs font-black text-[#1C1917] uppercase tracking-wider flex items-center gap-2">
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${cefrLevel !== '' ? 'bg-emerald-600 text-white' : 'bg-[#1C1917] text-[#FAF9F6]'}`}>
+                  {cefrLevel !== '' ? '✓' : '5'}
+                </span>
+                5. NÍVEL DE INGLÊS (CEFR) *
               </span>
 
               <div className="flex flex-col gap-2.5">
@@ -437,7 +502,7 @@ export const Onboarding: React.FC = () => {
           )}
 
           {/* BOTÃO FINALIZAR */}
-          {bioConfirmed && cefrLevel !== '' && (
+          {bioConfirmed && selectedInterests.length > 0 && cefrLevel !== '' && (
             <div className="pt-4 border-t border-[#E7E5E4] animate-in fade-in slide-in-from-top-4 duration-500 ease-out">
               <Button
                 variant="primary"
@@ -458,6 +523,7 @@ export const Onboarding: React.FC = () => {
                         pronouns,
                         cefrLevel,
                         bio: bio.trim(),
+                        interests: selectedInterests,
                         avatar: avatarUrl,
                       }),
                     });

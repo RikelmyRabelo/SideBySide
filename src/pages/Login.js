@@ -7,7 +7,6 @@ export const Login = () => {
     const navigate = useNavigate();
     const [isLogin, setIsLogin] = useState(false);
     const [isForgotPassword, setIsForgotPassword] = useState(false);
-    const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -15,12 +14,8 @@ export const Login = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     useEffect(() => {
         const savedEmail = localStorage.getItem('sidebyside_last_email');
-        const savedName = localStorage.getItem('sidebyside_last_name');
         if (savedEmail) {
             setEmail(savedEmail);
-        }
-        if (savedName) {
-            setName(savedName);
         }
     }, []);
     // Estado da animação no rodapé
@@ -263,10 +258,6 @@ export const Login = () => {
             setErrorMessage('Você deve aceitar os Termos de Uso e a Política de Moderação para continuar.');
             return;
         }
-        if (!isLogin && !name.trim()) {
-            setErrorMessage('Por favor, informe seu nome para criar a conta.');
-            return;
-        }
         setIsSubmitting(true);
         try {
             const endpoint = isLogin
@@ -274,7 +265,7 @@ export const Login = () => {
                 : 'http://localhost:3000/api/auth/register';
             const payload = isLogin
                 ? { email, password }
-                : { name: name.trim(), email, password, level: 'B1' };
+                : { email, password, level: 'B1' };
             const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -285,17 +276,15 @@ export const Login = () => {
                 throw new Error(data.error || 'Erro ao processar a requisição.');
             }
             localStorage.setItem('sidebyside_last_email', email);
-            localStorage.setItem('sidebyside_last_name', name.trim());
             if (data.token) {
                 localStorage.setItem('token', data.token);
-                localStorage.setItem('sidebyside_user', JSON.stringify(data.user || { email, name: name.trim() }));
+                localStorage.setItem('sidebyside_user', JSON.stringify(data.user || { email }));
             }
             if (isLogin) {
                 navigate('/dashboard');
             }
             else {
                 localStorage.setItem('sidebyside_pending_email', email);
-                localStorage.setItem('sidebyside_pending_name', name.trim());
                 navigate('/verify-code');
             }
         }
@@ -346,11 +335,7 @@ export const Login = () => {
                                         setIsForgotPassword(false);
                                         setErrorMessage(null);
                                         setSuccessMessage(null);
-                                    }, className: `py-2 rounded-lg transition-all ${!isLogin ? 'bg-[#1C1917] text-[#FAF9F6]' : 'text-[#78716C]'}`, children: "Criar Conta" })] })), errorMessage && (_jsxs("div", { className: "p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold flex items-center gap-2.5 animate-fadeIn", children: [_jsx("svg", { className: "w-4 h-4 shrink-0 fill-current text-red-600", viewBox: "0 0 20 20", children: _jsx("path", { d: "M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" }) }), _jsx("p", { className: "flex-1 leading-snug", children: errorMessage })] })), successMessage && (_jsxs("div", { className: "p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2.5 animate-fadeIn", children: [_jsx("svg", { className: "w-4 h-4 shrink-0 fill-current text-emerald-600", viewBox: "0 0 20 20", children: _jsx("path", { fillRule: "evenodd", d: "M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z", clipRule: "evenodd" }) }), _jsx("p", { className: "flex-1 leading-snug", children: successMessage })] })), _jsxs("form", { className: "flex flex-col gap-3.5", onSubmit: handleSubmit, children: [!isLogin && !isForgotPassword && (_jsx(Input, { label: "Nome", type: "text", placeholder: "Seu nome completo", value: name, className: "bg-[#FFFFFF] border-[#E7E5E4] text-[#1C1917] placeholder:text-[#A8A29E] focus:border-[#1C1917] focus:bg-[#FFFFFF] focus:text-[#1C1917]", onChange: (e) => {
-                                        setName(e.target.value);
-                                        if (errorMessage)
-                                            setErrorMessage(null);
-                                    } })), _jsx(Input, { label: "E-mail", type: "email", placeholder: "seu@email.com", value: email, className: "bg-[#FFFFFF] border-[#E7E5E4] text-[#1C1917] placeholder:text-[#A8A29E] focus:border-[#1C1917] focus:bg-[#FFFFFF] focus:text-[#1C1917]", onChange: (e) => {
+                                    }, className: `py-2 rounded-lg transition-all ${!isLogin ? 'bg-[#1C1917] text-[#FAF9F6]' : 'text-[#78716C]'}`, children: "Criar Conta" })] })), errorMessage && (_jsxs("div", { className: "p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold flex items-center gap-2.5 animate-fadeIn", children: [_jsx("svg", { className: "w-4 h-4 shrink-0 fill-current text-red-600", viewBox: "0 0 20 20", children: _jsx("path", { d: "M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" }) }), _jsx("p", { className: "flex-1 leading-snug", children: errorMessage })] })), successMessage && (_jsxs("div", { className: "p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2.5 animate-fadeIn", children: [_jsx("svg", { className: "w-4 h-4 shrink-0 fill-current text-emerald-600", viewBox: "0 0 20 20", children: _jsx("path", { fillRule: "evenodd", d: "M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z", clipRule: "evenodd" }) }), _jsx("p", { className: "flex-1 leading-snug", children: successMessage })] })), _jsxs("form", { className: "flex flex-col gap-3.5", onSubmit: handleSubmit, children: [_jsx(Input, { label: "E-mail", type: "email", placeholder: "seu@email.com", value: email, className: "bg-[#FFFFFF] border-[#E7E5E4] text-[#1C1917] placeholder:text-[#A8A29E] focus:border-[#1C1917] focus:bg-[#FFFFFF] focus:text-[#1C1917]", onChange: (e) => {
                                         setEmail(e.target.value);
                                         if (errorMessage)
                                             setErrorMessage(null);
