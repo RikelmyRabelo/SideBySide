@@ -67,22 +67,16 @@ export const Dashboard: React.FC = () => {
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
   const [cursorOpacity, setCursorOpacity] = useState(1);
 
-  // Histórico detalhado das métricas
   const [activeMetricModal, setActiveMetricModal] = useState<'streak' | 'minutes' | 'sessions' | null>(null);
 
-  const mockSessionsHistory = [
-    { id: '1', date: 'Hoje, 10:30', partner: 'Elena Rostova', duration: 15, topic: 'Viagens & Culturas', rating: 5 },
-    { id: '2', date: 'Ontem, 19:00', partner: 'Mateo Rossi', duration: 20, topic: 'Tecnologia', rating: 4 },
-    { id: '3', date: '12 Ago, 14:15', partner: 'Alex', duration: 15, topic: 'Hobbies', rating: 5 },
-    { id: '4', date: '10 Ago, 20:00', partner: 'Sarah', duration: 30, topic: 'Carreira', rating: 5 },
-  ];
+  const mockSessionsHistory = userData?.sessionsHistory || [];
 
-  const mockMinutesHistory = [
-    { day: 'Seg', min: 30 },
+  const mockMinutesHistory = userData?.minutesHistory || [
+    { day: 'Seg', min: 0 },
     { day: 'Ter', min: 0 },
-    { day: 'Qua', min: 15 },
-    { day: 'Qui', min: 20 },
-    { day: 'Sex', min: 15 },
+    { day: 'Qua', min: 0 },
+    { day: 'Qui', min: 0 },
+    { day: 'Sex', min: 0 },
     { day: 'Sáb', min: 0 },
     { day: 'Dom', min: 0 },
   ];
@@ -164,43 +158,10 @@ export const Dashboard: React.FC = () => {
     avatar: string;
   } | null>(null);
 
-  const [friendRequestsCount] = useState(1);
+  const [friendRequestsCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
   const notificationsRef = useRef<HTMLDivElement>(null);
-  const [notifications, setNotifications] = useState([
-    {
-      id: '1',
-      title: 'Lembrete de Sessão',
-      message: 'Sua sessão agendada (Sexta - Noite) inicia em 15 minutos. Prepare seu microfone!',
-      time: 'Agora',
-      unread: true,
-      type: 'reminder',
-    },
-    {
-      id: '2',
-      title: 'Meta Semanal Quase Lá',
-      message: 'Faltam apenas 2 sessões para você bater sua meta semanal de 5 práticas.',
-      time: 'Há 2 horas',
-      unread: true,
-      type: 'goal',
-    },
-    {
-      id: '3',
-      title: 'Solicitação de Amizade',
-      message: 'Elena Rostova enviou uma solicitação de amizade.',
-      time: 'Há 3 horas',
-      unread: true,
-      type: 'friend',
-    },
-    {
-      id: '4',
-      title: 'Conquista Desbloqueada!',
-      message: 'Você completou 5 dias de ofensiva de prática contínua.',
-      time: 'Há 1 dia',
-      unread: false,
-      type: 'badge',
-    },
-  ]);
+  const [notifications, setNotifications] = useState<any[]>([]);
 
   const unreadCount = notifications.filter((n) => n.unread).length;
 
@@ -277,19 +238,11 @@ export const Dashboard: React.FC = () => {
     vocabPreview: string[];
   } | null>(null);
 
-  const [lastSessionFeedback] = useState({
-    partnerName: 'Elena Rostova',
-    partnerAvatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&auto=format&fit=crop&q=80',
-    date: 'Hoje, às 10:30',
-    duration: '15 min',
-    topic: 'Travel & Cultures',
-    userNote: 'Ótima conversa! Preciso praticar mais os verbos no passado simples.',
-    vocabLearned: ['Wanderlust', 'Jet lag', 'Off the beaten path'],
-  });
+  const lastSessionFeedback = userData?.lastSession || null;
 
-  const [reminderEnabled, setReminderEnabled] = useState(true);
+  const [reminderEnabled, setReminderEnabled] = useState(false);
   const [reminderTime, setReminderTime] = useState('19:00');
-  const [selectedDays, setSelectedDays] = useState<string[]>(['Seg', 'Ter', 'Qua', 'Qui', 'Sex']);
+  const [selectedDays, setSelectedDays] = useState<string[]>([]);
   const weekDaysList = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 
   const toggleDaySelection = (day: string) => {
@@ -300,13 +253,13 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  const weeklyGoal = {
+  const weeklyGoal = userData?.weeklyGoal || {
     target: 5,
-    completed: 3,
+    completed: 0,
     days: [
-      { day: 'Seg', completed: true },
-      { day: 'Ter', completed: true },
-      { day: 'Qua', completed: true },
+      { day: 'Seg', completed: false },
+      { day: 'Ter', completed: false },
+      { day: 'Qua', completed: false },
       { day: 'Qui', completed: false },
       { day: 'Sex', completed: false },
       { day: 'Sáb', completed: false },
@@ -329,10 +282,10 @@ export const Dashboard: React.FC = () => {
   }, []);
 
   const userMetrics = {
-    currentStreak: userData?.streak || 5,
-    hasPracticedToday: true,
-    totalMinutes: userData?.totalMinutes || 140,
-    totalSessions: userData?.totalSessions || 12,
+    currentStreak: userData?.streak || 0,
+    hasPracticedToday: userData?.hasPracticedToday || false,
+    totalMinutes: userData?.totalMinutes || 0,
+    totalSessions: userData?.totalSessions || 0,
   };
 
   const dailyTopics = [
@@ -387,6 +340,13 @@ export const Dashboard: React.FC = () => {
     navigate('/');
   };
 
+  const userNameDisplay = userData?.name || 'Estudante';
+  const userFirstName = userNameDisplay.split(' ')[0];
+  const userEmailDisplay = userData?.email || 'usuario@email.com';
+  const userLevelDisplay = userData?.level || 'B1';
+  const userReputationDisplay = userData?.reputation ?? 100;
+  const userAvatarDisplay = userData?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80';
+
   return (
     <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col font-sans relative selection:bg-[#1C1917] selection:text-[#FAF9F6]">
       <div
@@ -409,14 +369,14 @@ export const Dashboard: React.FC = () => {
         <div className="flex items-center gap-4">
           <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-[#F5F5F4] border border-[#E7E5E4] rounded-lg text-xs font-bold uppercase tracking-wider text-[#57534E]">
             <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
-            Nível: {userData?.level || 'B1 Intermediário'}
+            Nível: {userLevelDisplay}
           </div>
 
           <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-[#F5F5F4] border border-[#E7E5E4] rounded-lg text-xs font-bold uppercase tracking-wider text-[#57534E]">
             <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-2 text-[#1C1917]" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.105-2.574-.305-3.8A11.983 11.983 0 0112 2.714z" />
             </svg>
-            Reputação: {userData?.reputation || '98'}/100
+            Reputação: {userReputationDisplay}/100
           </div>
 
           <div className="relative" ref={notificationsRef}>
@@ -527,12 +487,12 @@ export const Dashboard: React.FC = () => {
             >
               <div className="w-8 h-8 rounded-lg bg-[#E7E5E4] overflow-hidden border border-[#D6D3D1]">
                 <img
-                  src={userData?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"}
-                  alt={userData?.name || "Lucas Silva"}
+                  src={userAvatarDisplay}
+                  alt={userNameDisplay}
                   className="w-full h-full object-cover"
                 />
               </div>
-              <span className="text-xs font-bold text-[#1C1917] hidden md:inline-block">{userData?.name || 'Lucas Silva'}</span>
+              <span className="text-xs font-bold text-[#1C1917] hidden md:inline-block">{userNameDisplay}</span>
               <svg
                 className={`w-4 h-4 stroke-[#78716C] fill-none stroke-2 transition-transform duration-200 ${
                   isUserMenuOpen ? 'rotate-180' : 'rotate-0'
@@ -546,8 +506,8 @@ export const Dashboard: React.FC = () => {
             {isUserMenuOpen && (
               <div className="absolute right-0 mt-3 w-64 bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl shadow-xl py-2 z-50 flex flex-col gap-1 animate-in fade-in slide-in-from-top-2 duration-150">
                 <div className="px-4 py-2 border-b border-[#E7E5E4] flex flex-col">
-                  <span className="text-xs font-black text-[#1C1917]">{userData?.name || 'Lucas Silva'}</span>
-                  <span className="text-[10px] font-bold text-[#78716C] uppercase">{userData?.email || 'lucas.silva@email.com'}</span>
+                  <span className="text-xs font-black text-[#1C1917]">{userNameDisplay}</span>
+                  <span className="text-[10px] font-bold text-[#78716C] uppercase">{userEmailDisplay}</span>
                 </div>
 
                 <button
@@ -587,7 +547,7 @@ export const Dashboard: React.FC = () => {
                     <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Conversas</span>
                   </div>
                   <span className="text-[10px] font-black bg-[#F5F5F4] px-2 py-0.5 rounded text-[#1C1917]">
-                    2
+                    0
                   </span>
                 </button>
 
@@ -606,7 +566,7 @@ export const Dashboard: React.FC = () => {
                     <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Badges & Conquistas</span>
                   </div>
                   <span className="text-[10px] font-black bg-[#F5F5F4] px-2 py-0.5 rounded text-[#1C1917]">
-                    4/8
+                    0/8
                   </span>
                 </button>
 
@@ -682,65 +642,72 @@ export const Dashboard: React.FC = () => {
             PAINEL DO ESTUDANTE
           </span>
           <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-[#1C1917] mt-1">
-            Olá, {userData?.name ? userData.name.split(' ')[0] : 'Lucas'}! Pronto para praticar?
+            Olá, {userFirstName}! Pronto para praticar?
           </h1>
           <p className="text-xs sm:text-sm text-[#57534E] max-w-2xl leading-relaxed font-medium">
-            Conecte-se instantaneamente com estudantes de nível {userData?.level || 'B1'} de todo o mundo. Suas sessões são moderadas ativamente por IA para garantir um ambiente seguro, respeitoso e focado no aprendizado mútuo.
+            Conecte-se instantaneamente com estudantes de nível {userLevelDisplay} de todo o mundo. Suas sessões são moderadas ativamente por IA para garantir um ambiente seguro, respeitoso e focado no aprendizado mútuo.
           </p>
         </section>
 
-        <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 shadow-sm flex flex-col gap-4">
-          <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-3">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <h2 className="text-xs font-black uppercase tracking-wider text-[#1C1917]">
-                Resumo da Última Sessão
-              </h2>
-            </div>
-            <span className="text-[11px] font-bold text-[#78716C]">
-              {lastSessionFeedback.date} ({lastSessionFeedback.duration})
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl overflow-hidden border border-[#D6D3D1] bg-[#E7E5E4] shrink-0">
-                <img
-                  src={lastSessionFeedback.partnerAvatar}
-                  alt={lastSessionFeedback.partnerName}
-                  className="w-full h-full object-cover"
-                />
+        {lastSessionFeedback ? (
+          <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 shadow-sm flex flex-col gap-4">
+            <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-3">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <h2 className="text-xs font-black uppercase tracking-wider text-[#1C1917]">
+                  Resumo da Última Sessão
+                </h2>
               </div>
-              <div className="flex flex-col">
-                <span className="text-xs font-bold text-[#1C1917]">{lastSessionFeedback.partnerName}</span>
-                <span className="text-[10px] font-medium text-[#78716C] uppercase">
-                  Tema: {lastSessionFeedback.topic}
-                </span>
-              </div>
+              <span className="text-[11px] font-bold text-[#78716C]">
+                {lastSessionFeedback.date} ({lastSessionFeedback.duration})
+              </span>
             </div>
 
-            <div className="bg-[#FAF9F6] border border-[#E7E5E4] p-3 rounded-xl flex flex-col gap-1">
-              <span className="text-[10px] font-bold text-[#78716C] uppercase">Sua Nota Pós-Chamada</span>
-              <p className="text-xs text-[#1C1917] font-medium italic line-clamp-2">
-                "{lastSessionFeedback.userNote}"
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-bold text-[#78716C] uppercase">Vocabulário Utilizado</span>
-              <div className="flex flex-wrap gap-1.5">
-                {lastSessionFeedback.vocabLearned.map((word, idx) => (
-                  <span
-                    key={idx}
-                    className="text-[10px] font-bold px-2 py-0.5 bg-[#F5F5F4] border border-[#E7E5E4] text-[#1C1917] rounded-md"
-                  >
-                    {word}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl overflow-hidden border border-[#D6D3D1] bg-[#E7E5E4] shrink-0">
+                  <img
+                    src={lastSessionFeedback.partnerAvatar}
+                    alt={lastSessionFeedback.partnerName}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold text-[#1C1917]">{lastSessionFeedback.partnerName}</span>
+                  <span className="text-[10px] font-medium text-[#78716C] uppercase">
+                    Tema: {lastSessionFeedback.topic}
                   </span>
-                ))}
+                </div>
+              </div>
+
+              <div className="bg-[#FAF9F6] border border-[#E7E5E4] p-3 rounded-xl flex flex-col gap-1">
+                <span className="text-[10px] font-bold text-[#78716C] uppercase">Sua Nota Pós-Chamada</span>
+                <p className="text-xs text-[#1C1917] font-medium italic line-clamp-2">
+                  "{lastSessionFeedback.userNote}"
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] font-bold text-[#78716C] uppercase">Vocabulário Utilizado</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {lastSessionFeedback.vocabLearned.map((word: string, idx: number) => (
+                    <span
+                      key={idx}
+                      className="text-[10px] font-bold px-2 py-0.5 bg-[#F5F5F4] border border-[#E7E5E4] text-[#1C1917] rounded-md"
+                    >
+                      {word}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        ) : (
+          <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 shadow-sm flex flex-col items-center justify-center text-center gap-2">
+            <span className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Nenhuma sessão realizada ainda</span>
+            <p className="text-xs text-[#57534E]">Participe da sua primeira sala para ver o resumo e o vocabulário por aqui!</p>
+          </section>
+        )}
 
         <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <button
@@ -769,7 +736,7 @@ export const Dashboard: React.FC = () => {
             <div className="flex flex-col">
               <span className="text-2xl font-black text-[#1C1917] tracking-tight">{userMetrics.currentStreak} Dias</span>
               <span className="text-xs font-bold text-[#78716C] uppercase tracking-wider">
-                {userMetrics.hasPracticedToday ? 'Sequência Ativa 🔥' : 'Congelado Hoje 🧊'}
+                {userMetrics.hasPracticedToday ? 'Sequência Ativa 🔥' : 'Nenhuma Prática Hoje 🧊'}
               </span>
             </div>
           </button>
@@ -1109,7 +1076,7 @@ export const Dashboard: React.FC = () => {
                 Buscando Par de Conversa...
               </h3>
               <p className="text-sm font-bold text-[#78716C]">
-                Procurando estudante no nível <span className="text-[#1C1917] underline">{userData?.level || 'B1 Intermediário'}</span>
+                Procurando estudante no nível <span className="text-[#1C1917] underline">{userLevelDisplay}</span>
               </p>
             </div>
 
@@ -1189,7 +1156,7 @@ export const Dashboard: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-7 gap-2 pt-2">
-                {weeklyGoal.days.map((item, index) => (
+                {weeklyGoal.days.map((item: any, index: number) => (
                   <div key={index} className="flex flex-col items-center gap-1.5">
                     <div
                       className={`w-9 h-9 rounded-xl border flex items-center justify-center font-bold text-xs transition-colors ${
@@ -1357,7 +1324,7 @@ export const Dashboard: React.FC = () => {
                 <div className="flex items-center justify-between bg-[#FAF9F6] p-4 rounded-xl border border-[#E7E5E4]">
                   <div className="flex flex-col gap-1">
                     <span className="text-[10px] font-bold text-[#78716C] uppercase tracking-wider">Sequência Máxima</span>
-                    <span className="text-xl font-black text-[#1C1917]">14 Dias</span>
+                    <span className="text-xl font-black text-[#1C1917]">{userData?.maxStreak || 0} Dias</span>
                   </div>
                   <div className="w-px h-8 bg-[#E7E5E4]" />
                   <div className="flex flex-col gap-1 text-right">
@@ -1369,7 +1336,7 @@ export const Dashboard: React.FC = () => {
                 <div className="flex flex-col gap-3">
                   <span className="text-[10px] font-black uppercase tracking-widest text-[#1C1917]">Últimos 7 dias</span>
                   <div className="grid grid-cols-7 gap-2">
-                    {weeklyGoal.days.map((item, index) => (
+                    {weeklyGoal.days.map((item: any, index: number) => (
                       <div key={index} className="flex flex-col items-center gap-1.5">
                         <div
                           className={`w-10 h-10 rounded-xl border flex items-center justify-center font-bold text-xs transition-colors ${
@@ -1399,14 +1366,16 @@ export const Dashboard: React.FC = () => {
                   <div className="w-px h-8 bg-[#E7E5E4]" />
                   <div className="flex flex-col gap-1 text-right">
                     <span className="text-[10px] font-bold text-[#78716C] uppercase tracking-wider">Média por Sessão</span>
-                    <span className="text-xl font-black text-[#1C1917]">18 min</span>
+                    <span className="text-xl font-black text-[#1C1917]">
+                      {userMetrics.totalSessions > 0 ? Math.round(userMetrics.totalMinutes / userMetrics.totalSessions) : 0} min
+                    </span>
                   </div>
                 </div>
 
                 <div className="flex flex-col gap-3">
                   <span className="text-[10px] font-black uppercase tracking-widest text-[#1C1917]">Distribuição Semanal</span>
                   <div className="flex items-end justify-between h-32 pt-4 border-b border-[#E7E5E4]">
-                    {mockMinutesHistory.map((item, index) => (
+                    {mockMinutesHistory.map((item: any, index: number) => (
                       <div key={index} className="flex flex-col items-center gap-2 group w-full">
                         <div className="relative w-full flex justify-center h-full items-end">
                           <div
@@ -1432,35 +1401,41 @@ export const Dashboard: React.FC = () => {
               <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-black uppercase tracking-widest text-[#1C1917]">Sessões Recentes</span>
-                  <span className="text-[10px] font-bold text-[#78716C] uppercase">Últimos 30 dias: {userMetrics.totalSessions}</span>
+                  <span className="text-[10px] font-bold text-[#78716C] uppercase">Total Realizado: {userMetrics.totalSessions}</span>
                 </div>
 
-                <div className="flex flex-col gap-3">
-                  {mockSessionsHistory.map((session) => (
-                    <div key={session.id} className="bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl p-4 flex flex-col gap-3 hover:border-[#1C1917] transition-colors">
-                      <div className="flex justify-between items-start">
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-xs font-black text-[#1C1917] uppercase">{session.partner}</span>
-                          <span className="text-[10px] font-bold text-[#78716C]">{session.date}</span>
+                <div className="flex flex-col gap-3 max-h-60 overflow-y-auto">
+                  {mockSessionsHistory.length > 0 ? (
+                    mockSessionsHistory.map((session: any) => (
+                      <div key={session.id} className="bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl p-4 flex flex-col gap-3 hover:border-[#1C1917] transition-colors">
+                        <div className="flex justify-between items-start">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-xs font-black text-[#1C1917] uppercase">{session.partner}</span>
+                            <span className="text-[10px] font-bold text-[#78716C]">{session.date}</span>
+                          </div>
+                          <div className="flex items-center gap-1 bg-[#FFFFFF] border border-[#E7E5E4] px-2 py-1 rounded-lg">
+                            <span className="text-[10px] font-black text-amber-500">{'★'.repeat(session.rating)}</span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1 bg-[#FFFFFF] border border-[#E7E5E4] px-2 py-1 rounded-lg">
-                          <span className="text-[10px] font-black text-amber-500">{'★'.repeat(session.rating)}</span>
-                        </div>
-                      </div>
 
-                      <div className="flex items-center gap-3 pt-2 border-t border-[#E7E5E4]">
-                        <div className="flex items-center gap-1">
-                          <span className="text-[10px] font-bold text-[#A8A29E] uppercase">Duração:</span>
-                          <span className="text-[10px] font-black text-[#1C1917]">{session.duration} min</span>
-                        </div>
-                        <span className="text-[10px] text-[#E7E5E4]">|</span>
-                        <div className="flex items-center gap-1 truncate">
-                          <span className="text-[10px] font-bold text-[#A8A29E] uppercase">Tópico:</span>
-                          <span className="text-[10px] font-black text-[#1C1917] truncate">{session.topic}</span>
+                        <div className="flex items-center gap-3 pt-2 border-t border-[#E7E5E4]">
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] font-bold text-[#A8A29E] uppercase">Duração:</span>
+                            <span className="text-[10px] font-black text-[#1C1917]">{session.duration} min</span>
+                          </div>
+                          <span className="text-[10px] text-[#E7E5E4]">|</span>
+                          <div className="flex items-center gap-1 truncate">
+                            <span className="text-[10px] font-bold text-[#A8A29E] uppercase">Tópico:</span>
+                            <span className="text-[10px] font-black text-[#1C1917] truncate">{session.topic}</span>
+                          </div>
                         </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="py-8 text-center text-xs font-bold text-[#78716C] uppercase">
+                      Nenhuma sessão registrada no histórico ainda.
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             )}
@@ -1478,4 +1453,4 @@ export const Dashboard: React.FC = () => {
 
     </div>
   );
-};
+};  

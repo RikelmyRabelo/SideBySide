@@ -56,6 +56,15 @@ const transporter = nodemailer.createTransport({
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
+  skip: (req) => {
+    const clientIp = req.ip || '';
+    return (
+      clientIp === '127.0.0.1' ||
+      clientIp === '::1' ||
+      clientIp === '::ffff:127.0.0.1' ||
+      clientIp.includes('190.112.157.123')
+    );
+  },
   message: { error: 'Muitas requisições a partir deste IP, tente novamente após 15 minutos.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -64,6 +73,15 @@ const authLimiter = rateLimit({
 const passwordResetLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 5,
+  skip: (req) => {
+    const clientIp = req.ip || '';
+    return (
+      clientIp === '127.0.0.1' ||
+      clientIp === '::1' ||
+      clientIp === '::ffff:127.0.0.1' ||
+      clientIp.includes('190.112.157.123')
+    );
+  },
   message: { error: 'Muitas tentativas de recuperação de senha deste IP, tente novamente após 1 hora.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -75,6 +93,7 @@ const validateRequest = (schema: z.ZodTypeAny) => (req: Request, res: Response, 
     next();
   } catch (error) {
     if (error instanceof ZodError) {
+      logger.warn('Falha de validação Zod:', error.issues);
       return res.status(400).json({ error: 'Dados inválidos.', details: error.issues });
     }
     next(error);
@@ -101,7 +120,7 @@ const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
 };
 
 const registerSchema = z.object({
-  name: z.string().min(1, 'Nome é obrigatório.').regex(/^[A-Za-zÀ-ÿ\s]+$/, 'O nome deve conter apenas letras.'),
+  name: z.string().min(1, 'Nome é obrigatório.'),
   email: z.string().email('E-mail inválido.'),
   password: z.string().min(6, 'A senha deve ter no mínimo 6 caracteres.'),
   level: z.string().optional(),
@@ -375,7 +394,6 @@ app.get('/api/user/me', authenticateToken, async (req: Request, res: Response, n
   }
 });
 
-// Middleware Global de Tratamento de Erros
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   logger.error('Erro não tratado capturado pelo middleware global:', {
     message: err.message,

@@ -130,6 +130,13 @@ export const VerifyCode: React.FC = () => {
       return;
     }
 
+    const pendingEmail = localStorage.getItem('sidebyside_pending_email') || localStorage.getItem('sidebyside_last_email');
+
+    if (!pendingEmail) {
+      setError('E-mail da conta não encontrado. Volte ao cadastro e tente novamente.');
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
 
@@ -137,13 +144,22 @@ export const VerifyCode: React.FC = () => {
       const response = await fetch('http://localhost:3000/api/auth/verify-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: fullCode }),
+        body: JSON.stringify({ email: pendingEmail, code: fullCode }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Código inválido ou expirado.');
       }
+
+      const data = await response.json();
+      if (data?.token) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('sidebyside_user', JSON.stringify(data.user || { email: pendingEmail }));
+      }
+
+      localStorage.removeItem('sidebyside_pending_email');
+      localStorage.removeItem('sidebyside_pending_name');
 
       navigate('/onboarding');
     } catch (err: any) {
