@@ -20,6 +20,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'seu-segredo-super-seguro';
 
 const pendingUsers = new Map<string, { name: string; email: string; passwordHash: string; level: string; code: string }>();
 const verificationCodes = new Map<string, string>();
+const matchFeedback = new Map<string, Map<string, 'positive' | 'negative' | 'skip'>>();
 
 const logger = winston.createLogger({
   level: 'info',
@@ -398,6 +399,8 @@ app.get('/api/matches/candidates', authenticateToken, async (req: Request, res: 
       return res.status(404).json({ error: 'Usuário não encontrado.' });
     }
 
+    const storedFeedback = matchFeedback.get(userId) || new Map();
+
     const allUsers = await prisma.user.findMany({
       where: { id: { not: userId } },
       select: {
@@ -436,6 +439,11 @@ app.get('/api/matches/candidates', authenticateToken, async (req: Request, res: 
         score += reputationBoost;
         score += activityBoost;
 
+        const feedback = storedFeedback.get(candidate.id);
+        if (feedback === 'positive') score += 20;
+        if (feedback === 'negative') score -= 60;
+        if (feedback === 'skip') score -= 12;
+
         return {
           id: candidate.id,
           name: candidate.name,
@@ -447,6 +455,7 @@ app.get('/api/matches/candidates', authenticateToken, async (req: Request, res: 
           reputation: candidate.reputation,
           totalSessions: candidate.totalSessions || 0,
           totalMinutes: candidate.totalMinutes || 0,
+          history: feedback || null,
         };
       })
       .filter((candidate) => candidate.score > 0)
@@ -461,6 +470,29 @@ app.get('/api/matches/candidates', authenticateToken, async (req: Request, res: 
         level: me.level,
         interests: me.interests || [],
       },
+    });
+  } catch (error: any) {
+    next(error);
+  }
+});
+
+app.post('/api/matches/feedback', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.id;
+    const { candidateId, outcome } = req.body;
+
+    if (!candidateId || !['positive', 'negative', 'skip'].includes(outcome)) {
+      return res.status(400).json({ error: 'candidateId e outcome são obrigatórios.' });
+    }
+
+    const userMap = matchFeedback.get(userId) || new Map();
+    userMap.set(candidateId, outcome);
+    matchFeedback.set(userId, userMap);
+
+    return res.status(200).json({
+      message: 'Feedback do match salvo com sucesso.',
+      outcome,
+      candidateId,
     });
   } catch (error: any) {
     next(error);

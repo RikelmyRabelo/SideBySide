@@ -64,6 +64,7 @@ export const Dashboard: React.FC = () => {
   const [isMatching, setIsMatching] = useState(false);
   const [matchCandidates, setMatchCandidates] = useState<any[]>([]);
   const [matchLoading, setMatchLoading] = useState(false);
+  const [lastMatchFeedback, setLastMatchFeedback] = useState<'positive' | 'negative' | 'skip' | null>(null);
 
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
@@ -233,6 +234,37 @@ export const Dashboard: React.FC = () => {
       console.error('Erro ao buscar candidatos:', error);
       setMatchCandidates([]);
       return [];
+    }
+  };
+
+  const handleMatchFeedback = async (outcome: 'positive' | 'negative' | 'skip') => {
+    if (!matchCandidates[0]?.id) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:3000/api/matches/feedback', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          candidateId: matchCandidates[0].id,
+          outcome,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao registrar feedback do match.');
+      }
+
+      setLastMatchFeedback(outcome);
+      setMatchCandidates((prev) => prev.slice(1));
+      if (outcome === 'negative') {
+        setIsMatching(false);
+      }
+    } catch (error) {
+      console.error('Erro ao enviar feedback do match:', error);
     }
   };
 
@@ -1134,6 +1166,23 @@ export const Dashboard: React.FC = () => {
               )}
             </div>
 
+            <div className="w-full flex gap-2">
+              <button
+                type="button"
+                onClick={() => handleMatchFeedback('positive')}
+                className="flex-1 py-3 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+              >
+                Gostei
+              </button>
+              <button
+                type="button"
+                onClick={() => handleMatchFeedback('negative')}
+                className="flex-1 py-3 bg-[#F5F5F4] hover:bg-[#E7E5E4] text-[#1C1917] text-[10px] font-black uppercase tracking-wider rounded-xl border border-[#E7E5E4] transition-all"
+              >
+                Não gostei
+              </button>
+            </div>
+
             <div className="w-full bg-[#FAF9F6] border border-[#E7E5E4] rounded-2xl p-6 flex flex-col gap-3 text-left">
               <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-3">
                 <span className="text-xs font-black uppercase tracking-widest text-[#78716C]">
@@ -1169,7 +1218,12 @@ export const Dashboard: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => setIsMatching(false)}
+              onClick={() => {
+                if (matchCandidates[0]?.id) {
+                  handleMatchFeedback('skip');
+                }
+                setIsMatching(false);
+              }}
               className="w-full py-4 bg-[#F5F5F4] hover:bg-[#E7E5E4] border border-[#E7E5E4] text-[#1C1917] font-bold text-xs uppercase tracking-widest rounded-xl transition-all"
             >
               Cancelar Busca
