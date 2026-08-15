@@ -379,6 +379,94 @@ app.get('/api/user/me', authenticateToken, async (req: Request, res: Response, n
   }
 });
 
+app.get('/api/matches/candidates', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.id;
+    const me = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        level: true,
+        interests: true,
+        reputation: true,
+        totalSessions: true,
+        totalMinutes: true,
+      },
+    });
+
+    if (!me) {
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+
+    const allUsers = await prisma.user.findMany({
+      where: { id: { not: userId } },
+      select: {
+        id: true,
+        name: true,
+        level: true,
+        interests: true,
+        reputation: true,
+        totalSessions: true,
+        totalMinutes: true,
+        avatar: true,
+      },
+    });
+
+    const levelWeight: Record<string, number> = {
+      A1: 1,
+      A2: 2,
+      B1: 3,
+      B2: 4,
+      C1: 5,
+      C2: 6,
+    };
+
+    const candidates = allUsers
+      .map((candidate) => {
+        const sharedInterests = (me.interests || []).filter((interest) => (candidate.interests || []).includes(interest));
+        const sameLevel = candidate.level === me.level ? 1 : 0;
+        const nearbyLevel = Math.abs((levelWeight[candidate.level] || 3) - (levelWeight[me.level] || 3)) <= 1 ? 1 : 0;
+        const reputationBoost = Math.max(0, Math.min(25, candidate.reputation / 10));
+        const activityBoost = Math.min(20, (candidate.totalSessions || 0) * 2 + (candidate.totalMinutes || 0) / 30);
+
+        let score = 0;
+        score += sameLevel ? 50 : 0;
+        score += nearbyLevel && !sameLevel ? 25 : 0;
+        score += sharedInterests.length * 15;
+        score += reputationBoost;
+        score += activityBoost;
+
+        return {
+          id: candidate.id,
+          name: candidate.name,
+          level: candidate.level,
+          avatar: candidate.avatar,
+          interests: candidate.interests || [],
+          sharedInterests,
+          score: Math.round(score),
+          reputation: candidate.reputation,
+          totalSessions: candidate.totalSessions || 0,
+          totalMinutes: candidate.totalMinutes || 0,
+        };
+      })
+      .filter((candidate) => candidate.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 8);
+
+    return res.status(200).json({
+      message: 'Candidatos ordenados por compatibilidade.',
+      candidates,
+      me: {
+        id: me.id,
+        level: me.level,
+        interests: me.interests || [],
+      },
+    });
+  } catch (error: any) {
+    next(error);
+  }
+});
+
 app.put('/api/user/profile', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user.id;

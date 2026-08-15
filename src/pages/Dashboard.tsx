@@ -62,6 +62,8 @@ export const Dashboard: React.FC = () => {
   const [mediaMode, setMediaMode] = useState<'video' | 'audio'>('video');
   const [expandedMatching, setExpandedMatching] = useState(true);
   const [isMatching, setIsMatching] = useState(false);
+  const [matchCandidates, setMatchCandidates] = useState<any[]>([]);
+  const [matchLoading, setMatchLoading] = useState(false);
 
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
@@ -193,8 +195,46 @@ export const Dashboard: React.FC = () => {
     }
   };
 
+  const startMatchingFlow = async () => {
+    setMatchLoading(true);
+    setIsMatching(true);
+
+    try {
+      const candidates = await fetchMatchCandidates();
+      if (candidates.length > 0) {
+        setMatchCandidates(candidates);
+      }
+    } finally {
+      setMatchLoading(false);
+    }
+  };
+
   const [vocabTip, setVocabTip] = useState<VocabResult>(FALLBACK_VOCAB_LIST[0]);
   const [isLoadingVocab, setIsLoadingVocab] = useState(false);
+
+  const fetchMatchCandidates = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:3000/api/matches/candidates', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao carregar candidatos.');
+      }
+
+      const data = await response.json();
+      setMatchCandidates(data.candidates || []);
+      return data.candidates || [];
+    } catch (error) {
+      console.error('Erro ao buscar candidatos:', error);
+      setMatchCandidates([]);
+      return [];
+    }
+  };
 
   const fetchDynamicVocab = async () => {
     setIsLoadingVocab(true);
@@ -931,13 +971,14 @@ export const Dashboard: React.FC = () => {
 
           <Button
             variant="primary"
-            onClick={() => setIsMatching(true)}
-            className="w-full py-4 text-xs font-bold uppercase tracking-widest bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl shadow-md flex items-center justify-center gap-2.5 transition-all hover:scale-[1.01] active:scale-[0.99]"
+            onClick={startMatchingFlow}
+            disabled={matchLoading}
+            className="w-full py-4 text-xs font-bold uppercase tracking-widest bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl shadow-md flex items-center justify-center gap-2.5 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <svg className="w-4 h-4 fill-current text-[#FAF9F6]" viewBox="0 0 24 24">
               <path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
             </svg>
-            PROCURAR PAR DE CONVERSA
+            {matchLoading ? 'BUSCANDO...' : 'PROCURAR PAR DE CONVERSA'}
           </Button>
         </section>
 
@@ -1078,6 +1119,19 @@ export const Dashboard: React.FC = () => {
               <p className="text-sm font-bold text-[#78716C]">
                 Procurando estudante no nível <span className="text-[#1C1917] underline">{userLevelDisplay}</span>
               </p>
+              {matchCandidates.length > 0 && (
+                <div className="mt-2 rounded-xl bg-[#F5F5F4] p-3 border border-[#E7E5E4]">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-[#78716C]">Melhor match</div>
+                  <div className="mt-1 text-sm font-black text-[#1C1917]">
+                    {matchCandidates[0].name} · {matchCandidates[0].score} pts
+                  </div>
+                  <div className="text-[11px] text-[#57534E] font-medium">
+                    {matchCandidates[0].sharedInterests.length > 0
+                      ? `Interesses em comum: ${matchCandidates[0].sharedInterests.join(', ')}`
+                      : 'Compatibilidade por nível e atividade'}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="w-full bg-[#FAF9F6] border border-[#E7E5E4] rounded-2xl p-6 flex flex-col gap-3 text-left">
