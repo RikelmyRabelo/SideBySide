@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, memo } from 'react';
 
 interface Friend {
   id: string;
@@ -25,7 +25,7 @@ interface FriendsManagerModalProps {
   onOpenDirectChat?: (friend: Friend) => void;
 }
 
-export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = ({
+export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = memo(({
   isOpen,
   onClose,
   onOpenDirectChat,
@@ -34,12 +34,9 @@ export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = ({
   const [selectedUserProfile, setSelectedUserProfile] = useState<FriendRequest | Friend | null>(null);
 
   const [friendsList, setFriendsList] = useState<Friend[]>([]);
-
   const [requestsList, setRequestsList] = useState<FriendRequest[]>([]);
 
-  if (!isOpen) return null;
-
-  const handleAcceptRequest = (req: FriendRequest) => {
+  const handleAcceptRequest = useCallback((req: FriendRequest) => {
     setFriendsList((prev) => [
       ...prev,
       { id: req.id, name: req.name, avatar: req.avatar, level: req.level, isOnline: true },
@@ -48,21 +45,23 @@ export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = ({
     if (selectedUserProfile?.id === req.id) {
       setSelectedUserProfile(null);
     }
-  };
+  }, [selectedUserProfile?.id]);
 
-  const handleDeclineRequest = (id: string) => {
+  const handleDeclineRequest = useCallback((id: string) => {
     setRequestsList((prev) => prev.filter((r) => r.id !== id));
     if (selectedUserProfile?.id === id) {
       setSelectedUserProfile(null);
     }
-  };
+  }, [selectedUserProfile?.id]);
 
-  const handleRemoveFriend = (id: string) => {
+  const handleRemoveFriend = useCallback((id: string) => {
     setFriendsList((prev) => prev.filter((f) => f.id !== id));
     if (selectedUserProfile?.id === id) {
       setSelectedUserProfile(null);
     }
-  };
+  }, [selectedUserProfile?.id]);
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-[100] flex items-center justify-center p-4">
@@ -235,7 +234,6 @@ export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = ({
         </div>
       </div>
 
-      {/* Modal de Perfil do Usuário Clicado */}
       {selectedUserProfile && (
         <div className="fixed inset-0 bg-[#1C1917]/80 backdrop-blur-md z-[110] flex items-center justify-center p-4">
           <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 max-w-sm w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-150 text-center">
@@ -309,4 +307,6 @@ export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = ({
       )}
     </div>
   );
-};
+});
+
+FriendsManagerModal.displayName = 'FriendsManagerModal';
