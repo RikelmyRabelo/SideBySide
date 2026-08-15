@@ -8,24 +8,33 @@ import nodemailer from 'nodemailer';
 import { z, ZodError } from 'zod';
 import rateLimit from 'express-rate-limit';
 import winston from 'winston';
+import cookieParser from 'cookie-parser'; // NOVO: Import do cookie-parser
 import { prisma } from './lib/prisma';
 
 const app = express();
 
-// CORREÇÃO: CORS configurado para aceitar apenas requisições do frontend autorizado
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://seusiteoficial.com'] // TODO: Substitua pelo seu domínio real quando colocar em produção
-    : ['http://localhost:5173', 'http://localhost:4173'], // Portas padrão do Vite
+    ? ['https://seusiteoficial.com'] 
+    : ['http://localhost:5173', 'http://localhost:4173'], 
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  credentials: true
+  credentials: true // OBRIGATÓRIO: Permite que o frontend envie/receba cookies
 }));
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
+app.use(cookieParser()); // NOVO: Middleware ativado
 
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'seu-segredo-super-seguro';
+
+// Configuração de segurança padrão para os Cookies
+const cookieOptions = {
+  httpOnly: true, // Bloqueia o acesso via JavaScript (XSS mitigado)
+  secure: process.env.NODE_ENV === 'production', // Apenas HTTPS em produção
+  sameSite: 'lax' as const, // Proteção contra CSRF
+  maxAge: 7 * 24 * 60 * 60 * 1000 // 7 dias
+};
 
 const pendingUsers = new Map<string, { name: string; email: string; passwordHash: string; level: string; code: string }>();
 const verificationCodes = new Map<string, string>();
@@ -68,18 +77,17 @@ const transporter = nodemailer.createTransport({
   debug: false,
 });
 
-// CORREÇÃO: Rate Limiter ajustado contra Força Bruta
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 10, // Limite de 10 requisições por IP a cada 15 min
+  windowMs: 15 * 60 * 1000, 
+  max: 10, 
   message: { error: 'Muitas requisições a partir deste IP, tente novamente após 15 minutos.' },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
 const passwordResetLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hora
-  max: 5, // Limite de 5 tentativas de recuperação por hora
+  windowMs: 60 * 60 * 1000, 
+  max: 5, 
   message: { error: 'Muitas tentativas de recuperação de senha deste IP, tente novamente após 1 hora.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -98,19 +106,19 @@ const validateRequest = (schema: z.ZodTypeAny) => (req: Request, res: Response, 
   }
 };
 
+// NOVO: Middleware lê o token diretamente do Cookie seguro
 const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const token = req.cookies?.token || (req.headers['authorization']?.split(' ')[1]);
 
   if (!token) {
     logger.warn(`Tentativa de acesso negado sem token na rota: ${req.url}`);
-    return res.status(401).json({ error: 'Acesso negado. Token não fornecido.' });
+    return res.status(401).json({ error: 'Acesso negado. Sessão não encontrada.' });
   }
 
-  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+  jwt.verify(token, JWT_SECRET, (err: any, decoded: any) => {
     if (err) {
-      logger.warn(`Token inválido ou expirado na rota: ${req.url}`);
-      return res.status(403).json({ error: 'Token inválido ou expirado.' });
+      logger.warn(`Sessão inválida ou expirada na rota: ${req.url}`);
+      return res.status(403).json({ error: 'Sessão inválida ou expirada.' });
     }
     (req as any).user = decoded;
     next();
@@ -144,7 +152,6 @@ const resetPasswordSchema = z.object({
   newPassword: z.string().min(6, 'A nova senha deve ter no mínimo 6 caracteres.'),
 });
 
-// Aplica o limiter apenas nas rotas sensíveis de autenticação
 app.post('/api/auth/register', authLimiter, validateRequest(registerSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { name, email, password, level } = req.body;
@@ -208,14 +215,23 @@ app.post('/api/auth/login', authLimiter, validateRequest(loginSchema), async (re
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
 
     logger.info(`Login bem-sucedido para o usuário: ${email}`);
+    
+    // NOVO: Define o Cookie na resposta
+    res.cookie('token', token, cookieOptions);
+
     return res.status(200).json({
       message: 'Login realizado com sucesso.',
-      token,
       user: { id: user.id, name: user.name, email: user.email, level: user.level, reputation: user.reputation },
     });
   } catch (error: any) {
     next(error);
   }
+});
+
+// NOVO: Rota para limpar o cookie de sessão ao deslogar
+app.post('/api/auth/logout', (req: Request, res: Response) => {
+  res.clearCookie('token');
+  return res.status(200).json({ message: 'Logout realizado com sucesso.' });
 });
 
 app.post('/api/auth/forgot-password', passwordResetLimiter, validateRequest(emailOnlySchema), async (req: Request, res: Response, next: NextFunction) => {
@@ -331,9 +347,12 @@ app.post('/api/auth/verify-code', authLimiter, validateRequest(verifyCodeSchema)
     const token = jwt.sign({ id: newUser.id, email: newUser.email }, JWT_SECRET, { expiresIn: '7d' });
 
     logger.info(`Nova conta verificada e criada com sucesso para: ${newUser.email}`);
+    
+    // NOVO: Define o Cookie na resposta
+    res.cookie('token', token, cookieOptions);
+
     return res.status(200).json({
       message: 'Conta verificada e criada com sucesso.',
-      token,
       user: { id: newUser.id, name: newUser.name, email: newUser.email, level: newUser.level, reputation: newUser.reputation }
     });
   } catch (error: any) {
