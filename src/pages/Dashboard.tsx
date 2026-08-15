@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { io, Socket } from 'socket.io-client'; // NOVO: Import do Socket.io Client
 import { Button } from '../components/ui/Button';
 import { FriendsManagerModal } from '../components/dashboard/FriendsManagerModal';
 import { DirectChatsModal } from '../components/dashboard/DirectChatsModal';
@@ -7,7 +8,7 @@ import { BadgesModal } from '../components/dashboard/BadgesModal';
 import { DeviceCheckModal } from '../components/dashboard/DeviceCheckModal';
 import { SupportModal } from '../components/dashboard/SupportModal';
 import { useToast } from '../components/ui/ToastContext';
-import { MatchCandidate, NotificationItem, TopicItemType } from '../types/user';
+import { NotificationItem, TopicItemType } from '../types/user';
 import { useFetchCache } from '../hooks/useFetchCache';
 
 const FALLBACK_VOCAB_LIST = [
@@ -44,17 +45,16 @@ export const Dashboard: React.FC = memo(() => {
   const navigate = useNavigate();
   const { showToast } = useToast();
 
-  // NOVO: Adicionado credentials: 'include' no hook
   const { data: userData } = useFetchCache<any>('http://localhost:3000/api/user/me', {
     credentials: 'include'
   });
 
   const [mediaMode, setMediaMode] = useState<'video' | 'audio'>('video');
   const [expandedMatching, setExpandedMatching] = useState(true);
+  
+  // Estados do Matchmaking Real-time
   const [isMatching, setIsMatching] = useState(false);
-  const [matchCandidates, setMatchCandidates] = useState<MatchCandidate[]>([]);
-  const [matchLoading, setMatchLoading] = useState(false);
-  const [, setLastMatchFeedback] = useState<'positive' | 'negative' | 'skip' | null>(null);
+  const [socket, setSocket] = useState<Socket | null>(null);
 
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
@@ -157,7 +157,16 @@ export const Dashboard: React.FC = memo(() => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Callbacks
+  // Limpeza de conexão caso o usuário desmonte o componente enquanto busca
+  useEffect(() => {
+    return () => {
+      if (socket) {
+        socket.emit('cancel_match');
+        socket.disconnect();
+      }
+    };
+  }, [socket]);
+
   const fetchDynamicVocab = useCallback(async () => {
     setIsLoadingVocab(true);
     const randomFallback = FALLBACK_VOCAB_LIST[Math.floor(Math.random() * FALLBACK_VOCAB_LIST.length)];
@@ -204,54 +213,47 @@ export const Dashboard: React.FC = memo(() => {
     else if (item.type === 'goal') setActiveModal('goals');
   }, []);
 
-  const fetchMatchCandidates = useCallback(async () => {
-    try {
-      // NOVO: Sem token no localStorage, o cookie fará o trabalho
-      const response = await fetch('http://localhost:3000/api/matches/candidates', {
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include'
-      });
-      if (!response.ok) throw new Error('Erro ao carregar candidatos.');
-      const data = await response.json();
-      setMatchCandidates(data.candidates || []);
-      return data.candidates || [];
-    } catch (error) {
-      console.error('Erro ao buscar candidatos:', error);
-      showToast('Erro ao buscar candidatos para pareamento.', 'error');
-      setMatchCandidates([]);
-      return [];
-    }
-  }, [showToast]);
-
-  const startMatchingFlow = useCallback(async () => {
-    setMatchLoading(true);
+  // NOVO: Lógica de Matchmaking com Socket.io
+  const startMatchingFlow = useCallback(() => {
     setIsMatching(true);
-    showToast('Iniciando busca por parceiro...', 'info');
-    try {
-      const candidates = await fetchMatchCandidates();
-      if (candidates.length > 0) setMatchCandidates(candidates);
-    } finally {
-      setMatchLoading(false);
-    }
-  }, [fetchMatchCandidates, showToast]);
+    showToast('Conectando à fila de pareamento...', 'info');
 
-  const handleMatchFeedback = useCallback(async (outcome: 'positive' | 'negative' | 'skip') => {
-    if (!matchCandidates[0]?.id) return;
-    try {
-      const response = await fetch('http://localhost:3000/api/matches/feedback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // NOVO
-        body: JSON.stringify({ candidateId: matchCandidates[0].id, outcome }),
-      });
-      if (!response.ok) throw new Error('Erro ao registrar feedback do match.');
-      setLastMatchFeedback(outcome);
-      setMatchCandidates((prev) => prev.slice(1));
-      if (outcome === 'negative') setIsMatching(false);
-    } catch (error) {
-      console.error('Erro ao enviar feedback do match:', error);
+    // Conecta ao servidor e envia o cookie automaticamente via withCredentials
+    const newSocket = io('http://localhost:3000', {
+      withCredentials: true
+    });
+
+    newSocket.on('connect', () => {
+      newSocket.emit('find_match');
+    });
+
+    newSocket.on('match_found', (data: { roomId: string; partnerId: string }) => {
+      showToast('Parceiro encontrado! Entrando na sala...', 'success');
+      newSocket.disconnect(); // Desconecta da fila
+      setSocket(null);
+      setIsMatching(false);
+      navigate(`/room`); 
+    });
+
+    newSocket.on('connect_error', (err) => {
+      console.error('Erro de conexão no Socket:', err.message);
+      showToast('Erro ao conectar na fila. Tente novamente.', 'error');
+      setIsMatching(false);
+      newSocket.disconnect();
+    });
+
+    setSocket(newSocket);
+  }, [showToast, navigate]);
+
+  // NOVO: Cancela a fila corretamente
+  const handleCancelMatch = useCallback(() => {
+    if (socket) {
+      socket.emit('cancel_match');
+      socket.disconnect();
+      setSocket(null);
     }
-  }, [matchCandidates]);
+    setIsMatching(false);
+  }, [socket]);
 
   const toggleDaySelection = useCallback((day: string) => {
     setSelectedDays(prev => prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]);
@@ -280,7 +282,6 @@ export const Dashboard: React.FC = memo(() => {
     showToast('Preferências de lembretes salvas com sucesso!', 'success');
   }, [showToast]);
 
-  // NOVO: Logout que limpa o cookie no backend
   const handleLogout = useCallback(async () => {
     try {
       await fetch('http://localhost:3000/api/auth/logout', {
@@ -290,7 +291,7 @@ export const Dashboard: React.FC = memo(() => {
     } catch (err) {
       console.error('Erro ao encerrar sessão no servidor', err);
     }
-    localStorage.removeItem('sidebyside_user'); // Limpamos apenas a info publica do usuário
+    localStorage.removeItem('sidebyside_user'); 
     showToast('Sessão encerrada com sucesso.', 'info');
     navigate('/');
   }, [navigate, showToast]);
@@ -643,9 +644,9 @@ export const Dashboard: React.FC = memo(() => {
             </div>
           </div>
 
-          <Button variant="primary" onClick={startMatchingFlow} disabled={matchLoading} className="w-full py-4 text-xs font-bold uppercase tracking-widest bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl shadow-md flex items-center justify-center gap-2.5 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed">
+          <Button variant="primary" onClick={startMatchingFlow} className="w-full py-4 text-xs font-bold uppercase tracking-widest bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl shadow-md flex items-center justify-center gap-2.5 transition-all hover:scale-[1.01] active:scale-[0.99]">
             <svg className="w-4 h-4 fill-current text-[#FAF9F6]" viewBox="0 0 24 24"><path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" /></svg>
-            {matchLoading ? 'BUSCANDO...' : 'PROCURAR PAR DE CONVERSA'}
+            PROCURAR PAR DE CONVERSA
           </Button>
         </section>
 
@@ -714,19 +715,7 @@ export const Dashboard: React.FC = memo(() => {
 
             <div className="flex flex-col items-center text-center gap-2">
               <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-[#1C1917]">Buscando Par de Conversa...</h3>
-              <p className="text-sm font-bold text-[#78716C]">Procurando estudante no nível <span className="text-[#1C1917] underline">{userLevelDisplay}</span></p>
-              {matchCandidates.length > 0 && (
-                <div className="mt-2 rounded-xl bg-[#F5F5F4] p-3 border border-[#E7E5E4]">
-                  <div className="text-[10px] font-black uppercase tracking-widest text-[#78716C]">Melhor match</div>
-                  <div className="mt-1 text-sm font-black text-[#1C1917]">{matchCandidates[0].name} · {matchCandidates[0].score} pts</div>
-                  <div className="text-[11px] text-[#57534E] font-medium">{matchCandidates[0].sharedInterests.length > 0 ? `Interesses em comum: ${matchCandidates[0].sharedInterests.join(', ')}` : 'Compatibilidade por nível e atividade'}</div>
-                </div>
-              )}
-            </div>
-
-            <div className="w-full flex gap-2">
-              <button type="button" onClick={() => handleMatchFeedback('positive')} className="flex-1 py-3 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] text-[10px] font-black uppercase tracking-wider rounded-xl transition-all">Gostei</button>
-              <button type="button" onClick={() => handleMatchFeedback('negative')} className="flex-1 py-3 bg-[#F5F5F4] hover:bg-[#E7E5E4] text-[#1C1917] text-[10px] font-black uppercase tracking-wider rounded-xl border border-[#E7E5E4] transition-all">Não gostei</button>
+              <p className="text-sm font-bold text-[#78716C]">Aguardando conexão com estudante do nível <span className="text-[#1C1917] underline">{userLevelDisplay}</span></p>
             </div>
 
             <div className="w-full bg-[#FAF9F6] border border-[#E7E5E4] rounded-2xl p-6 flex flex-col gap-3 text-left">
@@ -747,7 +736,7 @@ export const Dashboard: React.FC = memo(() => {
               )}
             </div>
 
-            <button type="button" onClick={() => { if (matchCandidates[0]?.id) handleMatchFeedback('skip'); setIsMatching(false); }} className="w-full py-4 bg-[#F5F5F4] hover:bg-[#E7E5E4] border border-[#E7E5E4] text-[#1C1917] font-bold text-xs uppercase tracking-widest rounded-xl transition-all">Cancelar Busca</button>
+            <button type="button" onClick={handleCancelMatch} className="w-full py-4 bg-[#F5F5F4] hover:bg-[#E7E5E4] border border-[#E7E5E4] text-[#1C1917] font-bold text-xs uppercase tracking-widest rounded-xl transition-all">Cancelar Busca</button>
           </div>
         </div>
       )}
@@ -769,14 +758,14 @@ export const Dashboard: React.FC = memo(() => {
               </div>
               <div className="grid grid-cols-7 gap-2 pt-2">
                 {mockMinutesHistory.map((item: { day: string; min: number }, index: number) => (
-  <div key={index} className="flex flex-col items-center gap-2 group w-full">
-    <div className="relative w-full flex justify-center h-full items-end">
-      <div className={`w-6 sm:w-8 rounded-t-md transition-all duration-300 ${item.min > 0 ? 'bg-[#1C1917] group-hover:bg-[#57534E]' : 'bg-[#E7E5E4]'}`} style={{ height: `${item.min === 0 ? 4 : (item.min / 40) * 100}%` }} />
-      {item.min > 0 && <span className="absolute -top-6 text-[9px] font-black text-[#1C1917] opacity-0 group-hover:opacity-100 transition-opacity">{item.min}m</span>}
-    </div>
-    <span className="text-[10px] font-bold text-[#78716C] uppercase mt-1">{item.day}</span>
-  </div>
-))}
+                  <div key={index} className="flex flex-col items-center gap-2 group w-full">
+                    <div className="relative w-full flex justify-center h-full items-end">
+                      <div className={`w-6 sm:w-8 rounded-t-md transition-all duration-300 ${item.min > 0 ? 'bg-[#1C1917] group-hover:bg-[#57534E]' : 'bg-[#E7E5E4]'}`} style={{ height: `${item.min === 0 ? 4 : (item.min / 40) * 100}%` }} />
+                      {item.min > 0 && <span className="absolute -top-6 text-[9px] font-black text-[#1C1917] opacity-0 group-hover:opacity-100 transition-opacity">{item.min}m</span>}
+                    </div>
+                    <span className="text-[10px] font-bold text-[#78716C] uppercase mt-1">{item.day}</span>
+                  </div>
+                ))}
               </div>
             </div>
             <div className="flex gap-2">
@@ -858,13 +847,13 @@ export const Dashboard: React.FC = memo(() => {
                   <span className="text-[10px] font-black uppercase tracking-widest text-[#1C1917]">Últimos 7 dias</span>
                   <div className="grid grid-cols-7 gap-2">
                     {weeklyGoal.days.map((item: { day: string; completed: boolean }, index: number) => (
-  <div key={index} className="flex flex-col items-center gap-1.5">
-    <div className={`w-10 h-10 rounded-xl border flex items-center justify-center font-bold text-xs transition-colors ${item.completed ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4]'}`}>
-      {item.completed ? '🔥' : '🧊'}
-    </div>
-    <span className="text-[10px] font-bold text-[#78716C] uppercase">{item.day}</span>
-  </div>
-))}
+                      <div key={index} className="flex flex-col items-center gap-1.5">
+                        <div className={`w-10 h-10 rounded-xl border flex items-center justify-center font-bold text-xs transition-colors ${item.completed ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4]'}`}>
+                          {item.completed ? '🔥' : '🧊'}
+                        </div>
+                        <span className="text-[10px] font-bold text-[#78716C] uppercase">{item.day}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -887,13 +876,13 @@ export const Dashboard: React.FC = memo(() => {
                   <span className="text-[10px] font-black uppercase tracking-widest text-[#1C1917]">Distribuição Semanal</span>
                   <div className="flex items-end justify-between h-32 pt-4 border-b border-[#E7E5E4]">
                     {weeklyGoal.days.map((item: { day: string; completed: boolean }, index: number) => (
-  <div key={index} className="flex flex-col items-center gap-1.5">
-    <div className={`w-9 h-9 rounded-xl border flex items-center justify-center font-bold text-xs transition-colors ${item.completed ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4]'}`}>
-      {item.completed ? <svg className="w-4 h-4 fill-none stroke-current stroke-[3]" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg> : '•'}
-    </div>
-    <span className="text-[10px] font-bold text-[#78716C] uppercase">{item.day}</span>
-  </div>
-))}
+                      <div key={index} className="flex flex-col items-center gap-1.5">
+                        <div className={`w-9 h-9 rounded-xl border flex items-center justify-center font-bold text-xs transition-colors ${item.completed ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4]'}`}>
+                          {item.completed ? <svg className="w-4 h-4 fill-none stroke-current stroke-[3]" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg> : '•'}
+                        </div>
+                        <span className="text-[10px] font-bold text-[#78716C] uppercase">{item.day}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -907,33 +896,33 @@ export const Dashboard: React.FC = memo(() => {
                 </div>
                 <div className="flex flex-col gap-3 max-h-60 overflow-y-auto">
                   {mockSessionsHistory.length > 0 ? (
-  mockSessionsHistory.map((session: { id: string; partner: string; date: string; duration: number; topic: string; rating: number }) => (
-    <div key={session.id} className="bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl p-4 flex flex-col gap-3 hover:border-[#1C1917] transition-colors">
-      <div className="flex justify-between items-start">
-        <div className="flex flex-col gap-0.5">
-          <span className="text-xs font-black text-[#1C1917] uppercase">{session.partner}</span>
-          <span className="text-[10px] font-bold text-[#78716C]">{session.date}</span>
-        </div>
-        <div className="flex items-center gap-1 bg-[#FFFFFF] border border-[#E7E5E4] px-2 py-1 rounded-lg">
-          <span className="text-[10px] font-black text-amber-500">{'★'.repeat(session.rating)}</span>
-        </div>
-      </div>
-      <div className="flex items-center gap-3 pt-2 border-t border-[#E7E5E4]">
-        <div className="flex items-center gap-1">
-          <span className="text-[10px] font-bold text-[#A8A29E] uppercase">Duração:</span>
-          <span className="text-[10px] font-black text-[#1C1917]">{session.duration} min</span>
-        </div>
-        <span className="text-[10px] text-[#E7E5E4]">|</span>
-        <div className="flex items-center gap-1 truncate">
-          <span className="text-[10px] font-bold text-[#A8A29E] uppercase">Tópico:</span>
-          <span className="text-[10px] font-black text-[#1C1917] truncate">{session.topic}</span>
-        </div>
-      </div>
-    </div>
-  ))
-) : (
-  <div className="py-8 text-center text-xs font-bold text-[#78716C] uppercase">Nenhuma sessão registrada no histórico ainda.</div>
-)}
+                    mockSessionsHistory.map((session: { id: string; partner: string; date: string; duration: number; topic: string; rating: number }) => (
+                      <div key={session.id} className="bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl p-4 flex flex-col gap-3 hover:border-[#1C1917] transition-colors">
+                        <div className="flex justify-between items-start">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-xs font-black text-[#1C1917] uppercase">{session.partner}</span>
+                            <span className="text-[10px] font-bold text-[#78716C]">{session.date}</span>
+                          </div>
+                          <div className="flex items-center gap-1 bg-[#FFFFFF] border border-[#E7E5E4] px-2 py-1 rounded-lg">
+                            <span className="text-[10px] font-black text-amber-500">{'★'.repeat(session.rating)}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 pt-2 border-t border-[#E7E5E4]">
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] font-bold text-[#A8A29E] uppercase">Duração:</span>
+                            <span className="text-[10px] font-black text-[#1C1917]">{session.duration} min</span>
+                          </div>
+                          <span className="text-[10px] text-[#E7E5E4]">|</span>
+                          <div className="flex items-center gap-1 truncate">
+                            <span className="text-[10px] font-bold text-[#A8A29E] uppercase">Tópico:</span>
+                            <span className="text-[10px] font-black text-[#1C1917] truncate">{session.topic}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="py-8 text-center text-xs font-bold text-[#78716C] uppercase">Nenhuma sessão registrada no histórico ainda.</div>
+                  )}
                 </div>
               </div>
             )}
