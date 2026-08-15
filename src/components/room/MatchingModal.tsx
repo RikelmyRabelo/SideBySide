@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 interface MatchingModalProps {
@@ -7,7 +7,14 @@ interface MatchingModalProps {
   userLevel?: string;
 }
 
-export const MatchingModal: React.FC<MatchingModalProps> = ({
+// Movido para fora do componente para evitar recriação a cada segundo (tick do timer)
+const formatTime = (totalSeconds: number) => {
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+};
+
+export const MatchingModal: React.FC<MatchingModalProps> = memo(({
   isOpen,
   onCancel,
   userLevel = 'B1',
@@ -26,13 +33,11 @@ export const MatchingModal: React.FC<MatchingModalProps> = ({
     return () => clearInterval(timer);
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  const handleSimulateMatch = useCallback(() => {
+    navigate('/room');
+  }, [navigate]);
 
-  const formatTime = (totalSeconds: number) => {
-    const mins = Math.floor(totalSeconds / 60);
-    const secs = totalSeconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
@@ -78,7 +83,7 @@ export const MatchingModal: React.FC<MatchingModalProps> = ({
         <div className="w-full flex flex-col gap-3 mt-2">
           <button
             type="button"
-            onClick={() => navigate('/room')}
+            onClick={handleSimulateMatch}
             className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-xs transition-all shadow-md"
           >
             Simular Par Encontrado (Ir para Chamada)
@@ -95,4 +100,6 @@ export const MatchingModal: React.FC<MatchingModalProps> = ({
       </div>
     </div>
   );
-};
+});
+
+MatchingModal.displayName = 'MatchingModal';
