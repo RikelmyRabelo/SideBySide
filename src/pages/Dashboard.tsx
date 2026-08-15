@@ -7,6 +7,7 @@ import { BadgesModal } from '../components/dashboard/BadgesModal';
 import { DeviceCheckModal } from '../components/dashboard/DeviceCheckModal';
 import { SupportModal } from '../components/dashboard/SupportModal';
 import { useToast } from '../components/ui/ToastContext';
+import { UserData, MatchCandidate, NotificationItem, TopicItemType } from '../types/user';
 
 const FALLBACK_VOCAB_LIST = [
   { word: 'serendipity', phonetic: '/ˌser.ənˈdɪp.ə.ti/', definition: 'A ocorrência de acontecimentos afortunados por mero acaso ou sorte.' },
@@ -26,7 +27,7 @@ const DEFAULT_MINUTES_HISTORY = [
 
 const WEEK_DAYS_LIST = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 
-const DAILY_TOPICS = [
+const DAILY_TOPICS: TopicItemType[] = [
   { id: 'travel', category: 'Viagens & Culturas', title: 'Experiências Inesquecíveis', icebreaker: 'Qual foi o destino mais marcante que você já visitou e por quê?', vocabPreview: ['Destination', 'Wanderlust', 'Unforgettable'] },
   { id: 'career', category: 'Trabalho & Tecnologia', title: 'O Futuro da Inteligência Artificial', icebreaker: 'Como a tecnologia e a IA têm mudado a sua rotina diária no trabalho?', vocabPreview: ['Automation', 'Efficiency', 'Workflow'] },
   { id: 'hobbies', category: 'Estilo de Vida', title: 'Passatempos & Hábitos Diários', icebreaker: 'O que você mais gosta de fazer para relaxar no final de semana?', vocabPreview: ['Leisure', 'Unwind', 'Daily Routine'] },
@@ -41,13 +42,13 @@ interface VocabResult {
 export const Dashboard: React.FC = memo(() => {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const [userData, setUserData] = useState<any>(null);
+  const [userData, setUserData] = useState<UserData | null>(null);
   const [mediaMode, setMediaMode] = useState<'video' | 'audio'>('video');
   const [expandedMatching, setExpandedMatching] = useState(true);
   const [isMatching, setIsMatching] = useState(false);
-  const [matchCandidates, setMatchCandidates] = useState<any[]>([]);
+  const [matchCandidates, setMatchCandidates] = useState<MatchCandidate[]>([]);
   const [matchLoading, setMatchLoading] = useState(false);
-  const [lastMatchFeedback, setLastMatchFeedback] = useState<'positive' | 'negative' | 'skip' | null>(null);
+  const [, setLastMatchFeedback] = useState<'positive' | 'negative' | 'skip' | null>(null);
 
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
@@ -65,7 +66,7 @@ export const Dashboard: React.FC = memo(() => {
   const [friendRequestsCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
   const notificationsRef = useRef<HTMLDivElement>(null);
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
   const [vocabTip, setVocabTip] = useState<VocabResult>(FALLBACK_VOCAB_LIST[0]);
   const [isLoadingVocab, setIsLoadingVocab] = useState(false);
@@ -74,14 +75,14 @@ export const Dashboard: React.FC = memo(() => {
   const userMenuRef = useRef<HTMLDivElement>(null);
   const [activeModal, setActiveModal] = useState<'goals' | 'reminders' | null>(null);
   const [showTopicConfirmModal, setShowTopicConfirmModal] = useState(false);
-  const [topicToJoin, setTopicToJoin] = useState<{ id: string; category: string; title: string; icebreaker: string; vocabPreview: string[]; } | null>(null);
-  const [selectedTopic, setSelectedTopic] = useState(DAILY_TOPICS[0]);
+  const [topicToJoin, setTopicToJoin] = useState<TopicItemType | null>(null);
+  const [selectedTopic, setSelectedTopic] = useState<TopicItemType>(DAILY_TOPICS[0]);
 
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [reminderTime, setReminderTime] = useState('19:00');
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
 
-  // Memoized derived data to avoid recalculation on mousemove
+  // Memoized derived data
   const mockSessionsHistory = useMemo(() => userData?.sessionsHistory || [], [userData]);
   const mockMinutesHistory = useMemo(() => userData?.minutesHistory || DEFAULT_MINUTES_HISTORY, [userData]);
   const unreadCount = useMemo(() => notifications.filter((n) => n.unread).length, [notifications]);
@@ -119,7 +120,10 @@ export const Dashboard: React.FC = memo(() => {
         const response = await fetch('http://localhost:3000/api/user/me', {
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
         });
-        if (response.ok) setUserData(await response.json());
+        if (response.ok) {
+          const data: UserData = await response.json();
+          setUserData(data);
+        }
       } catch (err) {
         console.error('Erro ao buscar dados do usuário', err);
         showToast('Erro ao carregar dados do perfil.', 'error');
@@ -205,7 +209,7 @@ export const Dashboard: React.FC = memo(() => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
   }, []);
 
-  const handleNotificationClick = useCallback((item: any) => {
+  const handleNotificationClick = useCallback((item: NotificationItem) => {
     setNotifications((prev) => prev.map((n) => (n.id === item.id ? { ...n, unread: false } : n)));
     setShowNotifications(false);
     if (item.type === 'friend') setIsFriendsOpen(true);
@@ -266,7 +270,7 @@ export const Dashboard: React.FC = memo(() => {
     setSelectedDays(prev => prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]);
   }, []);
 
-  const handleTopicCardClick = useCallback((topic: any) => {
+  const handleTopicCardClick = useCallback((topic: TopicItemType) => {
     setSelectedTopic(topic);
     setTopicToJoin(topic);
     setShowTopicConfirmModal(true);
@@ -768,7 +772,7 @@ export const Dashboard: React.FC = memo(() => {
                 <div className="h-full bg-[#1C1917] rounded-full transition-all duration-500 ease-out" style={{ width: `${goalPercentage}%` }} />
               </div>
               <div className="grid grid-cols-7 gap-2 pt-2">
-                {weeklyGoal.days.map((item: any, index: number) => (
+                {weeklyGoal.days.map((item, index) => (
                   <div key={index} className="flex flex-col items-center gap-1.5">
                     <div className={`w-9 h-9 rounded-xl border flex items-center justify-center font-bold text-xs transition-colors ${item.completed ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4]'}`}>
                       {item.completed ? <svg className="w-4 h-4 fill-none stroke-current stroke-[3]" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg> : '•'}
@@ -856,7 +860,7 @@ export const Dashboard: React.FC = memo(() => {
                 <div className="flex flex-col gap-3">
                   <span className="text-[10px] font-black uppercase tracking-widest text-[#1C1917]">Últimos 7 dias</span>
                   <div className="grid grid-cols-7 gap-2">
-                    {weeklyGoal.days.map((item: any, index: number) => (
+                    {weeklyGoal.days.map((item, index) => (
                       <div key={index} className="flex flex-col items-center gap-1.5">
                         <div className={`w-10 h-10 rounded-xl border flex items-center justify-center font-bold text-xs transition-colors ${item.completed ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4]'}`}>
                           {item.completed ? '🔥' : '🧊'}
@@ -885,7 +889,7 @@ export const Dashboard: React.FC = memo(() => {
                 <div className="flex flex-col gap-3">
                   <span className="text-[10px] font-black uppercase tracking-widest text-[#1C1917]">Distribuição Semanal</span>
                   <div className="flex items-end justify-between h-32 pt-4 border-b border-[#E7E5E4]">
-                    {mockMinutesHistory.map((item: any, index: number) => (
+                    {mockMinutesHistory.map((item, index) => (
                       <div key={index} className="flex flex-col items-center gap-2 group w-full">
                         <div className="relative w-full flex justify-center h-full items-end">
                           <div className={`w-6 sm:w-8 rounded-t-md transition-all duration-300 ${item.min > 0 ? 'bg-[#1C1917] group-hover:bg-[#57534E]' : 'bg-[#E7E5E4]'}`} style={{ height: `${item.min === 0 ? 4 : (item.min / 40) * 100}%` }} />
@@ -907,7 +911,7 @@ export const Dashboard: React.FC = memo(() => {
                 </div>
                 <div className="flex flex-col gap-3 max-h-60 overflow-y-auto">
                   {mockSessionsHistory.length > 0 ? (
-                    mockSessionsHistory.map((session: any) => (
+                    mockSessionsHistory.map((session) => (
                       <div key={session.id} className="bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl p-4 flex flex-col gap-3 hover:border-[#1C1917] transition-colors">
                         <div className="flex justify-between items-start">
                           <div className="flex flex-col gap-0.5">
