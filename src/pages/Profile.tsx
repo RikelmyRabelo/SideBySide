@@ -56,6 +56,9 @@ export const Profile: React.FC = () => {
 
   const [showPublicPreview, setShowPublicPreview] = useState(false);
   const [friendRequestSent, setFriendRequestSent] = useState(false);
+  const [recentConversations, setRecentConversations] = useState<any[]>([]);
+  const [friendsList, setFriendsList] = useState<any[]>([]);
+  const [friendRequests, setFriendRequests] = useState<any[]>([]);
 
   const [showTopicsModal, setShowTopicsModal] = useState(false);
   const [topicSearch, setTopicSearch] = useState('');
@@ -109,29 +112,7 @@ export const Profile: React.FC = () => {
     fetchProfile();
   }, []);
 
-  const [receivedFeedback] = useState([
-    {
-      id: 'fb-1',
-      author: 'Alex (Espanha)',
-      rating: 5,
-      date: 'Ontem',
-      comment: 'Excelente conversa! Fala com muita clareza e ajudou bastante a manter a fluidez do tópico.',
-    },
-    {
-      id: 'fb-2',
-      author: 'Elena Rostova',
-      rating: 5,
-      date: 'Há 3 dias',
-      comment: 'Muito paciente e com bom vocabulário sobre tecnologia. Recomendo a prática!',
-    },
-    {
-      id: 'fb-3',
-      author: 'Mateo Rossi',
-      rating: 4,
-      date: 'Há 1 semana',
-      comment: 'Ótima troca de ideias sobre viagens e cultura. Sessão super produtiva.',
-    },
-  ]);
+  const [receivedFeedback, setReceivedFeedback] = useState<any[]>([]);
 
   const topicsLibrary = [
     { category: 'Tecnologia & Carreira', items: ['Tecnologia', 'Carreira & Negócios', 'Inteligência Artificial', 'Startups', 'Programação', 'Marketing Digital'] },
@@ -164,15 +145,10 @@ export const Profile: React.FC = () => {
   const [agreeDeleteTerms, setAgreeDeleteTerms] = useState(false);
 
   const [weeklyGoalTarget, setWeeklyGoalTarget] = useState(5);
-  const [weeklyGoalCompleted] = useState(3);
-  const [currentStreak] = useState(5);
+  const [weeklyGoalCompleted] = useState(0);
+  const [currentStreak] = useState(0);
 
-  const badgesList = [
-    { id: 'first_chat', title: 'Primeira Conversa', desc: 'Sessão inicial concluída', unlocked: true, icon: '💬' },
-    { id: 'streak_5', title: '5 Dias de Ofensiva', desc: 'Prática contínua', unlocked: true, icon: '🔥' },
-    { id: 'minutes_100', title: '100 Minutos Falados', desc: '+100 minutos em sala', unlocked: true, icon: '⏱️' },
-    { id: 'level_b2', title: 'Rumo ao B2', desc: '10 treinos no nível B1', unlocked: false, icon: '🎓' },
-  ];
+  const [badgesList, setBadgesList] = useState<any[]>([]);
 
   const evolutionStats = {
     reputationScore: '98/100',
@@ -794,6 +770,78 @@ export const Profile: React.FC = () => {
                 </div>
               </div>
             </section>
+
+            <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-5">
+              <div className="flex justify-between items-center border-b-2 border-[#E7E5E4] pb-3">
+                <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
+                  Conversas & Chats
+                </h2>
+                <span className="text-[10px] font-black uppercase bg-[#FAF9F6] text-[#1C1917] px-2.5 py-1 rounded-lg border border-[#1C1917]">
+                  {recentConversations.length}
+                </span>
+              </div>
+
+              {recentConversations.length === 0 ? (
+                <div className="rounded-2xl border-2 border-dashed border-[#E7E5E4] bg-[#FAF9F6] p-5 text-center text-xs font-black uppercase tracking-wider text-[#78716C]">
+                  Nenhuma conversa registrada ainda.
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {recentConversations.map((conversation) => (
+                    <div key={conversation.id} className="p-3 rounded-2xl border-2 border-[#E7E5E4] bg-[#FAF9F6] flex justify-between items-center gap-3">
+                      <div>
+                        <span className="block text-xs font-black text-[#1C1917] uppercase">{conversation.name}</span>
+                        <span className="block text-[10px] font-bold text-[#78716C]">{conversation.lastMessage}</span>
+                      </div>
+                      <span className="text-[10px] font-black text-[#78716C] uppercase">{conversation.time}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-5">
+              <div className="flex justify-between items-center border-b-2 border-[#E7E5E4] pb-3">
+                <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
+                  Amigos & Solicitações
+                </h2>
+                <span className="text-[10px] font-black uppercase bg-[#FAF9F6] text-[#1C1917] px-2.5 py-1 rounded-lg border border-[#1C1917]">
+                  {friendsList.length + friendRequests.length}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-[#78716C]">Lista de amigos</span>
+                  {friendsList.length === 0 ? (
+                    <div className="rounded-2xl border-2 border-dashed border-[#E7E5E4] bg-[#FAF9F6] p-4 text-center text-[10px] font-black uppercase tracking-wider text-[#78716C]">
+                      Ainda sem amigos.
+                    </div>
+                  ) : (
+                    friendsList.map((friend) => (
+                      <div key={friend.id} className="p-3 rounded-2xl border-2 border-[#E7E5E4] bg-[#FAF9F6] text-xs font-black text-[#1C1917] uppercase">
+                        {friend.name}
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-[#78716C]">Solicitações</span>
+                  {friendRequests.length === 0 ? (
+                    <div className="rounded-2xl border-2 border-dashed border-[#E7E5E4] bg-[#FAF9F6] p-4 text-center text-[10px] font-black uppercase tracking-wider text-[#78716C]">
+                      Nenhuma solicitação pendente.
+                    </div>
+                  ) : (
+                    friendRequests.map((request) => (
+                      <div key={request.id} className="p-3 rounded-2xl border-2 border-[#E7E5E4] bg-[#FAF9F6] text-xs font-black text-[#1C1917] uppercase">
+                        {request.name}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </section>
           </div>
         )}
 
@@ -1205,41 +1253,53 @@ export const Profile: React.FC = () => {
                 <span className="text-[10px] font-black uppercase text-[#78716C] tracking-wider">
                   Avaliações e Comentários da Comunidade ({receivedFeedback.length}):
                 </span>
-                <div className="flex flex-col gap-2">
-                  {receivedFeedback.map((fb) => (
-                    <div
-                      key={fb.id}
-                      className="bg-[#FAF9F6] p-3 rounded-2xl border-2 border-[#E7E5E4] flex flex-col gap-1.5"
-                    >
-                      <div className="flex justify-between items-center">
-                        <span className="text-[11px] font-black text-[#1C1917]">{fb.author}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-black text-amber-600">
-                            {'★'.repeat(fb.rating)}
-                          </span>
-                          <span className="text-[9px] font-bold text-[#A8A29E] uppercase">{fb.date}</span>
+                {receivedFeedback.length === 0 ? (
+                  <div className="rounded-2xl border-2 border-dashed border-[#E7E5E4] bg-[#FAF9F6] p-3 text-center text-[10px] font-black uppercase tracking-wider text-[#78716C]">
+                    Ainda não há avaliações registradas.
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {receivedFeedback.map((fb) => (
+                      <div
+                        key={fb.id}
+                        className="bg-[#FAF9F6] p-3 rounded-2xl border-2 border-[#E7E5E4] flex flex-col gap-1.5"
+                      >
+                        <div className="flex justify-between items-center">
+                          <span className="text-[11px] font-black text-[#1C1917]">{fb.author}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black text-amber-600">
+                              {'★'.repeat(fb.rating)}
+                            </span>
+                            <span className="text-[9px] font-bold text-[#A8A29E] uppercase">{fb.date}</span>
+                          </div>
                         </div>
+                        <p className="text-xs text-[#57534E] font-medium italic leading-relaxed">
+                          "{fb.comment}"
+                        </p>
                       </div>
-                      <p className="text-xs text-[#57534E] font-medium italic leading-relaxed">
-                        "{fb.comment}"
-                      </p>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-col gap-1.5 w-full pt-1 text-left">
                 <span className="text-[10px] font-black uppercase text-[#78716C]">
                   Conquistas Desbloqueadas:
                 </span>
-                <div className="grid grid-cols-2 gap-2">
-                  {badgesList.filter((b) => b.unlocked).map((badge) => (
-                    <div key={badge.id} className="p-2 rounded-xl bg-[#FAF9F6] border-2 border-[#E7E5E4] flex items-center gap-2">
-                      <span className="text-base">{badge.icon}</span>
-                      <span className="text-[10px] font-black text-[#1C1917] uppercase truncate">{badge.title}</span>
-                    </div>
-                  ))}
-                </div>
+                {badgesList.filter((b) => b.unlocked).length === 0 ? (
+                  <div className="rounded-2xl border-2 border-dashed border-[#E7E5E4] bg-[#FAF9F6] p-3 text-center text-[10px] font-black uppercase tracking-wider text-[#78716C]">
+                    Ainda não há conquistas desbloqueadas.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    {badgesList.filter((b) => b.unlocked).map((badge) => (
+                      <div key={badge.id} className="p-2 rounded-xl bg-[#FAF9F6] border-2 border-[#E7E5E4] flex items-center gap-2">
+                        <span className="text-base">{badge.icon}</span>
+                        <span className="text-[10px] font-black text-[#1C1917] uppercase truncate">{badge.title}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {selectedInterests.length > 0 && (

@@ -1,32 +1,7 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useState } from 'react';
 export const DirectChatsModal = ({ isOpen, onClose, selectedContact, }) => {
-    const [chats, setChats] = useState([
-        {
-            id: 'f-1',
-            name: 'Elena Rostova',
-            avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&auto=format&fit=crop&q=80',
-            lastMessage: 'Muito obrigado pela prática de hoje!',
-            time: '11:45',
-            unread: true,
-            messages: [
-                { id: 'm1', sender: 'them', text: 'Hey Lucas! How are you feeling about our last topic?', time: '11:30' },
-                { id: 'm2', sender: 'me', text: 'Hey Elena! It went really well, thanks for the tips!', time: '11:40' },
-                { id: 'm3', sender: 'them', text: 'Muito obrigado pela prática de hoje!', time: '11:45' },
-            ],
-        },
-        {
-            id: 'f-2',
-            name: 'Mateo Rossi',
-            avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
-            lastMessage: 'Vamos agendar outra sessão no final de semana?',
-            time: 'Ontem',
-            unread: false,
-            messages: [
-                { id: 'm10', sender: 'them', text: 'Vamos agendar outra sessão no final de semana?', time: 'Ontem' },
-            ],
-        },
-    ]);
+    const [chats, setChats] = useState([]);
     const [activeChatId, setActiveChatId] = useState(selectedContact?.id || chats[0]?.id || '');
     const [newMessageText, setNewMessageText] = useState('');
     if (!isOpen)
