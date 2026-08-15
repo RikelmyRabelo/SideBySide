@@ -270,6 +270,7 @@ useEffect(() => {
         const response = await fetch('http://localhost:3000/api/auth/forgot-password', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include', // NOVO: Permite recebimento e envio de cookies
           body: JSON.stringify({ email }),
         });
 
@@ -319,6 +320,7 @@ useEffect(() => {
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // NOVO: Permite recebimento e envio de cookies
         body: JSON.stringify(payload),
       });
 
@@ -330,9 +332,11 @@ useEffect(() => {
 
       localStorage.setItem('sidebyside_last_email', email);
 
-      if (data.token) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('sidebyside_user', JSON.stringify(data.user || { email }));
+      // NOVO: Remoção do localStorage do Token, armazenando apenas os dados do usuário para a UI
+      if (data.user) {
+        localStorage.setItem('sidebyside_user', JSON.stringify(data.user));
+      } else {
+        localStorage.setItem('sidebyside_user', JSON.stringify({ email }));
       }
 
       if (isLogin) {
