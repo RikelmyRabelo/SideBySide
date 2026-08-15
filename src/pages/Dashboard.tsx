@@ -6,6 +6,7 @@ import { DirectChatsModal } from '../components/dashboard/DirectChatsModal';
 import { BadgesModal } from '../components/dashboard/BadgesModal';
 import { DeviceCheckModal } from '../components/dashboard/DeviceCheckModal';
 import { SupportModal } from '../components/dashboard/SupportModal';
+import { useToast } from '../components/ui/ToastContext';
 
 const FALLBACK_VOCAB_LIST = [
   { word: 'serendipity', phonetic: '/ˌser.ənˈdɪp.ə.ti/', definition: 'A ocorrência de acontecimentos afortunados por mero acaso ou sorte.' },
@@ -39,6 +40,7 @@ interface VocabResult {
 
 export const Dashboard: React.FC = memo(() => {
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [userData, setUserData] = useState<any>(null);
   const [mediaMode, setMediaMode] = useState<'video' | 'audio'>('video');
   const [expandedMatching, setExpandedMatching] = useState(true);
@@ -120,10 +122,11 @@ export const Dashboard: React.FC = memo(() => {
         if (response.ok) setUserData(await response.json());
       } catch (err) {
         console.error('Erro ao buscar dados do usuário', err);
+        showToast('Erro ao carregar dados do perfil.', 'error');
       }
     };
     fetchUserData();
-  }, []);
+  }, [showToast]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -194,7 +197,8 @@ export const Dashboard: React.FC = memo(() => {
 
   const markAllAsRead = useCallback(() => {
     setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
-  }, []);
+    showToast('Todas as notificações foram marcadas como lidas.', 'success');
+  }, [showToast]);
 
   const removeNotification = useCallback((id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -222,21 +226,23 @@ export const Dashboard: React.FC = memo(() => {
       return data.candidates || [];
     } catch (error) {
       console.error('Erro ao buscar candidatos:', error);
+      showToast('Erro ao buscar candidatos para pareamento.', 'error');
       setMatchCandidates([]);
       return [];
     }
-  }, []);
+  }, [showToast]);
 
   const startMatchingFlow = useCallback(async () => {
     setMatchLoading(true);
     setIsMatching(true);
+    showToast('Iniciando busca por parceiro...', 'info');
     try {
       const candidates = await fetchMatchCandidates();
       if (candidates.length > 0) setMatchCandidates(candidates);
     } finally {
       setMatchLoading(false);
     }
-  }, [fetchMatchCandidates]);
+  }, [fetchMatchCandidates, showToast]);
 
   const handleMatchFeedback = useCallback(async (outcome: 'positive' | 'negative' | 'skip') => {
     if (!matchCandidates[0]?.id) return;
@@ -273,14 +279,21 @@ export const Dashboard: React.FC = memo(() => {
     }
     const targetTopic = topicToJoin || selectedTopic;
     setShowTopicConfirmModal(false);
+    showToast(`Entrando na sala: ${targetTopic.title}`, 'success');
     if (targetTopic && targetTopic.id) navigate(`/room/${targetTopic.id}`);
     else navigate('/room');
-  }, [topicToJoin, selectedTopic, navigate]);
+  }, [topicToJoin, selectedTopic, navigate, showToast]);
+
+  const handleSaveReminders = useCallback(() => {
+    setActiveModal(null);
+    showToast('Preferências de lembretes salvas com sucesso!', 'success');
+  }, [showToast]);
 
   const handleLogout = useCallback(() => {
     localStorage.removeItem('token');
+    showToast('Sessão encerrada com sucesso.', 'info');
     navigate('/');
-  }, [navigate]);
+  }, [navigate, showToast]);
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col font-sans relative selection:bg-[#1C1917] selection:text-[#FAF9F6]">
@@ -608,11 +621,11 @@ export const Dashboard: React.FC = memo(() => {
             <div className="flex flex-col gap-2">
               <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Modo de Mídia</label>
               <div className="grid grid-cols-2 bg-[#F5F5F4] p-1 rounded-xl border border-[#E7E5E4] text-xs font-bold uppercase tracking-wider">
-                <button type="button" onClick={() => setMediaMode('video')} className={`py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all ${mediaMode === 'video' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C]'}`}>
+                <button type="button" onClick={() => { setMediaMode('video'); showToast('Modo Vídeo + Áudio selecionado', 'info'); }} className={`py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all ${mediaMode === 'video' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C]'}`}>
                   <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" /></svg>
                   Vídeo + Áudio
                 </button>
-                <button type="button" onClick={() => setMediaMode('audio')} className={`py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all ${mediaMode === 'audio' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C]'}`}>
+                <button type="button" onClick={() => { setMediaMode('audio'); showToast('Modo Apenas Áudio selecionado', 'info'); }} className={`py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all ${mediaMode === 'audio' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C]'}`}>
                   <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 003-3V4.5a3 3 0 00-3-3 3 3 0 00-3 3v8.25a3 3 0 003 3z" /></svg>
                   Apenas Áudio
                 </button>
@@ -623,7 +636,7 @@ export const Dashboard: React.FC = memo(() => {
               <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Pareamento Ampliado</label>
               <div className="flex items-center justify-between bg-[#F5F5F4] border border-[#E7E5E4] px-4 py-2.5 rounded-xl h-[42px]">
                 <span className="text-xs font-bold text-[#57534E]">Permitir conectar com níveis adjacentes (A2 e B2)</span>
-                <button type="button" onClick={() => setExpandedMatching(!expandedMatching)} className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors ${expandedMatching ? 'bg-[#1C1917]' : 'bg-[#E7E5E4]'}`}>
+                <button type="button" onClick={() => { setExpandedMatching(!expandedMatching); showToast(expandedMatching ? 'Pareamento estrito ativado' : 'Pareamento ampliado ativado', 'info'); }} className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors ${expandedMatching ? 'bg-[#1C1917]' : 'bg-[#E7E5E4]'}`}>
                   <div className={`bg-[#FFFFFF] w-4 h-4 rounded-full shadow-md transform transition-transform ${expandedMatching ? 'translate-x-5' : 'translate-x-0'}`} />
                 </button>
               </div>
@@ -809,7 +822,7 @@ export const Dashboard: React.FC = memo(() => {
             )}
             <div className="flex gap-2">
               <Button variant="primary" onClick={() => { setActiveModal(null); navigate('/profile'); }} className="flex-1 py-3 text-xs font-bold uppercase tracking-widest bg-[#FAF9F6] border border-[#1C1917] text-[#1C1917] hover:bg-[#F5F5F4] rounded-xl">Gerenciar no Perfil</Button>
-              <Button variant="primary" onClick={() => setActiveModal(null)} className="flex-1 py-3 text-xs font-bold uppercase tracking-widest bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl">Salvar Preferências</Button>
+              <Button variant="primary" onClick={handleSaveReminders} className="flex-1 py-3 text-xs font-bold uppercase tracking-widest bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl">Salvar Preferências</Button>
             </div>
           </div>
         </div>

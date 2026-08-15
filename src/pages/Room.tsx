@@ -26,6 +26,7 @@ export const Room: React.FC = memo(() => {
   const [activeTab, setActiveTab] = useState<'topics' | 'chat'>('topics');
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [isRatingOpen, setIsRatingOpen] = useState(false);
+  const [isConfirmExitOpen, setIsConfirmExitOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isSearchingNextPair, setIsSearchingNextPair] = useState(false);
   const [pendingAction, setPendingAction] = useState<'exit' | 'nextPair' | null>(null);
@@ -54,6 +55,18 @@ export const Room: React.FC = memo(() => {
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
   const [cursorOpacity, setCursorOpacity] = useState(1);
+
+  // Proteção contra fechamento acidental da aba/janela
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -311,6 +324,11 @@ export const Room: React.FC = memo(() => {
   }, [partnerId]);
 
   const handleEndCall = useCallback(() => {
+    setIsConfirmExitOpen(true);
+  }, []);
+
+  const handleConfirmExit = useCallback(() => {
+    setIsConfirmExitOpen(false);
     setPendingAction('exit');
     setIsRatingOpen(true);
   }, []);
@@ -608,6 +626,48 @@ export const Room: React.FC = memo(() => {
 
           <ReportModal isOpen={isReportOpen} onClose={() => setIsReportOpen(false)} onConfirm={handleConfirmReport} />
           <RatingModal isOpen={isRatingOpen} onClose={handleRatingClose} onSubmit={handleRatingSubmit} partnerName="Alex (Espanha)" />
+
+          {/* Modal de Confirmação Inteligente para Sair da Sala */}
+          {isConfirmExitOpen && (
+            <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-[110] flex items-center justify-center p-4">
+              <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-5 text-center animate-in fade-in zoom-in-95 duration-150">
+                <div className="w-14 h-14 rounded-2xl bg-amber-50 border-2 border-amber-200 text-amber-600 flex items-center justify-center mx-auto shadow-sm">
+                  <svg className="w-7 h-7 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                  </svg>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#FAF9F6] bg-[#1C1917] px-2.5 py-0.5 rounded w-fit mx-auto">
+                    SAÍDA DA SESSÃO
+                  </span>
+                  <h3 className="text-base font-black uppercase text-[#1C1917]">
+                    Tem certeza que deseja sair?
+                  </h3>
+                  <p className="text-xs text-[#57534E] font-medium leading-relaxed">
+                    Sua chamada de vídeo ativa será encerrada e você perderá a conexão com o seu par atual.
+                  </p>
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsConfirmExitOpen(false)}
+                    className="flex-1 py-3 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] text-xs font-black uppercase rounded-xl hover:bg-[#F5F5F4] transition-all"
+                  >
+                    Continuar na Sala
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmExit}
+                    className="flex-1 py-3 bg-red-600 text-white text-xs font-black uppercase rounded-xl border-2 border-[#1C1917] hover:bg-red-700 transition-all shadow-sm"
+                  >
+                    Sim, Sair
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {!isFullscreen && (
