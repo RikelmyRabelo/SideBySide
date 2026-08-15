@@ -44,8 +44,10 @@ export const Dashboard: React.FC = memo(() => {
   const navigate = useNavigate();
   const { showToast } = useToast();
 
-  // Utilizando o hook otimizado com cache para dados do usuário
-  const { data: userData } = useFetchCache<any>('http://localhost:3000/api/user/me');
+  // NOVO: Adicionado credentials: 'include' no hook
+  const { data: userData } = useFetchCache<any>('http://localhost:3000/api/user/me', {
+    credentials: 'include'
+  });
 
   const [mediaMode, setMediaMode] = useState<'video' | 'audio'>('video');
   const [expandedMatching, setExpandedMatching] = useState(true);
@@ -204,9 +206,10 @@ export const Dashboard: React.FC = memo(() => {
 
   const fetchMatchCandidates = useCallback(async () => {
     try {
-      const token = localStorage.getItem('token');
+      // NOVO: Sem token no localStorage, o cookie fará o trabalho
       const response = await fetch('http://localhost:3000/api/matches/candidates', {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include'
       });
       if (!response.ok) throw new Error('Erro ao carregar candidatos.');
       const data = await response.json();
@@ -235,10 +238,10 @@ export const Dashboard: React.FC = memo(() => {
   const handleMatchFeedback = useCallback(async (outcome: 'positive' | 'negative' | 'skip') => {
     if (!matchCandidates[0]?.id) return;
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch('http://localhost:3000/api/matches/feedback', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // NOVO
         body: JSON.stringify({ candidateId: matchCandidates[0].id, outcome }),
       });
       if (!response.ok) throw new Error('Erro ao registrar feedback do match.');
@@ -277,8 +280,17 @@ export const Dashboard: React.FC = memo(() => {
     showToast('Preferências de lembretes salvas com sucesso!', 'success');
   }, [showToast]);
 
-  const handleLogout = useCallback(() => {
-    localStorage.removeItem('token');
+  // NOVO: Logout que limpa o cookie no backend
+  const handleLogout = useCallback(async () => {
+    try {
+      await fetch('http://localhost:3000/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include'
+      });
+    } catch (err) {
+      console.error('Erro ao encerrar sessão no servidor', err);
+    }
+    localStorage.removeItem('sidebyside_user'); // Limpamos apenas a info publica do usuário
     showToast('Sessão encerrada com sucesso.', 'info');
     navigate('/');
   }, [navigate, showToast]);
