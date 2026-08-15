@@ -245,9 +245,8 @@ export const Room: React.FC = memo(() => {
 
     const loadUserProfile = async () => {
       try {
-        const token = localStorage.getItem('token');
         const response = await fetch('http://localhost:3000/api/user/me', {
-          headers: { 'Authorization': `Bearer ${token}` }
+          credentials: 'include' // NOVO: Usando cookies
         });
         if (response.ok) {
           const data = await response.json();
@@ -263,8 +262,6 @@ export const Room: React.FC = memo(() => {
     loadUserProfile();
     startMedia(true);
 
-    const token = localStorage.getItem('token');
-
     if (roomStatus?.hasActiveSession) {
       // RECONEXÃO ATIVA (Caso o usuário tenha dado F5)
       console.log('Reconectando à sessão ativa:', roomStatus.sessionId);
@@ -276,9 +273,9 @@ export const Room: React.FC = memo(() => {
       fetch('http://localhost:3000/api/room/join', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
+        credentials: 'include', // NOVO: Usando cookies
         body: JSON.stringify({ topicId: currentTopic.id })
       })
         .then(res => res.json())
@@ -323,13 +320,12 @@ export const Room: React.FC = memo(() => {
   const handleConfirmReport = useCallback(async (reason: string) => {
     setIsReportOpen(false);
     try {
-      const token = localStorage.getItem('token');
       await fetch('http://localhost:3000/api/room/report', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
+        credentials: 'include', // NOVO: Usando cookies
         body: JSON.stringify({ reportedUserId: partnerId, reason })
       });
     } catch (err) {
@@ -365,10 +361,10 @@ export const Room: React.FC = memo(() => {
   const handleRatingSubmit = useCallback(async (data: { partnerRating: number; platformRating: number; comment: string }) => {
     setIsRatingOpen(false);
     try {
-      const token = localStorage.getItem('token');
       await fetch('http://localhost:3000/api/room/rate', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // NOVO: Usando cookies
         body: JSON.stringify(data)
       });
 
@@ -376,14 +372,16 @@ export const Room: React.FC = memo(() => {
         const averageRating = (data.partnerRating + data.platformRating) / 2;
         await fetch('http://localhost:3000/api/room/quality', {
           method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include', // NOVO: Usando cookies
           body: JSON.stringify({ partnerId, duration: sessionElapsedSeconds, messages: chatMessages.length, rating: Math.round(averageRating) })
         });
         
         if (averageRating >= 4) {
           await fetch('http://localhost:3000/api/room/want-to-talk-again', {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include', // NOVO: Usando cookies
             body: JSON.stringify({ partnerId })
           });
         }
