@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo, memo } from 'react';
 
 interface DirectMessage {
   id: string;
@@ -23,7 +23,7 @@ interface DirectChatsModalProps {
   selectedContact?: { id: string; name: string; avatar: string } | null;
 }
 
-export const DirectChatsModal: React.FC<DirectChatsModalProps> = ({
+export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({
   isOpen,
   onClose,
   selectedContact,
@@ -35,11 +35,11 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = ({
   );
   const [newMessageText, setNewMessageText] = useState('');
 
-  if (!isOpen) return null;
+  const activeChat = useMemo(() => {
+    return chats.find((c) => c.id === activeChatId) || chats[0];
+  }, [chats, activeChatId]);
 
-  const activeChat = chats.find((c) => c.id === activeChatId) || chats[0];
-
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessageText.trim() || !activeChat) return;
 
@@ -65,7 +65,9 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = ({
     );
 
     setNewMessageText('');
-  };
+  }, [newMessageText, activeChat]);
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-[100] flex items-center justify-center p-4">
@@ -167,6 +169,7 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = ({
       </div>
     </div>
   );
-};
+});
 
+DirectChatsModal.displayName = 'DirectChatsModal';
 export default DirectChatsModal;
