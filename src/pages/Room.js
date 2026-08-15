@@ -28,6 +28,7 @@ export const Room = () => {
     const MAX_RECONNECT_ATTEMPTS = 5;
     const [sessionElapsedSeconds, setSessionElapsedSeconds] = useState(0);
     const sessionStartedAtRef = useRef(null);
+    const [partnerId, setPartnerId] = useState(null);
     // Estado das etapas da animação
     const [animStep, setAnimStep] = useState(0);
     const [chatMessages, setChatMessages] = useState([]);
@@ -251,7 +252,14 @@ export const Room = () => {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({ topicId: currentTopic.id })
-        }).catch(err => console.error('Erro ao registrar entrada na sala:', err));
+        })
+            .then(res => res.json())
+            .then(data => {
+            if (data.partnerId) {
+                setPartnerId(data.partnerId);
+            }
+        })
+            .catch(err => console.error('Erro ao registrar entrada na sala:', err));
         return () => {
             if (streamRef.current) {
                 streamRef.current.getTracks().forEach((track) => track.stop());
@@ -318,6 +326,32 @@ export const Room = () => {
                 },
                 body: JSON.stringify(data)
             });
+            if (partnerId) {
+                const averageRating = (data.partnerRating + data.platformRating) / 2;
+                await fetch('http://localhost:3000/api/room/quality', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        partnerId,
+                        duration: sessionElapsedSeconds,
+                        messages: chatMessages.length,
+                        rating: Math.round(averageRating),
+                    })
+                });
+                if (averageRating >= 4) {
+                    await fetch('http://localhost:3000/api/room/want-to-talk-again', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ partnerId })
+                    });
+                }
+            }
         }
         catch (err) {
             console.error('Erro ao enviar avaliação', err);

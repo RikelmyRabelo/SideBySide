@@ -22,6 +22,8 @@ const pendingUsers = new Map<string, { name: string; email: string; passwordHash
 const verificationCodes = new Map<string, string>();
 const matchFeedback = new Map<string, Map<string, 'positive' | 'negative' | 'skip'>>();
 const sessionFeedback = new Map<string, { averageRating: number; count: number; lastUpdated: Date }>();
+const conversationQuality = new Map<string, Map<string, { duration: number; messages: number; rating: number; timestamp: Date }>>();
+const repeatMatchPreferences = new Map<string, Set<string>>();
 
 const logger = winston.createLogger({
   level: 'info',
@@ -369,10 +371,20 @@ app.post('/api/room/join', authenticateToken, async (req: Request, res: Response
     const userId = (req as any).user.id;
     const { topicId } = req.body || {};
 
-    logger.info(`Usuário ${userId} entrou na sala. Tópico: ${topicId || 'aleatório'}`);
+    const allUsers = await prisma.user.findMany({
+      where: { id: { not: userId } },
+      select: { id: true },
+    });
+
+    const partnerId = allUsers.length > 0
+      ? allUsers[Math.floor(Math.random() * allUsers.length)].id
+      : null;
+
+    logger.info(`Usuário ${userId} entrou na sala. Tópico: ${topicId || 'aleatório'}. Parceiro: ${partnerId || 'nenhum'}`);
     return res.status(200).json({
       message: 'Entrada registrada na sala com sucesso.',
       topicId: topicId || null,
+      partnerId: partnerId || null,
     });
   } catch (error: any) {
     next(error);
@@ -445,6 +457,59 @@ app.post('/api/room/rate', authenticateToken, async (req: Request, res: Response
       message: 'Avaliação salva com sucesso.',
       reputation: updatedUser.reputation,
       averageRating: safeAverage,
+    });
+  } catch (error: any) {
+    next(error);
+  }
+});
+
+app.post('/api/room/quality', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.id;
+    const { partnerId, duration, messages, rating } = req.body || {};
+
+    if (!partnerId || !duration) {
+      return res.status(400).json({ error: 'partnerId e duration são obrigatórios.' });
+    }
+
+    const userQuality = conversationQuality.get(userId) || new Map();
+    userQuality.set(partnerId, {
+      duration: Number(duration),
+      messages: Number(messages) || 0,
+      rating: Math.max(1, Math.min(5, Number(rating) || 3)),
+      timestamp: new Date(),
+    });
+    conversationQuality.set(userId, userQuality);
+
+    logger.info(`Qualidade de conversa registrada: usuário ${userId} com ${partnerId}. Duração: ${duration}s, Mensagens: ${messages}`);
+    return res.status(200).json({
+      message: 'Qualidade de conversa registrada com sucesso.',
+      partnerId,
+      duration,
+      messages,
+    });
+  } catch (error: any) {
+    next(error);
+  }
+});
+
+app.post('/api/room/want-to-talk-again', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.id;
+    const { partnerId } = req.body || {};
+
+    if (!partnerId) {
+      return res.status(400).json({ error: 'partnerId é obrigatório.' });
+    }
+
+    const userPreferences = repeatMatchPreferences.get(userId) || new Set();
+    userPreferences.add(partnerId);
+    repeatMatchPreferences.set(userId, userPreferences);
+
+    logger.info(`Preferência de repeat match registrada: ${userId} quer conversar novamente com ${partnerId}`);
+    return res.status(200).json({
+      message: 'Preferência de repeat match registrada com sucesso.',
+      partnerId,
     });
   } catch (error: any) {
     next(error);
@@ -535,6 +600,19 @@ app.get('/api/matches/candidates', authenticateToken, async (req: Request, res: 
 
         if (sessionHistory) {
           score += Math.round((sessionHistory.averageRating - 3) * 8);
+        }
+
+        const userRepeatPreferences = repeatMatchPreferences.get(userId);
+        if (userRepeatPreferences && userRepeatPreferences.has(candidate.id)) {
+          score += 40;
+        }
+
+        const conversationMetrics = conversationQuality.get(userId)?.get(candidate.id);
+        if (conversationMetrics) {
+          const qualityBoost = Math.min(30, conversationMetrics.duration / 10 + conversationMetrics.messages / 2);
+          score += Math.round(qualityBoost);
+          const timeDecay = Math.max(0.5, 1 - (Date.now() - conversationMetrics.timestamp.getTime()) / (30 * 24 * 60 * 60 * 1000));
+          score *= timeDecay;
         }
 
         return {
