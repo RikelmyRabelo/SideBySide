@@ -11,7 +11,16 @@ import winston from 'winston';
 import { prisma } from './lib/prisma';
 
 const app = express();
-app.use(cors());
+
+// CORREÇÃO: CORS configurado para aceitar apenas requisições do frontend autorizado
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://seusiteoficial.com'] // TODO: Substitua pelo seu domínio real quando colocar em produção
+    : ['http://localhost:5173', 'http://localhost:4173'], // Portas padrão do Vite
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true
+}));
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
@@ -59,19 +68,18 @@ const transporter = nodemailer.createTransport({
   debug: false,
 });
 
+// CORREÇÃO: Rate Limiter ajustado contra Força Bruta
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: Number.MAX_SAFE_INTEGER,
-  skip: () => true,
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 10, // Limite de 10 requisições por IP a cada 15 min
   message: { error: 'Muitas requisições a partir deste IP, tente novamente após 15 minutos.' },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
 const passwordResetLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: Number.MAX_SAFE_INTEGER,
-  skip: () => true,
+  windowMs: 60 * 60 * 1000, // 1 hora
+  max: 5, // Limite de 5 tentativas de recuperação por hora
   message: { error: 'Muitas tentativas de recuperação de senha deste IP, tente novamente após 1 hora.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -136,6 +144,7 @@ const resetPasswordSchema = z.object({
   newPassword: z.string().min(6, 'A nova senha deve ter no mínimo 6 caracteres.'),
 });
 
+// Aplica o limiter apenas nas rotas sensíveis de autenticação
 app.post('/api/auth/register', authLimiter, validateRequest(registerSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { name, email, password, level } = req.body;
