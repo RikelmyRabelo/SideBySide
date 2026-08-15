@@ -67,6 +67,36 @@ export const Profile: React.FC = () => {
   const [email, setEmail] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [showAgeInProfile, setShowAgeInProfile] = useState(true);
+
+  const fileToDataUrl = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = String(reader.result || '');
+        const img = new Image();
+        img.onload = () => {
+          const maxWidth = 800;
+          const maxHeight = 800;
+          const scale = Math.min(maxWidth / img.width, maxHeight / img.height, 1);
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(img.width * scale));
+          canvas.height = Math.max(1, Math.round(img.height * scale));
+          const ctx = canvas.getContext('2d');
+
+          if (!ctx) {
+            resolve(result);
+            return;
+          }
+
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', 0.8));
+        };
+        img.onerror = () => reject(new Error('Erro ao processar a imagem do perfil.'));
+        img.src = result;
+      };
+      reader.onerror = () => reject(new Error('Erro ao ler a imagem do perfil.'));
+      reader.readAsDataURL(file);
+    });
   const [gender, setGender] = useState('Masculino');
   const [pronouns, setPronouns] = useState('ele/dele (he/him)');
   const [cefrLevel, setCefrLevel] = useState('B1');
@@ -196,10 +226,16 @@ export const Profile: React.FC = () => {
 
   const goalProgressPercentage = Math.min(100, Math.round((weeklyGoalCompleted / weeklyGoalTarget) * 100));
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setAvatarUrl(URL.createObjectURL(file));
+    if (!file) return;
+
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      setAvatarUrl(dataUrl);
+    } catch (error) {
+      console.error('Erro ao converter imagem para data URL:', error);
+      alert('Não foi possível carregar a imagem do perfil.');
     }
   };
 
@@ -231,12 +267,14 @@ export const Profile: React.FC = () => {
       if (response.ok) {
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
-      } else {
-        alert('Erro ao salvar perfil');
+        return;
       }
+
+      const errorData = await response.json().catch(() => ({}));
+      alert(errorData.error || 'Erro ao salvar perfil');
     } catch (err) {
       console.error(err);
-      alert('Erro de conexão ao salvar perfil');
+      alert('Erro de conexão ao salvar perfil. Tente novamente em instantes.');
     }
   };
 

@@ -41,6 +41,32 @@ export const Onboarding = () => {
     const defaultAvatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80';
     const [avatarUrl, setAvatarUrl] = useState(defaultAvatar);
     const [skipPhoto, setSkipPhoto] = useState(false);
+    const fileToDataUrl = (file) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            const result = String(reader.result || '');
+            const img = new Image();
+            img.onload = () => {
+                const maxWidth = 800;
+                const maxHeight = 800;
+                const scale = Math.min(maxWidth / img.width, maxHeight / img.height, 1);
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.max(1, Math.round(img.width * scale));
+                canvas.height = Math.max(1, Math.round(img.height * scale));
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    resolve(result);
+                    return;
+                }
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                resolve(canvas.toDataURL('image/jpeg', 0.8));
+            };
+            img.onerror = () => reject(new Error('Erro ao processar a imagem do perfil.'));
+            img.src = result;
+        };
+        reader.onerror = () => reject(new Error('Erro ao ler a imagem do perfil.'));
+        reader.readAsDataURL(file);
+    });
     const [displayName, setDisplayName] = useState('');
     const [nameError, setNameError] = useState('');
     const [birthDate, setBirthDate] = useState('');
@@ -54,11 +80,18 @@ export const Onboarding = () => {
     const [photoConfirmed, setPhotoConfirmed] = useState(false);
     const [personalConfirmed, setPersonalConfirmed] = useState(false);
     const [bioConfirmed, setBioConfirmed] = useState(false);
-    const handleAvatarChange = (e) => {
+    const handleAvatarChange = async (e) => {
         const file = e.target.files?.[0];
-        if (file) {
-            setAvatarUrl(URL.createObjectURL(file));
+        if (!file)
+            return;
+        try {
+            const dataUrl = await fileToDataUrl(file);
+            setAvatarUrl(dataUrl);
             setSkipPhoto(false);
+        }
+        catch (error) {
+            console.error('Erro ao converter imagem para data URL:', error);
+            alert('Não foi possível carregar a imagem do perfil.');
         }
     };
     const calculateAge = (dob) => {
