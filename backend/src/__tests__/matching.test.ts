@@ -1,3 +1,5 @@
+import { describe, it, expect } from 'vitest';
+
 describe('Matching Algorithm', () => {
   // Scoring logic
   const levelWeight: Record<string, number> = {

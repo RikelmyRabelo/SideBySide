@@ -1,3 +1,5 @@
+import { describe, it, expect } from 'vitest';
+
 describe('Conversation Quality & Repeat Matching', () => {
   // Quality metrics calculation
   const calculateQualityBoost = (duration: number, messages: number) => {
