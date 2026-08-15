@@ -7,7 +7,8 @@ import { BadgesModal } from '../components/dashboard/BadgesModal';
 import { DeviceCheckModal } from '../components/dashboard/DeviceCheckModal';
 import { SupportModal } from '../components/dashboard/SupportModal';
 import { useToast } from '../components/ui/ToastContext';
-import { UserData, MatchCandidate, NotificationItem, TopicItemType } from '../types/user';
+import { MatchCandidate, NotificationItem, TopicItemType } from '../types/user';
+import { useFetchCache } from '../hooks/useFetchCache';
 
 const FALLBACK_VOCAB_LIST = [
   { word: 'serendipity', phonetic: '/ˌser.ənˈdɪp.ə.ti/', definition: 'A ocorrência de acontecimentos afortunados por mero acaso ou sorte.' },
@@ -42,7 +43,10 @@ interface VocabResult {
 export const Dashboard: React.FC = memo(() => {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const [userData, setUserData] = useState<UserData | null>(null);
+
+  // Utilizando o hook otimizado com cache para dados do usuário
+  const { data: userData } = useFetchCache<any>('http://localhost:3000/api/user/me');
+
   const [mediaMode, setMediaMode] = useState<'video' | 'audio'>('video');
   const [expandedMatching, setExpandedMatching] = useState(true);
   const [isMatching, setIsMatching] = useState(false);
@@ -111,26 +115,6 @@ export const Dashboard: React.FC = memo(() => {
   const userLevelDisplay = useMemo(() => userData?.level || 'B1', [userData]);
   const userReputationDisplay = useMemo(() => userData?.reputation ?? 100, [userData]);
   const userAvatarDisplay = useMemo(() => userData?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80', [userData]);
-
-  // Effects
-  useEffect(() => {
-    const fetchUserData = async () => {
-      const token = localStorage.getItem('token');
-      try {
-        const response = await fetch('http://localhost:3000/api/user/me', {
-          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
-        });
-        if (response.ok) {
-          const data: UserData = await response.json();
-          setUserData(data);
-        }
-      } catch (err) {
-        console.error('Erro ao buscar dados do usuário', err);
-        showToast('Erro ao carregar dados do perfil.', 'error');
-      }
-    };
-    fetchUserData();
-  }, [showToast]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -772,14 +756,15 @@ export const Dashboard: React.FC = memo(() => {
                 <div className="h-full bg-[#1C1917] rounded-full transition-all duration-500 ease-out" style={{ width: `${goalPercentage}%` }} />
               </div>
               <div className="grid grid-cols-7 gap-2 pt-2">
-                {weeklyGoal.days.map((item, index) => (
-                  <div key={index} className="flex flex-col items-center gap-1.5">
-                    <div className={`w-9 h-9 rounded-xl border flex items-center justify-center font-bold text-xs transition-colors ${item.completed ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4]'}`}>
-                      {item.completed ? <svg className="w-4 h-4 fill-none stroke-current stroke-[3]" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg> : '•'}
-                    </div>
-                    <span className="text-[10px] font-bold text-[#78716C] uppercase">{item.day}</span>
-                  </div>
-                ))}
+                {mockMinutesHistory.map((item: { day: string; min: number }, index: number) => (
+  <div key={index} className="flex flex-col items-center gap-2 group w-full">
+    <div className="relative w-full flex justify-center h-full items-end">
+      <div className={`w-6 sm:w-8 rounded-t-md transition-all duration-300 ${item.min > 0 ? 'bg-[#1C1917] group-hover:bg-[#57534E]' : 'bg-[#E7E5E4]'}`} style={{ height: `${item.min === 0 ? 4 : (item.min / 40) * 100}%` }} />
+      {item.min > 0 && <span className="absolute -top-6 text-[9px] font-black text-[#1C1917] opacity-0 group-hover:opacity-100 transition-opacity">{item.min}m</span>}
+    </div>
+    <span className="text-[10px] font-bold text-[#78716C] uppercase mt-1">{item.day}</span>
+  </div>
+))}
               </div>
             </div>
             <div className="flex gap-2">
@@ -860,14 +845,14 @@ export const Dashboard: React.FC = memo(() => {
                 <div className="flex flex-col gap-3">
                   <span className="text-[10px] font-black uppercase tracking-widest text-[#1C1917]">Últimos 7 dias</span>
                   <div className="grid grid-cols-7 gap-2">
-                    {weeklyGoal.days.map((item, index) => (
-                      <div key={index} className="flex flex-col items-center gap-1.5">
-                        <div className={`w-10 h-10 rounded-xl border flex items-center justify-center font-bold text-xs transition-colors ${item.completed ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4]'}`}>
-                          {item.completed ? '🔥' : '🧊'}
-                        </div>
-                        <span className="text-[10px] font-bold text-[#78716C] uppercase">{item.day}</span>
-                      </div>
-                    ))}
+                    {weeklyGoal.days.map((item: { day: string; completed: boolean }, index: number) => (
+  <div key={index} className="flex flex-col items-center gap-1.5">
+    <div className={`w-10 h-10 rounded-xl border flex items-center justify-center font-bold text-xs transition-colors ${item.completed ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4]'}`}>
+      {item.completed ? '🔥' : '🧊'}
+    </div>
+    <span className="text-[10px] font-bold text-[#78716C] uppercase">{item.day}</span>
+  </div>
+))}
                   </div>
                 </div>
               </div>
@@ -889,15 +874,14 @@ export const Dashboard: React.FC = memo(() => {
                 <div className="flex flex-col gap-3">
                   <span className="text-[10px] font-black uppercase tracking-widest text-[#1C1917]">Distribuição Semanal</span>
                   <div className="flex items-end justify-between h-32 pt-4 border-b border-[#E7E5E4]">
-                    {mockMinutesHistory.map((item, index) => (
-                      <div key={index} className="flex flex-col items-center gap-2 group w-full">
-                        <div className="relative w-full flex justify-center h-full items-end">
-                          <div className={`w-6 sm:w-8 rounded-t-md transition-all duration-300 ${item.min > 0 ? 'bg-[#1C1917] group-hover:bg-[#57534E]' : 'bg-[#E7E5E4]'}`} style={{ height: `${item.min === 0 ? 4 : (item.min / 40) * 100}%` }} />
-                          {item.min > 0 && <span className="absolute -top-6 text-[9px] font-black text-[#1C1917] opacity-0 group-hover:opacity-100 transition-opacity">{item.min}m</span>}
-                        </div>
-                        <span className="text-[10px] font-bold text-[#78716C] uppercase mt-1">{item.day}</span>
-                      </div>
-                    ))}
+                    {weeklyGoal.days.map((item: { day: string; completed: boolean }, index: number) => (
+  <div key={index} className="flex flex-col items-center gap-1.5">
+    <div className={`w-9 h-9 rounded-xl border flex items-center justify-center font-bold text-xs transition-colors ${item.completed ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4]'}`}>
+      {item.completed ? <svg className="w-4 h-4 fill-none stroke-current stroke-[3]" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg> : '•'}
+    </div>
+    <span className="text-[10px] font-bold text-[#78716C] uppercase">{item.day}</span>
+  </div>
+))}
                   </div>
                 </div>
               </div>
@@ -911,33 +895,33 @@ export const Dashboard: React.FC = memo(() => {
                 </div>
                 <div className="flex flex-col gap-3 max-h-60 overflow-y-auto">
                   {mockSessionsHistory.length > 0 ? (
-                    mockSessionsHistory.map((session) => (
-                      <div key={session.id} className="bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl p-4 flex flex-col gap-3 hover:border-[#1C1917] transition-colors">
-                        <div className="flex justify-between items-start">
-                          <div className="flex flex-col gap-0.5">
-                            <span className="text-xs font-black text-[#1C1917] uppercase">{session.partner}</span>
-                            <span className="text-[10px] font-bold text-[#78716C]">{session.date}</span>
-                          </div>
-                          <div className="flex items-center gap-1 bg-[#FFFFFF] border border-[#E7E5E4] px-2 py-1 rounded-lg">
-                            <span className="text-[10px] font-black text-amber-500">{'★'.repeat(session.rating)}</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3 pt-2 border-t border-[#E7E5E4]">
-                          <div className="flex items-center gap-1">
-                            <span className="text-[10px] font-bold text-[#A8A29E] uppercase">Duração:</span>
-                            <span className="text-[10px] font-black text-[#1C1917]">{session.duration} min</span>
-                          </div>
-                          <span className="text-[10px] text-[#E7E5E4]">|</span>
-                          <div className="flex items-center gap-1 truncate">
-                            <span className="text-[10px] font-bold text-[#A8A29E] uppercase">Tópico:</span>
-                            <span className="text-[10px] font-black text-[#1C1917] truncate">{session.topic}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="py-8 text-center text-xs font-bold text-[#78716C] uppercase">Nenhuma sessão registrada no histórico ainda.</div>
-                  )}
+  mockSessionsHistory.map((session: { id: string; partner: string; date: string; duration: number; topic: string; rating: number }) => (
+    <div key={session.id} className="bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl p-4 flex flex-col gap-3 hover:border-[#1C1917] transition-colors">
+      <div className="flex justify-between items-start">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-xs font-black text-[#1C1917] uppercase">{session.partner}</span>
+          <span className="text-[10px] font-bold text-[#78716C]">{session.date}</span>
+        </div>
+        <div className="flex items-center gap-1 bg-[#FFFFFF] border border-[#E7E5E4] px-2 py-1 rounded-lg">
+          <span className="text-[10px] font-black text-amber-500">{'★'.repeat(session.rating)}</span>
+        </div>
+      </div>
+      <div className="flex items-center gap-3 pt-2 border-t border-[#E7E5E4]">
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] font-bold text-[#A8A29E] uppercase">Duração:</span>
+          <span className="text-[10px] font-black text-[#1C1917]">{session.duration} min</span>
+        </div>
+        <span className="text-[10px] text-[#E7E5E4]">|</span>
+        <div className="flex items-center gap-1 truncate">
+          <span className="text-[10px] font-bold text-[#A8A29E] uppercase">Tópico:</span>
+          <span className="text-[10px] font-black text-[#1C1917] truncate">{session.topic}</span>
+        </div>
+      </div>
+    </div>
+  ))
+) : (
+  <div className="py-8 text-center text-xs font-bold text-[#78716C] uppercase">Nenhuma sessão registrada no histórico ainda.</div>
+)}
                 </div>
               </div>
             )}
