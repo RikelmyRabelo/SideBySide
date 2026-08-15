@@ -21,6 +21,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'seu-segredo-super-seguro';
 const pendingUsers = new Map<string, { name: string; email: string; passwordHash: string; level: string; code: string }>();
 const verificationCodes = new Map<string, string>();
 const matchFeedback = new Map<string, Map<string, 'positive' | 'negative' | 'skip'>>();
+const sessionFeedback = new Map<string, { averageRating: number; count: number; lastUpdated: Date }>();
 
 const logger = winston.createLogger({
   level: 'info',
@@ -363,6 +364,93 @@ app.post('/api/auth/resend-code', passwordResetLimiter, validateRequest(emailOnl
   }
 });
 
+app.post('/api/room/join', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.id;
+    const { topicId } = req.body || {};
+
+    logger.info(`Usuário ${userId} entrou na sala. Tópico: ${topicId || 'aleatório'}`);
+    return res.status(200).json({
+      message: 'Entrada registrada na sala com sucesso.',
+      topicId: topicId || null,
+    });
+  } catch (error: any) {
+    next(error);
+  }
+});
+
+app.post('/api/room/report', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.id;
+    const { reason } = req.body || {};
+
+    logger.warn(`Denúncia registrada pelo usuário ${userId}. Motivo: ${reason || 'Não informado'}`);
+    return res.status(200).json({
+      message: 'Denúncia registrada com sucesso.',
+      reason: reason || 'Não informado',
+    });
+  } catch (error: any) {
+    next(error);
+  }
+});
+
+app.post('/api/room/rate', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.id;
+    const { partnerRating, platformRating, comment } = req.body || {};
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+
+    const rawAverage = Number(partnerRating ?? platformRating ?? 0);
+    const safeAverage = Number.isFinite(rawAverage) ? Math.max(1, Math.min(5, rawAverage)) : 3;
+    const ratingDelta = Math.round((safeAverage - 3) * 10);
+
+    const updatedReputation = Math.max(0, Math.min(100, (user.reputation || 0) + ratingDelta));
+    const totalSessions = (user.totalSessions || 0) + 1;
+    const totalMinutes = (user.totalMinutes || 0) + 15;
+
+    const historyEntry = {
+      rating: safeAverage,
+      partnerRating: Number(partnerRating ?? 3),
+      platformRating: Number(platformRating ?? 3),
+      comment: comment || '',
+      createdAt: new Date().toISOString(),
+    };
+
+    const previousHistory = Array.isArray(user.sessionsHistory)
+      ? user.sessionsHistory.filter((entry): entry is any => entry !== null && entry !== undefined)
+      : [];
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        reputation: updatedReputation,
+        totalSessions,
+        totalMinutes,
+        lastSession: historyEntry as any,
+        sessionsHistory: [...previousHistory, historyEntry] as any,
+      },
+    });
+
+    sessionFeedback.set(userId, {
+      averageRating: safeAverage,
+      count: (sessionFeedback.get(userId)?.count || 0) + 1,
+      lastUpdated: new Date(),
+    });
+
+    return res.status(200).json({
+      message: 'Avaliação salva com sucesso.',
+      reputation: updatedUser.reputation,
+      averageRating: safeAverage,
+    });
+  } catch (error: any) {
+    next(error);
+  }
+});
+
 app.get('/api/user/me', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user.id;
@@ -400,6 +488,7 @@ app.get('/api/matches/candidates', authenticateToken, async (req: Request, res: 
     }
 
     const storedFeedback = matchFeedback.get(userId) || new Map();
+    const sessionHistory = sessionFeedback.get(userId);
 
     const allUsers = await prisma.user.findMany({
       where: { id: { not: userId } },
@@ -443,6 +532,10 @@ app.get('/api/matches/candidates', authenticateToken, async (req: Request, res: 
         if (feedback === 'positive') score += 20;
         if (feedback === 'negative') score -= 60;
         if (feedback === 'skip') score -= 12;
+
+        if (sessionHistory) {
+          score += Math.round((sessionHistory.averageRating - 3) * 8);
+        }
 
         return {
           id: candidate.id,
