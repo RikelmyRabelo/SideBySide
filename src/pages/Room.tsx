@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ReportModal } from '../components/room/ReportModal';
 import { RatingModal } from '../components/room/RatingModal';
 import { TOPICS_CATALOG, getRandomTopic, TopicItem } from '../data/topicsData';
+import { useRoomStatus } from '../hooks/useRoomStatus';
 
 const formatSessionTimer = (seconds: number) => {
   const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -13,6 +14,9 @@ const formatSessionTimer = (seconds: number) => {
 export const Room: React.FC = memo(() => {
   const navigate = useNavigate();
   const { topicId } = useParams<{ topicId?: string }>();
+  
+  // Utilizando o hook para checar se o usuário já possui uma sessão ativa (Recuperação F5)
+  const { status: roomStatus, loading: roomStatusLoading } = useRoomStatus();
 
   const [currentTopic, setCurrentTopic] = useState<TopicItem>(() => {
     if (topicId && TOPICS_CATALOG[topicId]) {
@@ -237,6 +241,8 @@ export const Room: React.FC = memo(() => {
   }, [handleIceFallback]);
 
   useEffect(() => {
+    if (roomStatusLoading) return;
+
     const loadUserProfile = async () => {
       try {
         const token = localStorage.getItem('token');
@@ -258,21 +264,31 @@ export const Room: React.FC = memo(() => {
     startMedia(true);
 
     const token = localStorage.getItem('token');
-    fetch('http://localhost:3000/api/room/join', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ topicId: currentTopic.id })
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data.partnerId) {
-          setPartnerId(data.partnerId);
-        }
+
+    if (roomStatus?.hasActiveSession) {
+      // RECONEXÃO ATIVA (Caso o usuário tenha dado F5)
+      console.log('Reconectando à sessão ativa:', roomStatus.sessionId);
+      if (roomStatus.topicId && TOPICS_CATALOG[roomStatus.topicId]) {
+        setCurrentTopic(TOPICS_CATALOG[roomStatus.topicId]);
+      }
+    } else {
+      // ENTRADA NORMAL EM NOVA SALA
+      fetch('http://localhost:3000/api/room/join', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ topicId: currentTopic.id })
       })
-      .catch(err => console.error('Erro ao registrar entrada na sala:', err));
+        .then(res => res.json())
+        .then(data => {
+          if (data.partnerId) {
+            setPartnerId(data.partnerId);
+          }
+        })
+        .catch(err => console.error('Erro ao registrar entrada na sala:', err));
+    }
 
     return () => {
       if (streamRef.current) {
@@ -282,7 +298,7 @@ export const Room: React.FC = memo(() => {
         peerConnectionRef.current.close();
       }
     };
-  }, [currentTopic.id, startMedia]);
+  }, [roomStatusLoading, roomStatus, currentTopic.id, startMedia]);
 
   const toggleMicrophone = useCallback(() => {
     if (streamRef.current) {
