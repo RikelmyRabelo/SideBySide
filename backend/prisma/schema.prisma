@@ -7,12 +7,29 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  name         String
-  email        String   @unique
-  password     String
-  level        String   @default("B1")
-  reputation   Int      @default(98)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id               String    @id @default(uuid())
+  name             String
+  email            String    @unique
+  password         String
+  level            String    @default("B1")
+  reputation       Int       @default(100)
+  birthDate        String?
+  showAgeInProfile Boolean   @default(true)
+  gender           String?
+  pronouns         String?
+  bio              String?
+  interests        String[]
+  avatar           String?
+  notifyEmail      Boolean   @default(true)
+  notifyPush       Boolean   @default(true)
+  notifyAdvance    String    @default("15")
+  streak           Int       @default(0)
+  totalMinutes     Int       @default(0)
+  totalSessions    Int       @default(0)
+  lastSession      Json?
+  sessionsHistory  Json[]
+  minutesHistory   Json[]
+  weeklyGoal       Json?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }

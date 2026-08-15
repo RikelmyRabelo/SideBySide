@@ -324,7 +324,7 @@ app.post('/api/auth/verify-code', authLimiter, validateRequest(verifyCodeSchema)
         email: pending.email,
         password: pending.passwordHash,
         level: pending.level,
-        reputation: 98,
+        reputation: 100,
       },
     });
 
@@ -381,7 +381,6 @@ app.get('/api/user/me', authenticateToken, async (req: Request, res: Response, n
     const userId = (req as any).user.id;
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, name: true, email: true, level: true, reputation: true }
     });
 
     if (!user) {
@@ -390,6 +389,38 @@ app.get('/api/user/me', authenticateToken, async (req: Request, res: Response, n
 
     return res.status(200).json(user);
   } catch (error: any) {
+    next(error);
+  }
+});
+
+app.put('/api/user/profile', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.id;
+    const { name, birthDate, showAgeInProfile, gender, pronouns, cefrLevel, bio, interests, avatar, notifyEmail, notifyPush, notifyAdvance } = req.body;
+
+    const updateData: any = {};
+    if (name !== undefined) updateData.name = name;
+    if (birthDate !== undefined) updateData.birthDate = birthDate === '' ? null : birthDate;
+    if (showAgeInProfile !== undefined) updateData.showAgeInProfile = showAgeInProfile;
+    if (gender !== undefined) updateData.gender = gender;
+    if (pronouns !== undefined) updateData.pronouns = pronouns;
+    if (cefrLevel !== undefined) updateData.level = cefrLevel;
+    if (bio !== undefined) updateData.bio = bio;
+    if (interests !== undefined) updateData.interests = interests;
+    if (avatar !== undefined) updateData.avatar = avatar;
+    if (notifyEmail !== undefined) updateData.notifyEmail = notifyEmail;
+    if (notifyPush !== undefined) updateData.notifyPush = notifyPush;
+    if (notifyAdvance !== undefined) updateData.notifyAdvance = notifyAdvance;
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: updateData
+    });
+
+    logger.info(`Perfil atualizado com sucesso para o usuário ID: ${userId}`);
+    return res.status(200).json({ message: 'Perfil atualizado com sucesso.', user: updatedUser });
+  } catch (error: any) {
+    logger.error('Erro ao atualizar perfil:', { error: error.message, stack: error.stack });
     next(error);
   }
 });

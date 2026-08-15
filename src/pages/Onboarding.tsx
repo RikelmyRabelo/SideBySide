@@ -441,7 +441,37 @@ export const Onboarding: React.FC = () => {
             <div className="pt-4 border-t border-[#E7E5E4] animate-in fade-in slide-in-from-top-4 duration-500 ease-out">
               <Button
                 variant="primary"
-                onClick={() => navigate('/auth-success')}
+                onClick={async () => {
+                  try {
+                    const token = localStorage.getItem('token');
+                    const response = await fetch('http://localhost:3000/api/user/profile', {
+                      method: 'PUT',
+                      headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        name: displayName.trim(),
+                        birthDate,
+                        showAgeInProfile,
+                        gender,
+                        pronouns,
+                        cefrLevel,
+                        bio: bio.trim(),
+                        avatar: avatarUrl,
+                      }),
+                    });
+
+                    if (!response.ok) {
+                      const errorData = await response.json().catch(() => ({}));
+                      throw new Error(errorData.error || 'Erro ao salvar dados do onboarding.');
+                    }
+
+                    navigate('/auth-success');
+                  } catch (error: any) {
+                    alert(error.message || 'Erro ao salvar o onboarding.');
+                  }
+                }}
                 className="w-full py-4 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-black text-xs uppercase tracking-widest rounded-xl transition-all border-2 border-[#1C1917] shadow-lg"
               >
                 Concluir Onboarding e Entrar

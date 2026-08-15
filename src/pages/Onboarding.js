@@ -131,5 +131,34 @@ export const Onboarding = () => {
                                         return (_jsxs("button", { type: "button", onClick: () => setCefrLevel(item.code), className: `p-3.5 rounded-2xl border-2 text-left flex items-center justify-between gap-4 transition-all ${isSelected
                                                 ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917] shadow-sm'
                                                 : 'bg-[#FAF9F6] text-[#1C1917] border-[#E7E5E4] hover:border-[#1C1917]'}`, children: [_jsxs("div", { className: "flex items-center gap-3", children: [_jsx("span", { className: `w-8 h-8 rounded-xl font-black text-xs flex items-center justify-center border-2 ${isSelected ? 'bg-[#FAF9F6] text-[#1C1917] border-[#FAF9F6]' : 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]'}`, children: item.code }), _jsxs("div", { className: "flex flex-col", children: [_jsx("span", { className: "text-xs font-black uppercase", children: item.label }), _jsx("span", { className: `text-[11px] font-medium ${isSelected ? 'text-[#D6D3D1]' : 'text-[#78716C]'}`, children: item.desc })] })] }), isSelected && _jsx("span", { className: "text-xs font-black", children: "\u2713" })] }, item.code));
-                                    }) })] })), bioConfirmed && cefrLevel !== '' && (_jsx("div", { className: "pt-4 border-t border-[#E7E5E4] animate-in fade-in slide-in-from-top-4 duration-500 ease-out", children: _jsx(Button, { variant: "primary", onClick: () => navigate('/auth-success'), className: "w-full py-4 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-black text-xs uppercase tracking-widest rounded-xl transition-all border-2 border-[#1C1917] shadow-lg", children: "Concluir Onboarding e Entrar" }) }))] }) })] }));
+                                    }) })] })), bioConfirmed && cefrLevel !== '' && (_jsx("div", { className: "pt-4 border-t border-[#E7E5E4] animate-in fade-in slide-in-from-top-4 duration-500 ease-out", children: _jsx(Button, { variant: "primary", onClick: async () => {
+                                    try {
+                                        const token = localStorage.getItem('token');
+                                        const response = await fetch('http://localhost:3000/api/user/profile', {
+                                            method: 'PUT',
+                                            headers: {
+                                                'Authorization': `Bearer ${token}`,
+                                                'Content-Type': 'application/json',
+                                            },
+                                            body: JSON.stringify({
+                                                name: displayName.trim(),
+                                                birthDate,
+                                                showAgeInProfile,
+                                                gender,
+                                                pronouns,
+                                                cefrLevel,
+                                                bio: bio.trim(),
+                                                avatar: avatarUrl,
+                                            }),
+                                        });
+                                        if (!response.ok) {
+                                            const errorData = await response.json().catch(() => ({}));
+                                            throw new Error(errorData.error || 'Erro ao salvar dados do onboarding.');
+                                        }
+                                        navigate('/auth-success');
+                                    }
+                                    catch (error) {
+                                        alert(error.message || 'Erro ao salvar o onboarding.');
+                                    }
+                                }, className: "w-full py-4 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-black text-xs uppercase tracking-widest rounded-xl transition-all border-2 border-[#1C1917] shadow-lg", children: "Concluir Onboarding e Entrar" }) }))] }) })] }));
 };
