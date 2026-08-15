@@ -11,7 +11,6 @@ import winston from 'winston';
 import cookieParser from 'cookie-parser';
 import { prisma } from './lib/prisma';
 
-// Importações do Socket.io
 import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import cookie from 'cookie';
@@ -34,7 +33,6 @@ app.use(cookieParser());
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'seu-segredo-super-seguro';
 
-// Criação do Servidor HTTP acoplado ao Express e ao Socket.io
 const server = http.createServer(app);
 const io = new SocketIOServer(server, {
   cors: corsOptions
@@ -134,7 +132,7 @@ const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
 };
 
 /* =========================================
-   LÓGICA DO SOCKET.IO (MATCHMAKING)
+   LÓGICA DO SOCKET.IO (MATCHMAKING & WEBRTC)
 ========================================= */
 
 io.use((socket, next) => {
@@ -180,10 +178,20 @@ io.on('connection', (socket) => {
       if (partnerSocket) partnerSocket.join(roomId);
 
       logger.info(`🤝 MATCH ENCONTRADO: ${user.email} <> ${partner.email} na sala ${roomId}`);
-      io.to(roomId).emit('match_found', { 
+      
+      // NOVO: Define quem inicia a chamada (initiator)
+      socket.emit('match_found', { 
         roomId, 
-        partnerId: partner.userId 
+        partnerId: partner.userId,
+        initiator: true 
       });
+      if (partnerSocket) {
+        partnerSocket.emit('match_found', { 
+          roomId, 
+          partnerId: user.id,
+          initiator: false 
+        });
+      }
     } else {
       waitingQueue.push({ socketId: socket.id, userId: user.id, email: user.email });
     }
@@ -195,6 +203,30 @@ io.on('connection', (socket) => {
       waitingQueue.splice(index, 1);
       logger.info(`🚫 ${user.email} saiu da fila de busca.`);
     }
+  });
+
+  // NOVO: Entrar ativamente em uma sala já criada para iniciar o WebRTC
+  socket.on('join_room', ({ roomId }) => {
+    socket.join(roomId);
+    logger.info(`🚪 ${user.email} juntou-se à sala WebRTC: ${roomId}`);
+  });
+
+  // NOVO: Eventos de Sinalização WebRTC (Ponto a Ponto)
+  socket.on('webrtc_offer', (data) => {
+    socket.to(data.roomId).emit('webrtc_offer', { sdp: data.sdp, senderId: user.id });
+  });
+
+  socket.on('webrtc_answer', (data) => {
+    socket.to(data.roomId).emit('webrtc_answer', { sdp: data.sdp, senderId: user.id });
+  });
+
+  socket.on('webrtc_ice_candidate', (data) => {
+    socket.to(data.roomId).emit('webrtc_ice_candidate', { candidate: data.candidate, senderId: user.id });
+  });
+
+  // NOVO: Envio do Chat Textual via Socket
+  socket.on('chat_message', (data) => {
+    socket.to(data.roomId).emit('chat_message', { text: data.text, senderId: user.id, id: Date.now() });
   });
 
   socket.on('disconnect', () => {
