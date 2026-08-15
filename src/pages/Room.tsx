@@ -335,7 +335,10 @@ export const Room: React.FC = () => {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ reason })
+        body: JSON.stringify({
+          reportedUserId: partnerId,
+          reason,
+        })
       });
     } catch (err) {
       console.error('Erro ao enviar denúncia', err);

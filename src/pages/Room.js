@@ -297,7 +297,10 @@ export const Room = () => {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ reason })
+                body: JSON.stringify({
+                    reportedUserId: partnerId,
+                    reason,
+                })
             });
         }
         catch (err) {

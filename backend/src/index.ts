@@ -24,6 +24,7 @@ const matchFeedback = new Map<string, Map<string, 'positive' | 'negative' | 'ski
 const sessionFeedback = new Map<string, { averageRating: number; count: number; lastUpdated: Date }>();
 const conversationQuality = new Map<string, Map<string, { duration: number; messages: number; rating: number; timestamp: Date }>>();
 const repeatMatchPreferences = new Map<string, Set<string>>();
+const reports = new Map<string, { reporterId: string; reason: string; timestamp: Date }[]>();
 
 const logger = winston.createLogger({
   level: 'info',
@@ -394,12 +395,59 @@ app.post('/api/room/join', authenticateToken, async (req: Request, res: Response
 app.post('/api/room/report', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user.id;
-    const { reason } = req.body || {};
+    const { reportedUserId, reason } = req.body || {};
 
-    logger.warn(`Denúncia registrada pelo usuário ${userId}. Motivo: ${reason || 'Não informado'}`);
-    return res.status(200).json({
+    if (!reportedUserId || !reason) {
+      return res.status(400).json({ error: 'reportedUserId e reason são obrigatórios.' });
+    }
+
+    const reported = await prisma.user.findUnique({ where: { id: reportedUserId } });
+    if (!reported) {
+      return res.status(404).json({ error: 'Usuário reportado não encontrado.' });
+    }
+
+    const userReports = reports.get(reportedUserId) || [];
+    userReports.push({ reporterId: userId, reason, timestamp: new Date() });
+    reports.set(reportedUserId, userReports);
+
+    const newReportCount = (reported.reportCount || 0) + 1;
+    let flagStatus = reported.flagStatus || 'clean';
+    let bannedUntil = reported.bannedUntil;
+
+    if (newReportCount >= 3 && flagStatus === 'clean') {
+      flagStatus = 'warning';
+    } else if (newReportCount >= 6 && flagStatus === 'warning') {
+      flagStatus = 'suspended';
+      bannedUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    } else if (newReportCount >= 10) {
+      flagStatus = 'banned';
+    }
+
+    await prisma.user.update({
+      where: { id: reportedUserId },
+      data: {
+        reportCount: newReportCount,
+        flagStatus,
+        flagReason: reason,
+        flaggedAt: new Date(),
+        isBanned: flagStatus === 'banned',
+        bannedUntil,
+      },
+    });
+
+    const report = await prisma.report.create({
+      data: {
+        reporterId: userId,
+        reportedUserId,
+        reason,
+      },
+    });
+
+    logger.warn(`Denúncia criada: ${userId} reportou ${reportedUserId}. Motivo: ${reason}. Total: ${newReportCount}. Flag: ${flagStatus}`);
+    return res.status(201).json({
       message: 'Denúncia registrada com sucesso.',
-      reason: reason || 'Não informado',
+      reportId: report.id,
+      userFlagStatus: flagStatus,
     });
   } catch (error: any) {
     next(error);
@@ -556,7 +604,14 @@ app.get('/api/matches/candidates', authenticateToken, async (req: Request, res: 
     const sessionHistory = sessionFeedback.get(userId);
 
     const allUsers = await prisma.user.findMany({
-      where: { id: { not: userId } },
+      where: {
+        id: { not: userId },
+        isBanned: false,
+        OR: [
+          { bannedUntil: null },
+          { bannedUntil: { lt: new Date() } }
+        ]
+      },
       select: {
         id: true,
         name: true,
@@ -566,6 +621,7 @@ app.get('/api/matches/candidates', authenticateToken, async (req: Request, res: 
         totalSessions: true,
         totalMinutes: true,
         avatar: true,
+        flagStatus: true,
       },
     });
 
@@ -615,6 +671,10 @@ app.get('/api/matches/candidates', authenticateToken, async (req: Request, res: 
           score *= timeDecay;
         }
 
+        let flagPenalty = 0;
+        if (candidate.flagStatus === 'warning') flagPenalty = -30;
+        if (candidate.flagStatus === 'suspended') flagPenalty = -80;
+
         return {
           id: candidate.id,
           name: candidate.name,
@@ -622,14 +682,15 @@ app.get('/api/matches/candidates', authenticateToken, async (req: Request, res: 
           avatar: candidate.avatar,
           interests: candidate.interests || [],
           sharedInterests,
-          score: Math.round(score),
+          score: Math.round(score + flagPenalty),
           reputation: candidate.reputation,
           totalSessions: candidate.totalSessions || 0,
           totalMinutes: candidate.totalMinutes || 0,
           history: feedback || null,
+          flagStatus: candidate.flagStatus,
         };
       })
-      .filter((candidate) => candidate.score > 0)
+      .filter((candidate) => candidate.score > 0 && candidate.flagStatus !== 'banned')
       .sort((a, b) => b.score - a.score)
       .slice(0, 8);
 
@@ -698,6 +759,124 @@ app.put('/api/user/profile', authenticateToken, async (req: Request, res: Respon
     return res.status(200).json({ message: 'Perfil atualizado com sucesso.', user: updatedUser });
   } catch (error: any) {
     logger.error('Erro ao atualizar perfil:', { error: error.message, stack: error.stack });
+    next(error);
+  }
+});
+
+app.get('/api/admin/reports', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.id;
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    
+    if (!user || user.level !== 'C2') {
+      return res.status(403).json({ error: 'Acesso negado. Apenas moderadores podem acessar.' });
+    }
+
+    const openReports = await prisma.report.findMany({
+      where: { status: 'open' },
+      select: {
+        id: true,
+        reporterId: true,
+        reportedUserId: true,
+        reason: true,
+        description: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+
+    const enriched = openReports.map((report: any) => {
+      const userReports = reports.get(report.reportedUserId) || [];
+      return {
+        ...report,
+        userReportCount: userReports.length,
+      };
+    });
+
+    return res.status(200).json({
+      message: 'Relatórios abertos carregados.',
+      reports: enriched,
+      total: enriched.length,
+    });
+  } catch (error: any) {
+    next(error);
+  }
+});
+
+app.get('/api/admin/flagged-users', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.id;
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    
+    if (!user || user.level !== 'C2') {
+      return res.status(403).json({ error: 'Acesso negado. Apenas moderadores podem acessar.' });
+    }
+
+    const flaggedUsers = await prisma.user.findMany({
+      where: {
+        NOT: { flagStatus: 'clean' },
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        flagStatus: true,
+        flagReason: true,
+        flaggedAt: true,
+        reportCount: true,
+        isBanned: true,
+        bannedUntil: true,
+      },
+      orderBy: { flaggedAt: 'desc' },
+    });
+
+    return res.status(200).json({
+      message: 'Usuários marcados carregados.',
+      users: flaggedUsers,
+      total: flaggedUsers.length,
+    });
+  } catch (error: any) {
+    next(error);
+  }
+});
+
+app.post('/api/admin/resolve-report', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.id;
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    
+    if (!user || user.level !== 'C2') {
+      return res.status(403).json({ error: 'Acesso negado. Apenas moderadores podem acessar.' });
+    }
+
+    const { reportId, resolution } = req.body || {};
+    if (!reportId || !resolution) {
+      return res.status(400).json({ error: 'reportId e resolution são obrigatórios.' });
+    }
+
+    const report = await prisma.report.findUnique({ where: { id: reportId } });
+    if (!report) {
+      return res.status(404).json({ error: 'Relatório não encontrado.' });
+    }
+
+    const updated = await prisma.report.update({
+      where: { id: reportId },
+      data: {
+        status: 'resolved',
+        resolution,
+        resolvedAt: new Date(),
+      },
+    });
+
+    logger.info(`Relatório ${reportId} resolvido por ${userId}. Resolução: ${resolution}`);
+    return res.status(200).json({
+      message: 'Relatório resolvido com sucesso.',
+      report: updated,
+    });
+  } catch (error: any) {
     next(error);
   }
 });
