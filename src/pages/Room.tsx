@@ -305,7 +305,16 @@ export const Room: React.FC = memo(() => {
   ======================================================== */
   const initializeWebRTC = useCallback(async (socket: Socket, currentRoomId: string, isInitiator: boolean) => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      // SBS-115: Recupera preferências de hardware salvas no localStorage
+      const preferredAudioId = localStorage.getItem('sbs_preferred_audio_id');
+      const preferredVideoId = localStorage.getItem('sbs_preferred_video_id');
+
+      const constraints: MediaStreamConstraints = {
+        audio: preferredAudioId ? { deviceId: { exact: preferredAudioId } } : true,
+        video: preferredVideoId ? { deviceId: { exact: preferredVideoId } } : true,
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
       if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 
