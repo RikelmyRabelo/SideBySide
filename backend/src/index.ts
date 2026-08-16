@@ -158,6 +158,7 @@ interface WaitingUser {
   email: string;
 }
 const waitingQueue: WaitingUser[] = [];
+const socketRooms = new Map<string, string>(); // Rastreamento de salas ativas por socket
 
 io.on('connection', (socket) => {
   const user = (socket as any).user;
@@ -174,12 +175,16 @@ io.on('connection', (socket) => {
       const roomId = `room_${Date.now()}`;
       
       socket.join(roomId);
+      socketRooms.set(socket.id, roomId);
+
       const partnerSocket = io.sockets.sockets.get(partner.socketId);
-      if (partnerSocket) partnerSocket.join(roomId);
+      if (partnerSocket) {
+        partnerSocket.join(roomId);
+        socketRooms.set(partner.socketId, roomId);
+      }
 
       logger.info(`🤝 MATCH ENCONTRADO: ${user.email} <> ${partner.email} na sala ${roomId}`);
       
-      // NOVO: Define quem inicia a chamada (initiator)
       socket.emit('match_found', { 
         roomId, 
         partnerId: partner.userId,
@@ -205,13 +210,12 @@ io.on('connection', (socket) => {
     }
   });
 
-  // NOVO: Entrar ativamente em uma sala já criada para iniciar o WebRTC
   socket.on('join_room', ({ roomId }) => {
     socket.join(roomId);
+    socketRooms.set(socket.id, roomId);
     logger.info(`🚪 ${user.email} juntou-se à sala WebRTC: ${roomId}`);
   });
 
-  // NOVO: Eventos de Sinalização WebRTC (Ponto a Ponto)
   socket.on('webrtc_offer', (data) => {
     socket.to(data.roomId).emit('webrtc_offer', { sdp: data.sdp, senderId: user.id });
   });
@@ -224,7 +228,6 @@ io.on('connection', (socket) => {
     socket.to(data.roomId).emit('webrtc_ice_candidate', { candidate: data.candidate, senderId: user.id });
   });
 
-  // NOVO: Envio do Chat Textual via Socket
   socket.on('chat_message', (data) => {
     socket.to(data.roomId).emit('chat_message', { text: data.text, senderId: user.id, id: Date.now() });
   });
@@ -234,6 +237,14 @@ io.on('connection', (socket) => {
     if (index !== -1) {
       waitingQueue.splice(index, 1);
     }
+
+    // SBS-105: Emite partner_left para o outro participante da sala caso caia
+    const roomId = socketRooms.get(socket.id);
+    if (roomId) {
+      socket.to(roomId).emit('partner_left');
+      socketRooms.delete(socket.id);
+    }
+
     logger.info(`❌ Usuário desconectado via Socket: ${user.email}`);
   });
 });

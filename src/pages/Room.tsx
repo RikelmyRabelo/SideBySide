@@ -41,6 +41,9 @@ export const Room: React.FC = memo(() => {
   const [isSearchingNextPair, setIsSearchingNextPair] = useState(false);
   const [pendingAction, setPendingAction] = useState<'exit' | 'nextPair' | null>(null);
 
+  // SBS-105: Estado para controle de desconexão do parceiro
+  const [partnerDisconnected, setPartnerDisconnected] = useState(false);
+
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'reconnecting' | 'failed'>('connected');
   const [sessionElapsedSeconds, setSessionElapsedSeconds] = useState(0);
   const sessionStartedAtRef = useRef<number | null>(null);
@@ -135,19 +138,18 @@ export const Room: React.FC = memo(() => {
   }, [isSearchingNextPair]);
 
   useEffect(() => {
-    if (connectionStatus === 'connected') {
+    if (connectionStatus === 'connected' && !partnerDisconnected) {
       if (!sessionStartedAtRef.current) sessionStartedAtRef.current = Date.now();
       const timer = window.setInterval(() => {
         if (sessionStartedAtRef.current) setSessionElapsedSeconds(Math.floor((Date.now() - sessionStartedAtRef.current) / 1000));
       }, 1000);
       return () => window.clearInterval(timer);
     }
-    if (connectionStatus === 'reconnecting' || connectionStatus === 'failed') {
+    if (connectionStatus === 'reconnecting' || connectionStatus === 'failed' || partnerDisconnected) {
       sessionStartedAtRef.current = null;
-      setSessionElapsedSeconds(0);
     }
     return undefined;
-  }, [connectionStatus]);
+  }, [connectionStatus, partnerDisconnected]);
 
   const toggleFullscreen = useCallback(async () => {
     try {
@@ -231,10 +233,17 @@ export const Room: React.FC = memo(() => {
     newSocket.on('match_found', async (data: { roomId: string; partnerId: string; initiator: boolean }) => {
       setRoomId(data.roomId);
       setPartnerId(data.partnerId);
+      setPartnerDisconnected(false);
       setIsSearchingNextPair(false);
       
       // Inicia a dança do WebRTC
       await initializeWebRTC(newSocket, data.roomId, data.initiator);
+    });
+
+    // SBS-105: Escuta a queda abrupta ou fechamento de aba do parceiro
+    newSocket.on('partner_left', () => {
+      setPartnerDisconnected(true);
+      stopMediaStream();
     });
 
     // Escutando Oferta de Vídeo
@@ -319,6 +328,7 @@ export const Room: React.FC = memo(() => {
 
   const triggerSearchNextPair = useCallback(() => {
     stopMediaStream(); // SBS-104: Encerra streams atuais antes de buscar novo par
+    setPartnerDisconnected(false);
     setConnectionStatus('reconnecting');
     setChatMessages([]);
     setIsSearchingNextPair(true);
@@ -339,7 +349,7 @@ export const Room: React.FC = memo(() => {
         credentials: 'include',
         body: JSON.stringify(data)
       });
-      if (partnerId) {
+      if (partnerId && !partnerDisconnected) {
         const averageRating = (data.partnerRating + data.platformRating) / 2;
         await fetch('http://localhost:3000/api/room/quality', {
           method: 'POST',
@@ -360,7 +370,7 @@ export const Room: React.FC = memo(() => {
     
     if (pendingAction === 'exit') navigate('/dashboard');
     else triggerSearchNextPair();
-  }, [partnerId, sessionElapsedSeconds, chatMessages.length, pendingAction, navigate, triggerSearchNextPair]);
+  }, [partnerId, partnerDisconnected, sessionElapsedSeconds, chatMessages.length, pendingAction, navigate, triggerSearchNextPair]);
 
   const handleRatingClose = useCallback(() => {
     setIsRatingOpen(false);
@@ -423,29 +433,59 @@ export const Room: React.FC = memo(() => {
         </div>
       )}
 
+      {/* SBS-105: Overlay de aviso quando o parceiro se desconecta */}
+      {partnerDisconnected && (
+        <div className="fixed inset-0 bg-[#1C1917]/80 backdrop-blur-md z-[120] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-8 max-w-md w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-6 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-amber-50 border-2 border-amber-200 text-amber-600 flex items-center justify-center mx-auto shadow-sm">
+              <svg className="w-8 h-8 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3" />
+              </svg>
+            </div>
+            <div className="flex flex-col gap-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#FAF9F6] bg-[#1C1917] px-2.5 py-0.5 rounded w-fit mx-auto">
+                PARCEIRO DESCONECTADO
+              </span>
+              <h3 className="text-lg font-black uppercase text-[#1C1917]">
+                Seu par saiu da chamada
+              </h3>
+              <p className="text-xs text-[#57534E] font-medium leading-relaxed">
+                A conexão foi encerrada porque o outro participante fechou a aba ou perdeu a conexão. Deseja procurar um novo par ou retornar ao painel?
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => navigate('/dashboard')}
+                className="flex-1 py-3 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] text-xs font-black uppercase rounded-xl hover:bg-[#F5F5F4] transition-all"
+              >
+                Voltar ao Painel
+              </button>
+              <button
+                type="button"
+                onClick={triggerSearchNextPair}
+                className="flex-1 py-3 bg-[#1C1917] text-[#FAF9F6] text-xs font-black uppercase rounded-xl border-2 border-[#1C1917] hover:bg-[#292524] transition-all shadow-sm"
+              >
+                Procurar Novo Par
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className={`flex-1 flex overflow-hidden ${isFullscreen ? 'p-0' : 'p-4 gap-4'}`}>
         <div ref={videoContainerRef} className={`flex-1 bg-[#FFFFFF] relative flex flex-col justify-between overflow-hidden ${isFullscreen ? 'rounded-none border-none' : 'rounded-2xl border border-[#E7E5E4] shadow-sm'}`}>
-          {connectionStatus === 'connected' && !isSearchingNextPair && (
+          {connectionStatus === 'connected' && !isSearchingNextPair && !partnerDisconnected && (
             <div className="absolute top-4 right-4 z-20 flex items-center gap-2 bg-[#FFFFFF]/90 backdrop-blur-md px-3 py-1.5 rounded-xl text-[10px] font-black uppercase text-emerald-700 border border-[#E7E5E4] shadow-sm">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>Conexão Excelente</span>
             </div>
           )}
 
-          {connectionStatus === 'reconnecting' && !isSearchingNextPair && (
+          {connectionStatus === 'reconnecting' && !isSearchingNextPair && !partnerDisconnected && (
             <div className="absolute top-4 right-4 z-20 flex items-center gap-2 bg-amber-50/90 backdrop-blur-md px-3 py-1.5 rounded-xl text-[10px] font-black uppercase text-amber-700 border border-amber-200 shadow-sm animate-in fade-in duration-300">
               <span className="w-3 h-3 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
               <span>Reconectando...</span>
-            </div>
-          )}
-
-          {connectionStatus === 'reconnecting' && !isSearchingNextPair && (
-            <div className="absolute inset-0 bg-[#1C1917]/40 backdrop-blur-sm z-30 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
-              <div className="bg-[#FFFFFF] p-6 rounded-2xl shadow-xl flex flex-col items-center gap-3 border border-[#E7E5E4]">
-                <div className="w-12 h-12 rounded-full border-4 border-[#F5F5F4] border-t-amber-500 animate-spin" />
-                <h3 className="text-sm font-black uppercase text-[#1C1917] mt-2">Oscilação de Rede</h3>
-                <p className="text-xs text-[#57534E] font-medium max-w-xs">Sua internet oscilou. Não saia da sala, estamos restaurando a comunicação com seu par...</p>
-              </div>
             </div>
           )}
 
