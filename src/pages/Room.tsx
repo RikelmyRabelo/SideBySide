@@ -50,6 +50,13 @@ export const Room: React.FC = memo(() => {
   const [spokenHistory, setSpokenHistory] = useState<string[]>([]);
   const speechRecognitionRef = useRef<any>(null);
 
+  // SBS-109: Estados de Fala Ativa (Audio Analyzer)
+  const [isUserSpeaking, setIsUserSpeaking] = useState(false);
+  const [isPartnerSpeaking, setIsPartnerSpeaking] = useState(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animationFrameAudioRef = useRef<number | null>(null);
+
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'reconnecting' | 'failed'>('connected');
   const [sessionElapsedSeconds, setSessionElapsedSeconds] = useState(0);
   const sessionStartedAtRef = useRef<number | null>(null);
@@ -76,8 +83,57 @@ export const Room: React.FC = memo(() => {
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
   const [cursorOpacity, setCursorOpacity] = useState(1);
 
+  // SBS-109: Inicializador do Analisador de Áudio para detectar fala ativa
+  const setupAudioAnalyzer = useCallback((stream: MediaStream) => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+
+      const audioCtx = new AudioCtx();
+      audioContextRef.current = audioCtx;
+
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 512;
+      analyserRef.current = analyser;
+
+      const source = audioCtx.createMediaStreamSource(stream);
+      source.connect(analyser);
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+      const checkAudioLevel = () => {
+        if (!analyserRef.current) return;
+        analyserRef.current.getByteFrequencyData(dataArray);
+        
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          sum += dataArray[i];
+        }
+        const average = sum / dataArray.length;
+
+        // Limiar de detecção de fala ativa
+        setIsUserSpeaking(average > 12 && micActive);
+        animationFrameAudioRef.current = requestAnimationFrame(checkAudioLevel);
+      };
+
+      checkAudioLevel();
+    } catch (e) {
+      console.error('Erro ao configurar Web Audio API:', e);
+    }
+  }, [micActive]);
+
   // SBS-104: Função centralizada para limpeza rigorosa do hardware (Câmera e Microfone)
   const stopMediaStream = useCallback(() => {
+    if (animationFrameAudioRef.current) {
+      cancelAnimationFrame(animationFrameAudioRef.current);
+      animationFrameAudioRef.current = null;
+    }
+
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+
     // SBS-107: Para também a transcrição de voz se ativa
     if (speechRecognitionRef.current) {
       try {
@@ -251,6 +307,9 @@ export const Room: React.FC = memo(() => {
       streamRef.current = stream;
       if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 
+      // SBS-109: Configura o analisador de áudio local
+      setupAudioAnalyzer(stream);
+
       // 2. Cria a conexão WebRTC
       const pc = new RTCPeerConnection(ICE_SERVERS);
       peerConnectionRef.current = pc;
@@ -263,6 +322,26 @@ export const Room: React.FC = memo(() => {
         if (remoteVideoRef.current && event.streams[0]) {
           remoteVideoRef.current.srcObject = event.streams[0];
           setConnectionStatus('connected');
+
+          // SBS-109: Simulação de fala ativa do parceiro com base no fluxo remoto recebido
+          const remoteStream = event.streams[0];
+          try {
+            const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+            const remoteAudioCtx = new AudioCtx();
+            const remoteAnalyser = remoteAudioCtx.createAnalyser();
+            const remoteSource = remoteAudioCtx.createMediaStreamSource(remoteStream);
+            remoteSource.connect(remoteAnalyser);
+            const remoteArray = new Uint8Array(remoteAnalyser.frequencyBinCount);
+
+            const checkRemoteAudio = () => {
+              remoteAnalyser.getByteFrequencyData(remoteArray);
+              let rSum = 0;
+              for (let i = 0; i < remoteArray.length; i++) rSum += remoteArray[i];
+              setIsPartnerSpeaking((rSum / remoteArray.length) > 10);
+              requestAnimationFrame(checkRemoteAudio);
+            };
+            checkRemoteAudio();
+          } catch (e) {}
         }
       };
 
@@ -288,7 +367,7 @@ export const Room: React.FC = memo(() => {
       setMediaError('Permita o uso da câmera e do microfone para conversar.');
       console.error('Erro no WebRTC:', err);
     }
-  }, []);
+  }, [setupAudioAnalyzer]);
 
   useEffect(() => {
     if (roomStatusLoading) return;
@@ -551,11 +630,15 @@ export const Room: React.FC = memo(() => {
       )}
 
       <div className={`flex-1 flex overflow-hidden ${isFullscreen ? 'p-0' : 'p-4 gap-4'}`}>
-        <div ref={videoContainerRef} className={`flex-1 bg-[#FFFFFF] relative flex flex-col justify-between overflow-hidden ${isFullscreen ? 'rounded-none border-none' : 'rounded-2xl border border-[#E7E5E4] shadow-sm'}`}>
+        <div ref={videoContainerRef} className={`flex-1 bg-[#FFFFFF] relative flex flex-col justify-between overflow-hidden ${isFullscreen ? 'rounded-none border-none' : `rounded-2xl border-2 transition-all duration-300 ${isPartnerSpeaking ? 'border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)]' : 'border-[#E7E5E4] shadow-sm'}`}`}>
           {connectionStatus === 'connected' && !isSearchingNextPair && !partnerDisconnected && (
             <div className="absolute top-4 right-4 z-20 flex items-center gap-2 bg-[#FFFFFF]/90 backdrop-blur-md px-3 py-1.5 rounded-xl text-[10px] font-black uppercase text-emerald-700 border border-[#E7E5E4] shadow-sm">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>Conexão Excelente</span>
+              {/* SBS-109: Indicador de fala ativa do parceiro */}
+              {isPartnerSpeaking && (
+                <span className="bg-emerald-500 text-white px-1.5 py-0.5 rounded text-[8px] animate-bounce">falando...</span>
+              )}
             </div>
           )}
 
@@ -600,13 +683,15 @@ export const Room: React.FC = memo(() => {
           ) : (
             <div className="absolute inset-0 bg-[#F5F5F4] flex items-center justify-center">
               <video ref={remoteVideoRef} autoPlay playsInline className={`w-full h-full object-cover transition-opacity duration-300 ${connectionStatus === 'reconnecting' ? 'opacity-40 grayscale-[50%]' : 'opacity-100'}`} />
-              <div className="absolute bottom-4 left-6 bg-[#1C1917]/80 backdrop-blur-md px-3 py-1.5 rounded-xl text-xs font-black text-[#FAF9F6] uppercase z-10">
-                Parceiro de Prática
+              <div className="absolute bottom-4 left-6 bg-[#1C1917]/80 backdrop-blur-md px-3 py-1.5 rounded-xl text-xs font-black text-[#FAF9F6] uppercase z-10 flex items-center gap-2">
+                <span>Parceiro de Prática</span>
+                {isPartnerSpeaking && <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />}
               </div>
             </div>
           )}
 
-          <div className="absolute bottom-5 right-6 left-auto top-auto z-40 w-44 h-28 rounded-2xl overflow-hidden border-2 border-[#FFFFFF] shadow-2xl bg-[#1C1917]">
+          {/* SBS-109: Card de vídeo local com destaque de fala ativa */}
+          <div className={`absolute bottom-5 right-6 left-auto top-auto z-40 w-44 h-28 rounded-2xl overflow-hidden border-2 shadow-2xl bg-[#1C1917] transition-all duration-300 ${isUserSpeaking ? 'border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'border-[#FFFFFF]'}`}>
             <video ref={localVideoRef} autoPlay playsInline muted className={`w-full h-full object-cover transform -scale-x-100 ${camActive ? 'block' : 'hidden'}`} />
             {!camActive && (
               <div className="w-full h-full bg-[#1C1917] flex flex-col items-center justify-center relative overflow-hidden">
@@ -614,7 +699,10 @@ export const Room: React.FC = memo(() => {
                 <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px]" />
               </div>
             )}
-            <div className="absolute bottom-1.5 left-2 bg-[#1C1917]/80 backdrop-blur-sm px-2 py-0.5 rounded text-[9px] font-black uppercase text-[#FAF9F6] z-10">Você {!micActive && '(Mudo)'}</div>
+            <div className="absolute bottom-1.5 left-2 bg-[#1C1917]/80 backdrop-blur-sm px-2 py-0.5 rounded text-[9px] font-black uppercase text-[#FAF9F6] z-10 flex items-center gap-1.5">
+              <span>Você {!micActive && '(Mudo)'}</span>
+              {isUserSpeaking && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
+            </div>
           </div>
 
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 bg-[#FFFFFF] border border-[#E7E5E4] p-2 rounded-2xl flex items-center gap-3 shadow-lg">
