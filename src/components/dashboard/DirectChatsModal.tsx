@@ -72,38 +72,47 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({
   return (
     <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-[100] flex items-center justify-center p-4">
       <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl max-w-2xl w-full h-[520px] shadow-[8px_8px_0px_0px_#1C1917] flex overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        
+        {/* Lista Lateral de Contatos / Chats */}
         <div className="w-1/3 border-r-2 border-[#E7E5E4] bg-[#FAF9F6] flex flex-col">
           <div className="p-4 border-b-2 border-[#E7E5E4] flex items-center justify-between bg-[#FFFFFF]">
             <h3 className="text-xs font-black uppercase text-[#1C1917]">Chats Diretos</h3>
           </div>
 
           <div className="flex-1 overflow-y-auto flex flex-col divide-y divide-[#E7E5E4]">
-            {chats.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => setActiveChatId(c.id)}
-                className={`p-3.5 text-left flex items-center gap-3 transition-colors ${
-                  c.id === activeChat?.id ? 'bg-[#FFFFFF] font-black' : 'hover:bg-[#F5F5F4]'
-                }`}
-              >
-                <img
-                  src={c.avatar}
-                  alt={c.name}
-                  className="w-9 h-9 rounded-xl object-cover border-2 border-[#1C1917] shrink-0"
-                />
-                <div className="flex flex-col min-w-0 flex-1">
-                  <div className="flex justify-between items-baseline">
-                    <span className="text-xs font-black text-[#1C1917] truncate">{c.name}</span>
-                    <span className="text-[9px] font-bold text-[#A8A29E] uppercase">{c.time}</span>
+            {chats.length > 0 ? (
+              chats.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setActiveChatId(c.id)}
+                  className={`p-3.5 text-left flex items-center gap-3 transition-colors ${
+                    c.id === activeChat?.id ? 'bg-[#FFFFFF] font-black' : 'hover:bg-[#F5F5F4]'
+                  }`}
+                >
+                  <img
+                    src={c.avatar}
+                    alt={c.name}
+                    className="w-9 h-9 rounded-xl object-cover border-2 border-[#1C1917] shrink-0"
+                  />
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-xs font-black text-[#1C1917] truncate">{c.name}</span>
+                      <span className="text-[9px] font-bold text-[#A8A29E] uppercase">{c.time}</span>
+                    </div>
+                    <span className="text-[10px] text-[#78716C] truncate font-medium">{c.lastMessage}</span>
                   </div>
-                  <span className="text-[10px] text-[#78716C] truncate font-medium">{c.lastMessage}</span>
-                </div>
-              </button>
-            ))}
+                </button>
+              ))
+            ) : (
+              <div className="p-6 text-center text-xs font-bold text-[#78716C] uppercase leading-relaxed">
+                Nenhum chat ativo no momento.
+              </div>
+            )}
           </div>
         </div>
 
+        {/* Painel da Conversa / Estado Vazio */}
         <div className="flex-1 flex flex-col bg-[#FFFFFF]">
           <div className="p-4 border-b-2 border-[#E7E5E4] flex items-center justify-between">
             {activeChat ? (
@@ -116,7 +125,7 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({
                 <span className="text-xs font-black uppercase text-[#1C1917]">{activeChat.name}</span>
               </div>
             ) : (
-              <span className="text-xs font-black uppercase text-[#78716C]">Selecione uma conversa</span>
+              <span className="text-xs font-black uppercase text-[#78716C]">Sem conversas ativas</span>
             )}
 
             <button
@@ -128,43 +137,61 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({
             </button>
           </div>
 
-          <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-2.5 bg-[#FAF9F6]">
-            {activeChat?.messages.map((m) => (
-              <div
-                key={m.id}
-                className={`max-w-[75%] p-3 rounded-2xl text-xs font-medium ${
-                  m.sender === 'me'
-                    ? 'bg-[#1C1917] text-[#FAF9F6] self-end rounded-br-none'
-                    : 'bg-[#FFFFFF] border-2 border-[#E7E5E4] text-[#1C1917] self-start rounded-bl-none'
-                }`}
-              >
-                <p>{m.text}</p>
-                <span
-                  className={`text-[8px] font-bold uppercase mt-1 block text-right ${
-                    m.sender === 'me' ? 'text-[#A8A29E]' : 'text-[#78716C]'
-                  }`}
-                >
-                  {m.time}
-                </span>
+          {/* Se houver chat ativo, exibe as mensagens; caso contrário, exibe estado vazio amigável sem inputs */}
+          {activeChat ? (
+            <>
+              <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-2.5 bg-[#FAF9F6]">
+                {activeChat.messages.map((m) => (
+                  <div
+                    key={m.id}
+                    className={`max-w-[75%] p-3 rounded-2xl text-xs font-medium ${
+                      m.sender === 'me'
+                        ? 'bg-[#1C1917] text-[#FAF9F6] self-end rounded-br-none'
+                        : 'bg-[#FFFFFF] border-2 border-[#E7E5E4] text-[#1C1917] self-start rounded-bl-none'
+                    }`}
+                  >
+                    <p>{m.text}</p>
+                    <span
+                      className={`text-[8px] font-bold uppercase mt-1 block text-right ${
+                        m.sender === 'me' ? 'text-[#A8A29E]' : 'text-[#78716C]'
+                      }`}
+                    >
+                      {m.time}
+                    </span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
 
-          <form onSubmit={handleSendMessage} className="p-3 border-t-2 border-[#E7E5E4] flex gap-2">
-            <input
-              type="text"
-              placeholder="Digite uma mensagem privada..."
-              value={newMessageText}
-              onChange={(e) => setNewMessageText(e.target.value)}
-              className="flex-1 px-3.5 py-2.5 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
-            />
-            <button
-              type="submit"
-              className="px-4 py-2.5 bg-[#1C1917] text-[#FAF9F6] font-black text-xs uppercase rounded-xl border-2 border-[#1C1917]"
-            >
-              Enviar
-            </button>
-          </form>
+              <form onSubmit={handleSendMessage} className="p-3 border-t-2 border-[#E7E5E4] flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Digite uma mensagem privada..."
+                  value={newMessageText}
+                  onChange={(e) => setNewMessageText(e.target.value)}
+                  className="flex-1 px-3.5 py-2.5 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+                />
+                <button
+                  type="submit"
+                  className="px-4 py-2.5 bg-[#1C1917] text-[#FAF9F6] font-black text-xs uppercase rounded-xl border-2 border-[#1C1917]"
+                >
+                  Enviar
+                </button>
+              </form>
+            </>
+          ) : (
+            <div className="flex-1 p-6 flex flex-col items-center justify-center text-center gap-3 bg-[#FAF9F6]">
+              <div className="w-12 h-12 rounded-2xl bg-[#E7E5E4] text-[#1C1917] flex items-center justify-center font-black text-lg">
+                💬
+              </div>
+              <div className="flex flex-col gap-1 max-w-xs">
+                <h4 className="text-xs font-black uppercase text-[#1C1917]">Nenhuma conversa selecionada</h4>
+                <p className="text-[11px] text-[#78716C] font-medium leading-relaxed">
+                  Você ainda não possui amigos adicionados para conversar por mensagens diretas. Participe de sessões e adicione parceiros para trocar ideias por aqui!
+                </p>
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
     </div>
