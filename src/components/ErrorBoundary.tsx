@@ -45,7 +45,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
             <div className="flex flex-col gap-2">
               <span className="text-[10px] font-black uppercase tracking-widest text-[#FAF9F6] bg-[#1C1917] px-2.5 py-0.5 rounded w-fit mx-auto">
-                ALerta do Sistema
+                Alerta do Sistema
               </span>
               <h2 className="text-xl font-black uppercase text-[#1C1917]">
                 Ops! Algo deu errado.
@@ -68,14 +68,14 @@ export class ErrorBoundary extends Component<Props, State> {
               <button
                 type="button"
                 onClick={this.handleReload}
-                className="w-full py-3 bg-[#1C1917] text-[#FAF9F6] text-xs font-black uppercase rounded-xl border-2 border-[#1C1917] hover:bg-[#292524] transition-all shadow-sm"
+                className="w-full py-3 bg-[#1C1917] text-[#FAF9F6] text-xs font-black uppercase rounded-xl border-2 border-[#1C1917] hover:bg-[#292524] transition-all shadow-sm cursor-pointer"
               >
                 Recarregar Página
               </button>
               <button
                 type="button"
                 onClick={this.handleGoHome}
-                className="w-full py-3 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] text-xs font-black uppercase rounded-xl hover:bg-[#F5F5F4] transition-all"
+                className="w-full py-3 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] text-xs font-black uppercase rounded-xl hover:bg-[#F5F5F4] transition-all cursor-pointer"
               >
                 Voltar ao Dashboard
               </button>
