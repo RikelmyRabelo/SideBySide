@@ -44,6 +44,12 @@ export const Room: React.FC = memo(() => {
   // SBS-105: Estado para controle de desconexão do parceiro
   const [partnerDisconnected, setPartnerDisconnected] = useState(false);
 
+  // SBS-107: Estados da Web Speech API (Transcrição de voz)
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [currentTranscript, setCurrentTranscript] = useState('');
+  const [spokenHistory, setSpokenHistory] = useState<string[]>([]);
+  const speechRecognitionRef = useRef<any>(null);
+
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'reconnecting' | 'failed'>('connected');
   const [sessionElapsedSeconds, setSessionElapsedSeconds] = useState(0);
   const sessionStartedAtRef = useRef<number | null>(null);
@@ -72,6 +78,15 @@ export const Room: React.FC = memo(() => {
 
   // SBS-104: Função centralizada para limpeza rigorosa do hardware (Câmera e Microfone)
   const stopMediaStream = useCallback(() => {
+    // SBS-107: Para também a transcrição de voz se ativa
+    if (speechRecognitionRef.current) {
+      try {
+        speechRecognitionRef.current.stop();
+      } catch (e) {}
+      speechRecognitionRef.current = null;
+      setIsTranscribing(false);
+    }
+
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => {
         track.stop();
@@ -89,6 +104,68 @@ export const Room: React.FC = memo(() => {
       peerConnectionRef.current = null;
     }
   }, []);
+
+  // SBS-107: Inicialização e configuração da Web Speech API
+  const toggleSpeechTranscription = useCallback(() => {
+    const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    
+    if (!SpeechRecognitionAPI) {
+      alert('Seu navegador não suporta a Web Speech API para transcrição em tempo real.');
+      return;
+    }
+
+    if (isTranscribing && speechRecognitionRef.current) {
+      speechRecognitionRef.current.stop();
+      setIsTranscribing(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognitionAPI();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US'; // Focado no ecossistema de aprendizado de inglês
+
+      recognition.onstart = () => {
+        setIsTranscribing(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        let interimText = '';
+        let finalText = '';
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalText += event.results[i][0].transcript;
+          } else {
+            interimText += event.results[i][0].transcript;
+          }
+        }
+
+        if (finalText.trim()) {
+          setCurrentTranscript(finalText.trim());
+          setSpokenHistory((prev) => [...prev, finalText.trim()]);
+        } else if (interimText.trim()) {
+          setCurrentTranscript(interimText.trim());
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error('Erro na Web Speech API:', event.error);
+        setIsTranscribing(false);
+      };
+
+      recognition.onend = () => {
+        setIsTranscribing(false);
+      };
+
+      speechRecognitionRef.current = recognition;
+      recognition.start();
+    } catch (err) {
+      console.error('Não foi possível iniciar o reconhecimento de fala:', err);
+      setIsTranscribing(false);
+    }
+  }, [isTranscribing]);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -482,6 +559,19 @@ export const Room: React.FC = memo(() => {
             </div>
           )}
 
+          {/* SBS-107: Barra flutuante de transcrição de fala em tempo real */}
+          {isTranscribing && (
+            <div className="absolute top-4 left-4 z-20 bg-[#1C1917]/90 backdrop-blur-md px-4 py-2 rounded-xl border border-[#FAF9F6]/20 shadow-md max-w-md flex flex-col gap-1 text-left">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                <span className="text-[9px] font-black tracking-widest text-[#FAF9F6] uppercase">IA Transcription (Web Speech API)</span>
+              </div>
+              <p className="text-xs text-[#FAF9F6] font-medium italic">
+                "{currentTranscript || 'Ouvindo sua voz...'}"
+              </p>
+            </div>
+          )}
+
           {connectionStatus === 'reconnecting' && !isSearchingNextPair && !partnerDisconnected && (
             <div className="absolute top-4 right-4 z-20 flex items-center gap-2 bg-amber-50/90 backdrop-blur-md px-3 py-1.5 rounded-xl text-[10px] font-black uppercase text-amber-700 border border-amber-200 shadow-sm animate-in fade-in duration-300">
               <span className="w-3 h-3 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
@@ -533,6 +623,10 @@ export const Room: React.FC = memo(() => {
             </button>
             <button type="button" onClick={toggleCamera} className={`p-3 rounded-xl transition-all border ${camActive ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-red-50 text-red-600 border-red-200'}`}>
               {camActive ? <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" /></svg> : <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" /><path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" /></svg>}
+            </button>
+            {/* SBS-107: Botão de Transcrição de Voz */}
+            <button type="button" onClick={toggleSpeechTranscription} title="Alternar Transcrição de Voz" className={`p-3 rounded-xl transition-all border ${isTranscribing ? 'bg-emerald-600 text-white border-emerald-600 animate-pulse' : 'bg-[#FAF9F6] border-[#E7E5E4] text-[#1C1917] hover:bg-[#F5F5F4]'}`}>
+              <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 003-3V4.5a3 3 0 00-3-3 3 3 0 00-3 3v8.25a3 3 0 003 3z" /></svg>
             </button>
             <button type="button" onClick={toggleFullscreen} className="p-3 bg-[#FAF9F6] border border-[#E7E5E4] hover:bg-[#F5F5F4] text-[#1C1917] rounded-xl transition-all">
               {isFullscreen ? <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 9L4.5 4.5m0 0H9m-4.5 0V9m10.5 0l4.5-4.5m0 0H15m4.5 0V9M9 15l-4.5 4.5m0 0H9m-4.5 0v-4.5m10.5 4.5l4.5 4.5m0 0H15m4.5 0v-4.5" /></svg> : <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" /></svg>}
