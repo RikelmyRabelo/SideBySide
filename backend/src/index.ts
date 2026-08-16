@@ -160,6 +160,14 @@ interface WaitingUser {
 const waitingQueue: WaitingUser[] = [];
 const socketRooms = new Map<string, string>(); // Rastreamento de salas ativas por socket
 
+// SBS-116: Mapeamento de segurança para restringir acesso apenas aos usuários pareados na sala
+const roomParticipants = new Map<string, Set<string>>();
+
+const validateRoomAccess = (roomId: string, userId: string): boolean => {
+  const participants = roomParticipants.get(roomId);
+  return participants ? participants.has(userId) : false;
+};
+
 // SBS-112: Mapas de controle para o Rate Limiting em tempo real do Socket.IO
 const socketRateLimits = new Map<string, { count: number; lastReset: number }>();
 const RATE_LIMIT_WINDOW_MS = 5000; // Janela de 5 segundos
@@ -203,6 +211,9 @@ io.on('connection', (socket) => {
       const partner = waitingQueue.shift()!;
       const roomId = `room_${Date.now()}`;
       
+      // SBS-116: Atribui permissão exclusiva aos dois usuários pareados
+      roomParticipants.set(roomId, new Set([user.id, partner.userId]));
+
       socket.join(roomId);
       socketRooms.set(socket.id, roomId);
 
@@ -240,20 +251,30 @@ io.on('connection', (socket) => {
   });
 
   socket.on('join_room', ({ roomId }) => {
+    // SBS-116: Validação anti-Socket Hijacking para impedir entrada em salas não autorizadas
+    if (!roomId || !validateRoomAccess(roomId, user.id)) {
+      socket.emit('error_message', { message: 'Acesso negado. Você não possui permissão para entrar nesta sala.' });
+      logger.warn(`🚨 TENTATIVA DE SEQUESTRO DE SALA (Socket Hijacking): ${user.email} tentou entrar em ${roomId}`);
+      return;
+    }
+
     socket.join(roomId);
     socketRooms.set(socket.id, roomId);
-    logger.info(`🚪 ${user.email} juntou-se à sala WebRTC: ${roomId}`);
+    logger.info(`🚪 ${user.email} juntou-se à sala WebRTC com sucesso: ${roomId}`);
   });
 
   socket.on('webrtc_offer', (data) => {
+    if (!data.roomId || !validateRoomAccess(data.roomId, user.id)) return;
     socket.to(data.roomId).emit('webrtc_offer', { sdp: data.sdp, senderId: user.id });
   });
 
   socket.on('webrtc_answer', (data) => {
+    if (!data.roomId || !validateRoomAccess(data.roomId, user.id)) return;
     socket.to(data.roomId).emit('webrtc_answer', { sdp: data.sdp, senderId: user.id });
   });
 
   socket.on('webrtc_ice_candidate', (data) => {
+    if (!data.roomId || !validateRoomAccess(data.roomId, user.id)) return;
     socket.to(data.roomId).emit('webrtc_ice_candidate', { candidate: data.candidate, senderId: user.id });
   });
 
@@ -262,6 +283,13 @@ io.on('connection', (socket) => {
     if (!checkSocketRateLimit(socket.id)) {
       socket.emit('error_message', { message: 'Envio de mensagens muito rápido. Espere um momento.' });
       logger.warn(`⚠️ Rate limit excedido para chat_message por ${user.email}`);
+      return;
+    }
+
+    // SBS-116: Validação de permissão antes de relatar/enviar mensagem no chat
+    if (!data.roomId || !validateRoomAccess(data.roomId, user.id)) {
+      socket.emit('error_message', { message: 'Acesso negado para envio de mensagem nesta sala.' });
+      logger.warn(`🚨 Tentativa de envio não autorizado no chat da sala ${data.roomId} por ${user.email}`);
       return;
     }
 
@@ -278,6 +306,7 @@ io.on('connection', (socket) => {
     if (roomId) {
       socket.to(roomId).emit('partner_left');
       socketRooms.delete(socket.id);
+      roomParticipants.delete(roomId);
     }
 
     socketRateLimits.delete(socket.id);
@@ -444,7 +473,6 @@ app.post('/api/room/join', authenticateToken, async (req: Request, res: Response
   } catch (error: any) { next(error); }
 });
 
-// SBS-113: Endpoint refinado para registrar denúncias com metadados contextuais de auditoria
 app.post('/api/room/report', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user.id;
