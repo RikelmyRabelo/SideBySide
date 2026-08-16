@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { io, Socket } from 'socket.io-client'; // NOVO: Import do Socket.io Client
+import { io, Socket } from 'socket.io-client';
 import { Button } from '../components/ui/Button';
 import { FriendsManagerModal } from '../components/dashboard/FriendsManagerModal';
 import { DirectChatsModal } from '../components/dashboard/DirectChatsModal';
@@ -52,7 +52,6 @@ export const Dashboard: React.FC = memo(() => {
   const [mediaMode, setMediaMode] = useState<'video' | 'audio'>('video');
   const [expandedMatching, setExpandedMatching] = useState(true);
   
-  // Estados do Matchmaking Real-time
   const [isMatching, setIsMatching] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
 
@@ -88,10 +87,10 @@ export const Dashboard: React.FC = memo(() => {
   const [reminderTime, setReminderTime] = useState('19:00');
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
 
-  // Memoized derived data
+  // Memoized derived data com fallback seguro para evitar erros de undefined
   const mockSessionsHistory = useMemo(() => userData?.sessionsHistory || [], [userData]);
   const mockMinutesHistory = useMemo(() => userData?.minutesHistory || DEFAULT_MINUTES_HISTORY, [userData]);
-  const unreadCount = useMemo(() => notifications.filter((n) => n.unread).length, [notifications]);
+  const unreadCount = useMemo(() => (notifications || []).filter((n) => n?.unread).length, [notifications]);
   
   const lastSessionFeedback = useMemo(() => userData?.lastSession || null, [userData]);
   const weeklyGoal = useMemo(() => userData?.weeklyGoal || {
@@ -102,7 +101,7 @@ export const Dashboard: React.FC = memo(() => {
       { day: 'Dom', completed: false },
     ],
   }, [userData]);
-  const goalPercentage = useMemo(() => Math.min(100, Math.round((weeklyGoal.completed / weeklyGoal.target) * 100)), [weeklyGoal]);
+  const goalPercentage = useMemo(() => Math.min(100, Math.round((weeklyGoal.completed / (weeklyGoal.target || 1)) * 100)), [weeklyGoal]);
 
   const userMetrics = useMemo(() => ({
     currentStreak: userData?.streak || 0,
@@ -157,7 +156,6 @@ export const Dashboard: React.FC = memo(() => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Limpeza de conexão caso o usuário desmonte o componente enquanto busca
   useEffect(() => {
     return () => {
       if (socket) {
@@ -195,17 +193,17 @@ export const Dashboard: React.FC = memo(() => {
   }, [isMatching, fetchDynamicVocab]);
 
   const markAllAsRead = useCallback(() => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
+    setNotifications((prev) => (prev || []).map((n) => ({ ...n, unread: false })));
     showToast('Todas as notificações foram marcadas como lidas.', 'success');
   }, [showToast]);
 
   const removeNotification = useCallback((id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    setNotifications((prev) => (prev || []).filter((n) => n.id !== id));
   }, []);
 
   const handleNotificationClick = useCallback((item: NotificationItem) => {
-    setNotifications((prev) => prev.map((n) => (n.id === item.id ? { ...n, unread: false } : n)));
+    setNotifications((prev) => (prev || []).map((n) => (n.id === item.id ? { ...n, unread: false } : n)));
     setShowNotifications(false);
     if (item.type === 'friend') setIsFriendsOpen(true);
     else if (item.type === 'badge') setIsBadgesOpen(true);
@@ -213,12 +211,10 @@ export const Dashboard: React.FC = memo(() => {
     else if (item.type === 'goal') setActiveModal('goals');
   }, []);
 
-  // NOVO: Lógica de Matchmaking com Socket.io
   const startMatchingFlow = useCallback(() => {
     setIsMatching(true);
     showToast('Conectando à fila de pareamento...', 'info');
 
-    // Conecta ao servidor e envia o cookie automaticamente via withCredentials
     const newSocket = io('http://localhost:3000', {
       withCredentials: true
     });
@@ -229,7 +225,7 @@ export const Dashboard: React.FC = memo(() => {
 
     newSocket.on('match_found', (data: { roomId: string; partnerId: string }) => {
       showToast('Parceiro encontrado! Entrando na sala...', 'success');
-      newSocket.disconnect(); // Desconecta da fila
+      newSocket.disconnect();
       setSocket(null);
       setIsMatching(false);
       navigate(`/room`); 
@@ -245,7 +241,6 @@ export const Dashboard: React.FC = memo(() => {
     setSocket(newSocket);
   }, [showToast, navigate]);
 
-  // NOVO: Cancela a fila corretamente
   const handleCancelMatch = useCallback(() => {
     if (socket) {
       socket.emit('cancel_match');
@@ -256,7 +251,7 @@ export const Dashboard: React.FC = memo(() => {
   }, [socket]);
 
   const toggleDaySelection = useCallback((day: string) => {
-    setSelectedDays(prev => prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]);
+    setSelectedDays(prev => (prev || []).includes(day) ? (prev || []).filter((d) => d !== day) : [...(prev || []), day]);
   }, []);
 
   const handleTopicCardClick = useCallback((topic: TopicItemType) => {
@@ -360,8 +355,8 @@ export const Dashboard: React.FC = memo(() => {
                 </div>
 
                 <div className="max-h-80 overflow-y-auto flex flex-col divide-y divide-[#E7E5E4]">
-                  {notifications.length > 0 ? (
-                    notifications.map((item) => (
+                  {(notifications || []).length > 0 ? (
+                    (notifications || []).map((item) => (
                       <div
                         key={item.id}
                         onClick={() => handleNotificationClick(item)}
@@ -515,7 +510,7 @@ export const Dashboard: React.FC = memo(() => {
               <div className="flex flex-col gap-1">
                 <span className="text-[10px] font-bold text-[#78716C] uppercase">Vocabulário Utilizado</span>
                 <div className="flex flex-wrap gap-1.5">
-                  {lastSessionFeedback.vocabLearned.map((word: string, idx: number) => (
+                  {(lastSessionFeedback.vocabLearned || []).map((word: string, idx: number) => (
                     <span key={idx} className="text-[10px] font-bold px-2 py-0.5 bg-[#F5F5F4] border border-[#E7E5E4] text-[#1C1917] rounded-md">{word}</span>
                   ))}
                 </div>
@@ -601,7 +596,7 @@ export const Dashboard: React.FC = memo(() => {
             <div className="flex flex-col gap-1.5 pt-3 border-t border-[#E7E5E4]">
               <span className="text-[10px] font-bold uppercase tracking-widest text-[#78716C]">Vocabulário Recomendado</span>
               <div className="flex flex-wrap gap-2">
-                {selectedTopic.vocabPreview.map((word, idx) => (
+                {(selectedTopic.vocabPreview || []).map((word, idx) => (
                   <span key={idx} className="text-xs font-bold px-2.5 py-1 bg-[#FFFFFF] border border-[#E7E5E4] rounded-md text-[#1C1917]">{word}</span>
                 ))}
               </div>
@@ -757,7 +752,7 @@ export const Dashboard: React.FC = memo(() => {
                 <div className="h-full bg-[#1C1917] rounded-full transition-all duration-500 ease-out" style={{ width: `${goalPercentage}%` }} />
               </div>
               <div className="grid grid-cols-7 gap-2 pt-2">
-                {mockMinutesHistory.map((item: { day: string; min: number }, index: number) => (
+                {(mockMinutesHistory || []).map((item: { day: string; min: number }, index: number) => (
                   <div key={index} className="flex flex-col items-center gap-2 group w-full">
                     <div className="relative w-full flex justify-center h-full items-end">
                       <div className={`w-6 sm:w-8 rounded-t-md transition-all duration-300 ${item.min > 0 ? 'bg-[#1C1917] group-hover:bg-[#57534E]' : 'bg-[#E7E5E4]'}`} style={{ height: `${item.min === 0 ? 4 : (item.min / 40) * 100}%` }} />
@@ -846,7 +841,7 @@ export const Dashboard: React.FC = memo(() => {
                 <div className="flex flex-col gap-3">
                   <span className="text-[10px] font-black uppercase tracking-widest text-[#1C1917]">Últimos 7 dias</span>
                   <div className="grid grid-cols-7 gap-2">
-                    {weeklyGoal.days.map((item: { day: string; completed: boolean }, index: number) => (
+                    {(weeklyGoal.days || []).map((item: { day: string; completed: boolean }, index: number) => (
                       <div key={index} className="flex flex-col items-center gap-1.5">
                         <div className={`w-10 h-10 rounded-xl border flex items-center justify-center font-bold text-xs transition-colors ${item.completed ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4]'}`}>
                           {item.completed ? '🔥' : '🧊'}
@@ -875,7 +870,7 @@ export const Dashboard: React.FC = memo(() => {
                 <div className="flex flex-col gap-3">
                   <span className="text-[10px] font-black uppercase tracking-widest text-[#1C1917]">Distribuição Semanal</span>
                   <div className="flex items-end justify-between h-32 pt-4 border-b border-[#E7E5E4]">
-                    {weeklyGoal.days.map((item: { day: string; completed: boolean }, index: number) => (
+                    {(weeklyGoal.days || []).map((item: { day: string; completed: boolean }, index: number) => (
                       <div key={index} className="flex flex-col items-center gap-1.5">
                         <div className={`w-9 h-9 rounded-xl border flex items-center justify-center font-bold text-xs transition-colors ${item.completed ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4]'}`}>
                           {item.completed ? <svg className="w-4 h-4 fill-none stroke-current stroke-[3]" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg> : '•'}
