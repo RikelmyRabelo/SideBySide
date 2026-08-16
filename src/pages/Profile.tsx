@@ -10,6 +10,9 @@ export const Profile: React.FC = () => {
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
   const [cursorOpacity, setCursorOpacity] = useState(1);
 
+  // Estado para expandir a foto do perfil na visualização pública
+  const [isAvatarExpanded, setIsAvatarExpanded] = useState(false);
+
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       setMousePos({ x: e.clientX, y: e.clientY });
@@ -1233,8 +1236,18 @@ export const Profile: React.FC = () => {
             </div>
 
             <div className="flex flex-col items-center text-center gap-3">
-              <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-[#1C1917] bg-[#F5F5F4] shadow-sm">
+              {/* Foto do perfil clicável para expandir */}
+              <div 
+                onClick={() => setIsAvatarExpanded(true)}
+                className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-[#1C1917] bg-[#F5F5F4] shadow-sm cursor-pointer relative group transition-transform hover:scale-105"
+                title="Clique para expandir a foto"
+              >
                 <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                  <svg className="w-5 h-5 text-white stroke-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6" />
+                  </svg>
+                </div>
               </div>
 
               <div className="flex flex-col items-center gap-1">
@@ -1263,6 +1276,7 @@ export const Profile: React.FC = () => {
                 </div>
               </div>
 
+              {/* Botão de Enviar Solicitação com Ícone e sem Emoji */}
               <button
                 type="button"
                 onClick={() => setFriendRequestSent(!friendRequestSent)}
@@ -1274,11 +1288,17 @@ export const Profile: React.FC = () => {
               >
                 {friendRequestSent ? (
                   <>
-                    <span>✓</span> Solicitação Enviada
+                    <svg className="w-4 h-4 stroke-current fill-none stroke-2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                    Solicitação Enviada
                   </>
                 ) : (
                   <>
-                    <span>👤+</span> Enviar Solicitação de Amizade
+                    <svg className="w-4 h-4 stroke-current fill-none stroke-2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
+                    </svg>
+                    Enviar Solicitação de Amizade
                   </>
                 )}
               </button>
@@ -1365,6 +1385,29 @@ export const Profile: React.FC = () => {
               className="w-full py-3 bg-[#FAF9F6] hover:bg-[#F5F5F4] border-2 border-[#1C1917] text-[#1C1917] font-black text-xs uppercase tracking-widest rounded-xl transition-all"
             >
               Fechar Visualização
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Zoom/Expansão da Foto do Perfil */}
+      {isAvatarExpanded && (
+        <div 
+          onClick={() => setIsAvatarExpanded(false)}
+          className="fixed inset-0 bg-[#1C1917]/85 backdrop-blur-md z-[100] flex items-center justify-center p-4 cursor-zoom-out animate-in fade-in duration-200"
+        >
+          <div className="relative max-w-lg w-full flex flex-col items-center gap-4" onClick={(e) => e.stopPropagation()}>
+            <img 
+              src={avatarUrl} 
+              alt={name} 
+              className="w-full max-h-[80vh] object-contain rounded-3xl border-4 border-[#FFFFFF] shadow-2xl" 
+            />
+            <button
+              type="button"
+              onClick={() => setIsAvatarExpanded(false)}
+              className="px-6 py-2.5 bg-[#FFFFFF] text-[#1C1917] font-black text-xs uppercase tracking-widest rounded-xl border-2 border-[#1C1917] hover:bg-[#F5F5F4] transition-all shadow-md"
+            >
+              Fechar Imagem
             </button>
           </div>
         </div>
