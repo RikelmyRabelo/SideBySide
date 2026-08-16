@@ -160,11 +160,40 @@ interface WaitingUser {
 const waitingQueue: WaitingUser[] = [];
 const socketRooms = new Map<string, string>(); // Rastreamento de salas ativas por socket
 
+// SBS-112: Mapas de controle para o Rate Limiting em tempo real do Socket.IO
+const socketRateLimits = new Map<string, { count: number; lastReset: number }>();
+const RATE_LIMIT_WINDOW_MS = 5000; // Janela de 5 segundos
+const MAX_EVENTS_IN_WINDOW = 10;   // Máximo de 10 eventos permitidos por janela em ações sensíveis
+
+const checkSocketRateLimit = (socketId: string): boolean => {
+  const now = Date.now();
+  const record = socketRateLimits.get(socketId);
+
+  if (!record || now - record.lastReset > RATE_LIMIT_WINDOW_MS) {
+    socketRateLimits.set(socketId, { count: 1, lastReset: now });
+    return true;
+  }
+
+  if (record.count >= MAX_EVENTS_IN_WINDOW) {
+    return false; // Excedeu o limite
+  }
+
+  record.count++;
+  return true;
+};
+
 io.on('connection', (socket) => {
   const user = (socket as any).user;
   logger.info(`🔌 Usuário conectado via Socket: ${user.email} (${socket.id})`);
 
   socket.on('find_match', () => {
+    // SBS-112: Aplicação de Rate Limiting no evento de matchmaking
+    if (!checkSocketRateLimit(socket.id)) {
+      socket.emit('error_message', { message: 'Muitas tentativas de busca. Aguarde alguns segundos.' });
+      logger.warn(`⚠️ Rate limit excedido para find_match por ${user.email}`);
+      return;
+    }
+
     logger.info(`🔍 ${user.email} entrou na fila de busca.`);
 
     const alreadyInQueue = waitingQueue.find(u => u.userId === user.id);
@@ -229,6 +258,13 @@ io.on('connection', (socket) => {
   });
 
   socket.on('chat_message', (data) => {
+    // SBS-112: Aplicação de Rate Limiting contra spam de mensagens no chat
+    if (!checkSocketRateLimit(socket.id)) {
+      socket.emit('error_message', { message: 'Envio de mensagens muito rápido. Espere um momento.' });
+      logger.warn(`⚠️ Rate limit excedido para chat_message por ${user.email}`);
+      return;
+    }
+
     socket.to(data.roomId).emit('chat_message', { text: data.text, senderId: user.id, id: Date.now() });
   });
 
@@ -238,13 +274,13 @@ io.on('connection', (socket) => {
       waitingQueue.splice(index, 1);
     }
 
-    // SBS-105: Emite partner_left para o outro participante da sala caso caia
     const roomId = socketRooms.get(socket.id);
     if (roomId) {
       socket.to(roomId).emit('partner_left');
       socketRooms.delete(socket.id);
     }
 
+    socketRateLimits.delete(socket.id);
     logger.info(`❌ Usuário desconectado via Socket: ${user.email}`);
   });
 });
