@@ -50,9 +50,12 @@ export const Room: React.FC = memo(() => {
   const [spokenHistory, setSpokenHistory] = useState<string[]>([]);
   const speechRecognitionRef = useRef<any>(null);
 
-  // SBS-109: Estados de Fala Ativa (Audio Analyzer)
+  // SBS-110: Estados de Fala Ativa e Nível de Áudio (Audio Analyzer & Volume Bars)
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
   const [isPartnerSpeaking, setIsPartnerSpeaking] = useState(false);
+  const [userAudioLevel, setUserAudioLevel] = useState(0);
+  const [partnerAudioLevel, setPartnerAudioLevel] = useState(0);
+
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameAudioRef = useRef<number | null>(null);
@@ -83,7 +86,7 @@ export const Room: React.FC = memo(() => {
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
   const [cursorOpacity, setCursorOpacity] = useState(1);
 
-  // SBS-109: Inicializador do Analisador de Áudio para detectar fala ativa
+  // SBS-110: Inicializador do Analisador de Áudio para o Usuário
   const setupAudioAnalyzer = useCallback((stream: MediaStream) => {
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
@@ -93,7 +96,7 @@ export const Room: React.FC = memo(() => {
       audioContextRef.current = audioCtx;
 
       const analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 512;
+      analyser.fftSize = 256;
       analyserRef.current = analyser;
 
       const source = audioCtx.createMediaStreamSource(stream);
@@ -110,8 +113,9 @@ export const Room: React.FC = memo(() => {
           sum += dataArray[i];
         }
         const average = sum / dataArray.length;
+        const normalizedLevel = Math.min(100, Math.round((average / 128) * 100));
 
-        // Limiar de detecção de fala ativa
+        setUserAudioLevel(normalizedLevel);
         setIsUserSpeaking(average > 12 && micActive);
         animationFrameAudioRef.current = requestAnimationFrame(checkAudioLevel);
       };
@@ -134,7 +138,6 @@ export const Room: React.FC = memo(() => {
       audioContextRef.current = null;
     }
 
-    // SBS-107: Para também a transcrição de voz se ativa
     if (speechRecognitionRef.current) {
       try {
         speechRecognitionRef.current.stop();
@@ -180,7 +183,7 @@ export const Room: React.FC = memo(() => {
       const recognition = new SpeechRecognitionAPI();
       recognition.continuous = true;
       recognition.interimResults = true;
-      recognition.lang = 'en-US'; // Focado no ecossistema de aprendizado de inglês
+      recognition.lang = 'en-US';
 
       recognition.onstart = () => {
         setIsTranscribing(true);
@@ -302,33 +305,28 @@ export const Room: React.FC = memo(() => {
   ======================================================== */
   const initializeWebRTC = useCallback(async (socket: Socket, currentRoomId: string, isInitiator: boolean) => {
     try {
-      // 1. Pega a câmera e o microfone do usuário
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       streamRef.current = stream;
       if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 
-      // SBS-109: Configura o analisador de áudio local
       setupAudioAnalyzer(stream);
 
-      // 2. Cria a conexão WebRTC
       const pc = new RTCPeerConnection(ICE_SERVERS);
       peerConnectionRef.current = pc;
 
-      // 3. Adiciona as faixas de áudio e vídeo à conexão
       stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
-      // 4. Quando o vídeo do parceiro chegar, coloca no player principal
       pc.ontrack = (event) => {
         if (remoteVideoRef.current && event.streams[0]) {
           remoteVideoRef.current.srcObject = event.streams[0];
           setConnectionStatus('connected');
 
-          // SBS-109: Simulação de fala ativa do parceiro com base no fluxo remoto recebido
           const remoteStream = event.streams[0];
           try {
             const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
             const remoteAudioCtx = new AudioCtx();
             const remoteAnalyser = remoteAudioCtx.createAnalyser();
+            remoteAnalyser.fftSize = 256;
             const remoteSource = remoteAudioCtx.createMediaStreamSource(remoteStream);
             remoteSource.connect(remoteAnalyser);
             const remoteArray = new Uint8Array(remoteAnalyser.frequencyBinCount);
@@ -337,7 +335,11 @@ export const Room: React.FC = memo(() => {
               remoteAnalyser.getByteFrequencyData(remoteArray);
               let rSum = 0;
               for (let i = 0; i < remoteArray.length; i++) rSum += remoteArray[i];
-              setIsPartnerSpeaking((rSum / remoteArray.length) > 10);
+              const rAvg = rSum / remoteArray.length;
+              const rNormalized = Math.min(100, Math.round((rAvg / 128) * 100));
+
+              setPartnerAudioLevel(rNormalized);
+              setIsPartnerSpeaking(rAvg > 10);
               requestAnimationFrame(checkRemoteAudio);
             };
             checkRemoteAudio();
@@ -345,7 +347,6 @@ export const Room: React.FC = memo(() => {
         }
       };
 
-      // 5. Escuta e envia os "Caminhos de Rede" (ICE Candidates)
       pc.onicecandidate = (event) => {
         if (event.candidate) {
           socket.emit('webrtc_ice_candidate', { roomId: currentRoomId, candidate: event.candidate });
@@ -356,7 +357,6 @@ export const Room: React.FC = memo(() => {
         if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') setConnectionStatus('reconnecting');
       };
 
-      // 6. Se for quem inicia a ligação, cria a Oferta e manda pro outro
       if (isInitiator) {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
@@ -372,12 +372,10 @@ export const Room: React.FC = memo(() => {
   useEffect(() => {
     if (roomStatusLoading) return;
 
-    // Conecta ao Socket.io
     const newSocket = io('http://localhost:3000', { withCredentials: true });
     socketRef.current = newSocket;
 
     newSocket.on('connect', () => {
-      // Assim que conecta, verifica se já tínhamos uma sala, se não, entra na fila
       if (roomStatus?.hasActiveSession) {
         newSocket.emit('join_room', { roomId: roomStatus.sessionId });
       } else {
@@ -385,24 +383,19 @@ export const Room: React.FC = memo(() => {
       }
     });
 
-    // Evento disparado pelo backend quando a sala é formada
     newSocket.on('match_found', async (data: { roomId: string; partnerId: string; initiator: boolean }) => {
       setRoomId(data.roomId);
       setPartnerId(data.partnerId);
       setPartnerDisconnected(false);
       setIsSearchingNextPair(false);
-      
-      // Inicia a dança do WebRTC
       await initializeWebRTC(newSocket, data.roomId, data.initiator);
     });
 
-    // SBS-105: Escuta a queda abrupta ou fechamento de aba do parceiro
     newSocket.on('partner_left', () => {
       setPartnerDisconnected(true);
       stopMediaStream();
     });
 
-    // Escutando Oferta de Vídeo
     newSocket.on('webrtc_offer', async (data: { sdp: RTCSessionDescriptionInit }) => {
       const pc = peerConnectionRef.current;
       if (!pc) return;
@@ -412,21 +405,18 @@ export const Room: React.FC = memo(() => {
       newSocket.emit('webrtc_answer', { roomId: roomId, sdp: pc.localDescription });
     });
 
-    // Escutando Resposta de Vídeo
     newSocket.on('webrtc_answer', async (data: { sdp: RTCSessionDescriptionInit }) => {
       const pc = peerConnectionRef.current;
       if (!pc) return;
       await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
     });
 
-    // Escutando Candidatos de Rede
     newSocket.on('webrtc_ice_candidate', async (data: { candidate: RTCIceCandidateInit }) => {
       const pc = peerConnectionRef.current;
       if (!pc) return;
       await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
     });
 
-    // Escutando Chat de Texto
     newSocket.on('chat_message', (data: { text: string; id: number }) => {
       setChatMessages((prev) => [...prev, { id: data.id, sender: 'other', text: data.text }]);
     });
@@ -436,7 +426,6 @@ export const Room: React.FC = memo(() => {
       newSocket.disconnect();
     };
   }, [roomStatusLoading, roomStatus, initializeWebRTC, roomId, stopMediaStream]);
-  /* ======================================================= */
 
   const toggleMicrophone = useCallback(() => {
     if (streamRef.current) {
@@ -471,7 +460,7 @@ export const Room: React.FC = memo(() => {
   const handleEndCall = useCallback(() => setIsConfirmExitOpen(true), []);
 
   const handleConfirmExit = useCallback(() => {
-    stopMediaStream(); // SBS-104: Encerra streams ao sair da sala
+    stopMediaStream();
     setIsConfirmExitOpen(false);
     setPendingAction('exit');
     setIsRatingOpen(true);
@@ -483,14 +472,13 @@ export const Room: React.FC = memo(() => {
   }, []);
 
   const triggerSearchNextPair = useCallback(() => {
-    stopMediaStream(); // SBS-104: Encerra streams atuais antes de buscar novo par
+    stopMediaStream();
     setPartnerDisconnected(false);
     setConnectionStatus('reconnecting');
     setChatMessages([]);
     setIsSearchingNextPair(true);
     setCurrentTopic(getRandomTopic());
     
-    // Pede um novo match pro Socket.io
     if (socketRef.current) {
       socketRef.current.emit('find_match');
     }
@@ -534,7 +522,6 @@ export const Room: React.FC = memo(() => {
     else triggerSearchNextPair();
   }, [pendingAction, navigate, triggerSearchNextPair]);
 
-  // Enviar chat via Socket.io
   const handleSendMessage = useCallback((e?: React.FormEvent) => {
     e?.preventDefault();
     const trimmed = chatInput.trim();
@@ -589,7 +576,6 @@ export const Room: React.FC = memo(() => {
         </div>
       )}
 
-      {/* SBS-105: Overlay de aviso quando o parceiro se desconecta */}
       {partnerDisconnected && (
         <div className="fixed inset-0 bg-[#1C1917]/80 backdrop-blur-md z-[120] flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-8 max-w-md w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-6 text-center">
@@ -632,17 +618,20 @@ export const Room: React.FC = memo(() => {
       <div className={`flex-1 flex overflow-hidden ${isFullscreen ? 'p-0' : 'p-4 gap-4'}`}>
         <div ref={videoContainerRef} className={`flex-1 bg-[#FFFFFF] relative flex flex-col justify-between overflow-hidden ${isFullscreen ? 'rounded-none border-none' : `rounded-2xl border-2 transition-all duration-300 ${isPartnerSpeaking ? 'border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)]' : 'border-[#E7E5E4] shadow-sm'}`}`}>
           {connectionStatus === 'connected' && !isSearchingNextPair && !partnerDisconnected && (
-            <div className="absolute top-4 right-4 z-20 flex items-center gap-2 bg-[#FFFFFF]/90 backdrop-blur-md px-3 py-1.5 rounded-xl text-[10px] font-black uppercase text-emerald-700 border border-[#E7E5E4] shadow-sm">
+            <div className="absolute top-4 right-4 z-20 flex items-center gap-3 bg-[#FFFFFF]/90 backdrop-blur-md px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase text-emerald-700 border border-[#E7E5E4] shadow-sm">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>Conexão Excelente</span>
-              {/* SBS-109: Indicador de fala ativa do parceiro */}
-              {isPartnerSpeaking && (
-                <span className="bg-emerald-500 text-white px-1.5 py-0.5 rounded text-[8px] animate-bounce">falando...</span>
-              )}
+              
+              {/* SBS-110: Medidor visual de volume/onda sonora do parceiro */}
+              <div className="flex items-center gap-1 bg-[#F5F5F4] px-2 py-0.5 rounded-lg border border-[#E7E5E4]">
+                <span className="text-[9px] text-[#78716C]">Vol:</span>
+                <div className="w-12 h-1.5 bg-[#E7E5E4] rounded-full overflow-hidden flex">
+                  <div className="bg-emerald-500 h-full transition-all duration-75" style={{ width: `${partnerAudioLevel}%` }} />
+                </div>
+              </div>
             </div>
           )}
 
-          {/* SBS-107: Barra flutuante de transcrição de fala em tempo real */}
           {isTranscribing && (
             <div className="absolute top-4 left-4 z-20 bg-[#1C1917]/90 backdrop-blur-md px-4 py-2 rounded-xl border border-[#FAF9F6]/20 shadow-md max-w-md flex flex-col gap-1 text-left">
               <div className="flex items-center gap-2">
@@ -683,15 +672,15 @@ export const Room: React.FC = memo(() => {
           ) : (
             <div className="absolute inset-0 bg-[#F5F5F4] flex items-center justify-center">
               <video ref={remoteVideoRef} autoPlay playsInline className={`w-full h-full object-cover transition-opacity duration-300 ${connectionStatus === 'reconnecting' ? 'opacity-40 grayscale-[50%]' : 'opacity-100'}`} />
-              <div className="absolute bottom-4 left-6 bg-[#1C1917]/80 backdrop-blur-md px-3 py-1.5 rounded-xl text-xs font-black text-[#FAF9F6] uppercase z-10 flex items-center gap-2">
+              <div className="absolute bottom-4 left-6 bg-[#1C1917]/80 backdrop-blur-md px-3.5 py-2 rounded-xl text-xs font-black text-[#FAF9F6] uppercase z-10 flex items-center gap-3">
                 <span>Parceiro de Prática</span>
                 {isPartnerSpeaking && <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />}
               </div>
             </div>
           )}
 
-          {/* SBS-109: Card de vídeo local com destaque de fala ativa */}
-          <div className={`absolute bottom-5 right-6 left-auto top-auto z-40 w-44 h-28 rounded-2xl overflow-hidden border-2 shadow-2xl bg-[#1C1917] transition-all duration-300 ${isUserSpeaking ? 'border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'border-[#FFFFFF]'}`}>
+          {/* SBS-110: Card de vídeo local com medidor de volume integrado */}
+          <div className={`absolute bottom-5 right-6 left-auto top-auto z-40 w-48 h-32 rounded-2xl overflow-hidden border-2 shadow-2xl bg-[#1C1917] transition-all duration-300 ${isUserSpeaking ? 'border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'border-[#FFFFFF]'}`}>
             <video ref={localVideoRef} autoPlay playsInline muted className={`w-full h-full object-cover transform -scale-x-100 ${camActive ? 'block' : 'hidden'}`} />
             {!camActive && (
               <div className="w-full h-full bg-[#1C1917] flex flex-col items-center justify-center relative overflow-hidden">
@@ -699,9 +688,15 @@ export const Room: React.FC = memo(() => {
                 <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px]" />
               </div>
             )}
-            <div className="absolute bottom-1.5 left-2 bg-[#1C1917]/80 backdrop-blur-sm px-2 py-0.5 rounded text-[9px] font-black uppercase text-[#FAF9F6] z-10 flex items-center gap-1.5">
-              <span>Você {!micActive && '(Mudo)'}</span>
-              {isUserSpeaking && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
+            <div className="absolute bottom-2 left-2 right-2 bg-[#1C1917]/90 backdrop-blur-sm px-2.5 py-1 rounded-lg text-[9px] font-black uppercase text-[#FAF9F6] z-10 flex flex-col gap-1">
+              <div className="flex items-center justify-between">
+                <span>Você {!micActive && '(Mudo)'}</span>
+                {isUserSpeaking && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
+              </div>
+              {/* Barra de volume local */}
+              <div className="w-full h-1 bg-[#292524] rounded-full overflow-hidden flex">
+                <div className="bg-emerald-500 h-full transition-all duration-75" style={{ width: `${userAudioLevel}%` }} />
+              </div>
             </div>
           </div>
 
@@ -712,7 +707,6 @@ export const Room: React.FC = memo(() => {
             <button type="button" onClick={toggleCamera} className={`p-3 rounded-xl transition-all border ${camActive ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-red-50 text-red-600 border-red-200'}`}>
               {camActive ? <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" /></svg> : <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" /><path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" /></svg>}
             </button>
-            {/* SBS-107: Botão de Transcrição de Voz */}
             <button type="button" onClick={toggleSpeechTranscription} title="Alternar Transcrição de Voz" className={`p-3 rounded-xl transition-all border ${isTranscribing ? 'bg-emerald-600 text-white border-emerald-600 animate-pulse' : 'bg-[#FAF9F6] border-[#E7E5E4] text-[#1C1917] hover:bg-[#F5F5F4]'}`}>
               <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 003-3V4.5a3 3 0 00-3-3 3 3 0 00-3 3v8.25a3 3 0 003 3z" /></svg>
             </button>
