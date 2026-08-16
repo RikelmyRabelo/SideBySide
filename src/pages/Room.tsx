@@ -78,6 +78,26 @@ export const Room: React.FC = memo(() => {
 
   const [userAvatarUrl, setUserAvatarUrl] = useState<string>('https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80');
 
+  // Carrega a foto de perfil real do usuário logado ao abrir a sala
+  useEffect(() => {
+    const fetchUserAvatar = async () => {
+      try {
+        const response = await fetch('http://localhost:3000/api/user/me', {
+          credentials: 'include'
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.avatar) {
+            setUserAvatarUrl(data.avatar);
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao buscar foto de perfil do usuário na sala:', err);
+      }
+    };
+    fetchUserAvatar();
+  }, []);
+
   // Referências cruciais para o WebRTC e Socket
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -611,7 +631,7 @@ export const Room: React.FC = memo(() => {
             </div>
           </div>
           
-          {/* Nova mensagem simples e direta informando a atividade e a diretriz de seguir o assunto */}
+          {/* Mensagem simples e direta informando a atividade e a diretriz de seguir o assunto */}
           <div className="bg-[#FAF9F6] border border-[#E7E5E4] px-4 py-1.5 rounded-xl text-xs font-black uppercase text-[#1C1917] flex items-center gap-2">
             <span className="text-[10px] bg-[#1C1917] text-[#FAF9F6] px-2 py-0.5 rounded">Prática Ativa</span>
             <span>Você está conversando sobre: <strong className="text-emerald-700">{currentTopic.title}</strong> (Siga o assunto da sala)</span>
@@ -736,7 +756,7 @@ export const Room: React.FC = memo(() => {
             </div>
           )}
 
-          {/* SBS-110: Card de vídeo local com medidor de volume integrado */}
+          {/* Card de vídeo local com medidor de volume integrado e foto real do usuário */}
           <div className={`absolute bottom-5 right-6 left-auto top-auto z-40 w-48 h-32 rounded-2xl overflow-hidden border-2 shadow-2xl bg-[#1C1917] transition-all duration-300 ${isUserSpeaking ? 'border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'border-[#FFFFFF]'}`}>
             <video ref={localVideoRef} autoPlay playsInline muted className={`w-full h-full object-cover transform -scale-x-100 ${camActive ? 'block' : 'hidden'}`} />
             {!camActive && (
