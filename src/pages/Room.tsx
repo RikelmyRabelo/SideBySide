@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { io, Socket } from 'socket.io-client'; // NOVO: Cliente do Socket.io
+import { io, Socket } from 'socket.io-client'; // Cliente do Socket.io
 import { ReportModal } from '../components/room/ReportModal';
 import { RatingModal } from '../components/room/RatingModal';
 import { TOPICS_CATALOG, getRandomTopic, TopicItem } from '../data/topicsData';
@@ -67,14 +67,37 @@ export const Room: React.FC = memo(() => {
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
   const [cursorOpacity, setCursorOpacity] = useState(1);
 
+  // SBS-104: Função centralizada para limpeza rigorosa do hardware (Câmera e Microfone)
+  const stopMediaStream = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => {
+        track.stop();
+        track.enabled = false;
+      });
+      streamRef.current = null;
+    }
+
+    if (localVideoRef.current) {
+      localVideoRef.current.srcObject = null;
+    }
+
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+  }, []);
+
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = '';
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, []);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      stopMediaStream();
+    };
+  }, [stopMediaStream]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -244,11 +267,10 @@ export const Room: React.FC = memo(() => {
     });
 
     return () => {
-      if (streamRef.current) streamRef.current.getTracks().forEach((track) => track.stop());
-      if (peerConnectionRef.current) peerConnectionRef.current.close();
+      stopMediaStream();
       newSocket.disconnect();
     };
-  }, [roomStatusLoading, roomStatus, initializeWebRTC, roomId]);
+  }, [roomStatusLoading, roomStatus, initializeWebRTC, roomId, stopMediaStream]);
   /* ======================================================= */
 
   const toggleMicrophone = useCallback(() => {
@@ -284,10 +306,11 @@ export const Room: React.FC = memo(() => {
   const handleEndCall = useCallback(() => setIsConfirmExitOpen(true), []);
 
   const handleConfirmExit = useCallback(() => {
+    stopMediaStream(); // SBS-104: Encerra streams ao sair da sala
     setIsConfirmExitOpen(false);
     setPendingAction('exit');
     setIsRatingOpen(true);
-  }, []);
+  }, [stopMediaStream]);
 
   const handleNextPair = useCallback(() => {
     setPendingAction('nextPair');
@@ -295,8 +318,7 @@ export const Room: React.FC = memo(() => {
   }, []);
 
   const triggerSearchNextPair = useCallback(() => {
-    if (streamRef.current) streamRef.current.getTracks().forEach((track) => track.stop());
-    if (peerConnectionRef.current) peerConnectionRef.current.close();
+    stopMediaStream(); // SBS-104: Encerra streams atuais antes de buscar novo par
     setConnectionStatus('reconnecting');
     setChatMessages([]);
     setIsSearchingNextPair(true);
@@ -306,7 +328,7 @@ export const Room: React.FC = memo(() => {
     if (socketRef.current) {
       socketRef.current.emit('find_match');
     }
-  }, []);
+  }, [stopMediaStream]);
 
   const handleRatingSubmit = useCallback(async (data: { partnerRating: number; platformRating: number; comment: string }) => {
     setIsRatingOpen(false);
@@ -346,7 +368,7 @@ export const Room: React.FC = memo(() => {
     else triggerSearchNextPair();
   }, [pendingAction, navigate, triggerSearchNextPair]);
 
-  // NOVO: Enviar chat via Socket.io
+  // Enviar chat via Socket.io
   const handleSendMessage = useCallback((e?: React.FormEvent) => {
     e?.preventDefault();
     const trimmed = chatInput.trim();
