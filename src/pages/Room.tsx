@@ -31,6 +31,11 @@ export const Room: React.FC = memo(() => {
     return getRandomTopic();
   });
 
+  // Estado para o Modal de Termos/Instruções da Sala Temática
+  const [showTopicAgreementModal, setShowTopicAgreementModal] = useState<boolean>(() => {
+    return Boolean(topicId); // Abre automaticamente se entrou por um link/tópico específico
+  });
+
   const [micActive, setMicActive] = useState(true);
   const [camActive, setCamActive] = useState(true);
   const [activeTab, setActiveTab] = useState<'topics' | 'chat'>('topics');
@@ -562,6 +567,37 @@ export const Room: React.FC = memo(() => {
         style={{ left: `${followerPos.x}px`, top: `${followerPos.y}px`, opacity: cursorOpacity }}
       />
 
+      {/* Modal de Instrução e Concordância para Salas Temáticas */}
+      {showTopicAgreementModal && (
+        <div className="fixed inset-0 bg-[#1C1917]/80 backdrop-blur-md z-[130] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-8 max-w-md w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-6 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-indigo-50 border-2 border-indigo-200 text-indigo-600 flex items-center justify-center mx-auto shadow-sm">
+              <svg className="w-8 h-8 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+              </svg>
+            </div>
+            <div className="flex flex-col gap-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#FAF9F6] bg-[#1C1917] px-2.5 py-0.5 rounded w-fit mx-auto">
+                SALA TEMÁTICA: {currentTopic.category}
+              </span>
+              <h3 className="text-lg font-black uppercase text-[#1C1917]">
+                Entrando na sala: {currentTopic.title}
+              </h3>
+              <p className="text-xs text-[#57534E] font-medium leading-relaxed">
+                Você está entrando em uma sessão temática guiada. Para garantir um excelente aprendizado, você concorda em focar e seguir o assunto proposto pela sala junto ao seu parceiro?
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowTopicAgreementModal(false)}
+              className="w-full py-3.5 bg-[#1C1917] text-[#FAF9F6] text-xs font-black uppercase rounded-xl border-2 border-[#1C1917] hover:bg-[#292524] transition-all shadow-sm cursor-pointer"
+            >
+              Concordar e Começar
+            </button>
+          </div>
+        </div>
+      )}
+
       {!isFullscreen && (
         <header className="bg-[#FFFFFF] border-b border-[#E7E5E4] px-6 py-3 flex items-center justify-between shrink-0 z-30 shadow-sm">
           <div className="flex items-center gap-4">
@@ -574,10 +610,13 @@ export const Room: React.FC = memo(() => {
               <span>{formattedTimer}</span>
             </div>
           </div>
+          
+          {/* Nova mensagem simples e direta informando a atividade e a diretriz de seguir o assunto */}
           <div className="bg-[#FAF9F6] border border-[#E7E5E4] px-4 py-1.5 rounded-xl text-xs font-black uppercase text-[#1C1917] flex items-center gap-2">
-            <span className="text-[10px] bg-[#E7E5E4] px-2 py-0.5 rounded text-[#78716C]">{currentTopic.category}</span>
-            <span>{currentTopic.title}</span>
+            <span className="text-[10px] bg-[#1C1917] text-[#FAF9F6] px-2 py-0.5 rounded">Prática Ativa</span>
+            <span>Você está conversando sobre: <strong className="text-emerald-700">{currentTopic.title}</strong> (Siga o assunto da sala)</span>
           </div>
+
           <button type="button" onClick={handleEndCall} className="bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all">
             Encerrar e Sair
           </button>
