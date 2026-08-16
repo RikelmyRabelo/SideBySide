@@ -444,26 +444,72 @@ app.post('/api/room/join', authenticateToken, async (req: Request, res: Response
   } catch (error: any) { next(error); }
 });
 
+// SBS-113: Endpoint refinado para registrar denúncias com metadados contextuais de auditoria
 app.post('/api/room/report', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user.id;
-    const { reportedUserId, reason } = req.body || {};
-    if (!reportedUserId || !reason) return res.status(400).json({ error: 'Dados obrigatórios ausentes.' });
+    const { reportedUserId, reason, sessionDuration, messageCount, roomId } = req.body || {};
+    
+    if (!reportedUserId || !reason) {
+      return res.status(400).json({ error: 'Dados obrigatórios ausentes.' });
+    }
+
     const reported = await prisma.user.findUnique({ where: { id: reportedUserId } });
-    if (!reported) return res.status(404).json({ error: 'Usuário não encontrado.' });
+    if (!reported) {
+      return res.status(404).json({ error: 'Usuário denunciado não encontrado.' });
+    }
+
+    logger.warn(`🚨 AUDITORIA DE DENÚNCIA: Usuário ${userId} denunciou ${reportedUserId} por "${reason}" na sala ${roomId || 'N/A'}. Duração: ${sessionDuration || 0}s, Mensagens: ${messageCount || 0}`);
+
     const userReports = reports.get(reportedUserId) || [];
-    userReports.push({ reporterId: userId, reason, timestamp: new Date() });
+    userReports.push({ 
+      reporterId: userId, 
+      reason, 
+      timestamp: new Date() 
+    });
     reports.set(reportedUserId, userReports);
+
     const newReportCount = (reported.reportCount || 0) + 1;
     let flagStatus = reported.flagStatus || 'clean';
     let bannedUntil = reported.bannedUntil;
-    if (newReportCount >= 3 && flagStatus === 'clean') flagStatus = 'warning';
-    else if (newReportCount >= 6 && flagStatus === 'warning') { flagStatus = 'suspended'; bannedUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); }
-    else if (newReportCount >= 10) flagStatus = 'banned';
-    await prisma.user.update({ where: { id: reportedUserId }, data: { reportCount: newReportCount, flagStatus, flagReason: reason, flaggedAt: new Date(), isBanned: flagStatus === 'banned', bannedUntil } });
-    const report = await prisma.report.create({ data: { reporterId: userId, reportedUserId, reason } });
-    return res.status(201).json({ message: 'Denúncia registrada.', reportId: report.id, userFlagStatus: flagStatus });
-  } catch (error: any) { next(error); }
+
+    if (newReportCount >= 3 && flagStatus === 'clean') {
+      flagStatus = 'warning';
+    } else if (newReportCount >= 6 && flagStatus === 'warning') {
+      flagStatus = 'suspended';
+      bannedUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    } else if (newReportCount >= 10) {
+      flagStatus = 'banned';
+    }
+
+    await prisma.user.update({
+      where: { id: reportedUserId },
+      data: {
+        reportCount: newReportCount,
+        flagStatus,
+        flagReason: reason,
+        flaggedAt: new Date(),
+        isBanned: flagStatus === 'banned',
+        bannedUntil
+      }
+    });
+
+    const report = await prisma.report.create({
+      data: {
+        reporterId: userId,
+        reportedUserId,
+        reason: `[Contexto - Sala: ${roomId || 'N/A'}, Duração: ${sessionDuration || 0}s, Msgs: ${messageCount || 0}] ${reason}`
+      }
+    });
+
+    return res.status(201).json({ 
+      message: 'Denúncia registrada com sucesso.', 
+      reportId: report.id, 
+      userFlagStatus: flagStatus 
+    });
+  } catch (error: any) { 
+    next(error); 
+  }
 });
 
 app.post('/api/room/rate', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {

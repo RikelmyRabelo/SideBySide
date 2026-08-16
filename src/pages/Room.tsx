@@ -443,6 +443,7 @@ export const Room: React.FC = memo(() => {
     setCamActive(!camActive);
   }, [camActive]);
 
+  // SBS-113: Envio de denúncia com metadados contextuais de auditoria da sessão
   const handleConfirmReport = useCallback(async (reason: string) => {
     setIsReportOpen(false);
     try {
@@ -450,12 +451,20 @@ export const Room: React.FC = memo(() => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ reportedUserId: partnerId, reason })
+        body: JSON.stringify({ 
+          reportedUserId: partnerId, 
+          reason,
+          sessionDuration: sessionElapsedSeconds,
+          messageCount: chatMessages.length,
+          roomId
+        })
       });
-    } catch (err) {}
+    } catch (err) {
+      console.error('Erro ao enviar relatório:', err);
+    }
     setPendingAction('nextPair');
     setIsRatingOpen(true);
-  }, [partnerId]);
+  }, [partnerId, sessionElapsedSeconds, chatMessages.length, roomId]);
 
   const handleEndCall = useCallback(() => setIsConfirmExitOpen(true), []);
 
