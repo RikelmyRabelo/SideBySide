@@ -623,11 +623,46 @@ app.post('/api/matches/feedback', authenticateToken, async (req: Request, res: R
 
 app.put('/api/user/profile', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = (req as any).user.id;
-    const updateData = { ...req.body };
-    const updatedUser = await prisma.user.update({ where: { id: userId }, data: updateData });
-    return res.status(200).json({ message: 'Perfil atualizado.', user: updatedUser });
-  } catch (error: any) { next(error); }
+    const tokenUser = (req as any).user;
+    const { cefrLevel, ...bodyData } = req.body;
+    
+    // Mapeia o cefrLevel do frontend para o campo 'level' do banco de dados
+    const updateData = {
+      ...bodyData,
+      ...(cefrLevel ? { level: cefrLevel } : {})
+    };
+
+    // Tenta encontrar o usuário pelo ID do token
+    let user = await prisma.user.findUnique({ where: { id: tokenUser.id } });
+
+    if (!user) {
+      // Se o usuário não existir, tenta encontrar pelo email ou cria o registro automaticamente para salvar o onboarding
+      user = await prisma.user.findUnique({ where: { email: tokenUser.email } });
+      
+      if (!user) {
+        user = await prisma.user.create({
+          data: {
+            id: tokenUser.id,
+            email: tokenUser.email,
+            name: updateData.name || 'Usuário',
+            password: '$2b$10$placeholder_hash_auto_created_on_profile_update',
+            level: updateData.level || 'B1',
+            reputation: 100,
+            ...updateData
+          }
+        });
+      }
+    }
+
+    const updatedUser = await prisma.user.update({ 
+      where: { id: user.id }, 
+      data: updateData 
+    });
+
+    return res.status(200).json({ message: 'Perfil atualizado com sucesso.', user: updatedUser });
+  } catch (error: any) { 
+    next(error); 
+  }
 });
 
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {

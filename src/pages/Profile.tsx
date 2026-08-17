@@ -118,9 +118,8 @@ export const Profile: React.FC = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const token = localStorage.getItem('token');
         const response = await fetch('http://localhost:3000/api/user/me', {
-          headers: { 'Authorization': `Bearer ${token}` }
+          credentials: 'include' // Correção: uso do cookie de sessão em vez de localStorage
         });
         if (response.ok) {
           const data = await response.json();
@@ -245,11 +244,10 @@ export const Profile: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch('http://localhost:3000/api/user/profile', {
         method: 'PUT',
+        credentials: 'include', // Correção: uso do cookie
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -380,11 +378,10 @@ export const Profile: React.FC = () => {
     }
 
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch('http://localhost:3000/api/user/account', {
         method: 'DELETE',
+        credentials: 'include', // Correção: uso do cookie
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ password: deletePasswordConfirm })
@@ -392,7 +389,6 @@ export const Profile: React.FC = () => {
 
       if (response.ok) {
         alert('Sua conta e dados foram removidos permanentemente.');
-        localStorage.removeItem('token');
         navigate('/');
       } else {
         const data = await response.json();

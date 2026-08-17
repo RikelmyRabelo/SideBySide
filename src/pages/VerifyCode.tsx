@@ -143,6 +143,7 @@ export const VerifyCode: React.FC = () => {
     try {
       const response = await fetch('http://localhost:3000/api/auth/verify-code', {
         method: 'POST',
+        credentials: 'include', // <-- CORREÇÃO: Garante que o navegador vai armazenar o cookie JWT de acesso (HTTP-Only)
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: pendingEmail, code: fullCode }),
       });
@@ -152,10 +153,12 @@ export const VerifyCode: React.FC = () => {
         throw new Error(errorData.error || 'Código inválido ou expirado.');
       }
 
+      // Sucesso na verificação e criação da conta!
       const data = await response.json();
-      if (data?.token) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('sidebyside_user', JSON.stringify(data.user || { email: pendingEmail }));
+
+      // Já podemos armazenar os dados no cache local pra não precisar recarregar (o cookie JWT já foi setado silenciosamente pelo navegador)
+      if (data.user) {
+        localStorage.setItem('user', JSON.stringify(data.user));
       }
 
       localStorage.removeItem('sidebyside_pending_email');
@@ -173,8 +176,13 @@ export const VerifyCode: React.FC = () => {
     if (!canResend) return;
 
     try {
+      const pendingEmail = localStorage.getItem('sidebyside_pending_email');
+      if (!pendingEmail) throw new Error('E-mail não encontrado.');
+
       const response = await fetch('http://localhost:3000/api/auth/resend-code', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: pendingEmail }),
       });
 
       if (!response.ok) {

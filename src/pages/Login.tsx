@@ -21,16 +21,16 @@ export const Login: React.FC = () => {
     }
   }, []);
   
-// Estado da animação no rodapé
-const [footerAnimStep, setFooterAnimStep] = useState<0 | 1 | 2 | 3 | 4>(0);
+  // Estado da animação no rodapé
+  const [footerAnimStep, setFooterAnimStep] = useState<0 | 1 | 2 | 3 | 4>(0);
 
-useEffect(() => {
-  const interval = setInterval(() => {
-    setFooterAnimStep((prev) => (prev === 4 ? 0 : ((prev + 1) as 0 | 1 | 2 | 3 | 4)));
-  }, 550);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFooterAnimStep((prev) => (prev === 4 ? 0 : ((prev + 1) as 0 | 1 | 2 | 3 | 4)));
+    }, 550);
 
-  return () => clearInterval(interval);
-}, []);
+    return () => clearInterval(interval);
+  }, []);
 
   // Estado de Consentimento de Cookies e LGPD
   const [showCookieBanner, setShowCookieBanner] = useState(false);
@@ -270,7 +270,7 @@ useEffect(() => {
         const response = await fetch('http://localhost:3000/api/auth/forgot-password', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'include', // NOVO: Permite recebimento e envio de cookies
+          credentials: 'include', // CORREÇÃO: Permite envio do cookie
           body: JSON.stringify({ email }),
         });
 
@@ -320,7 +320,7 @@ useEffect(() => {
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // NOVO: Permite recebimento e envio de cookies
+        credentials: 'include', // CORREÇÃO DE SEGURANÇA: Garante o envio e o set do Cookie Http-Only!
         body: JSON.stringify(payload),
       });
 
@@ -330,21 +330,22 @@ useEffect(() => {
         throw new Error(data.error || 'Erro ao processar a requisição.');
       }
 
-      localStorage.setItem('sidebyside_last_email', email);
-
-      // NOVO: Remoção do localStorage do Token, armazenando apenas os dados do usuário para a UI
-      if (data.user) {
-        localStorage.setItem('sidebyside_user', JSON.stringify(data.user));
-      } else {
-        localStorage.setItem('sidebyside_user', JSON.stringify({ email }));
-      }
-
+      // Se for login bem-sucedido, salva no localStorage os dados novos e faz o "hard reload" limpo pro dashboard
       if (isLogin) {
-        navigate('/dashboard');
-      } else {
+        localStorage.setItem('sidebyside_last_email', email);
+        if (data.user) {
+          localStorage.setItem('user', JSON.stringify(data.user));
+        }
+        window.location.href = '/dashboard';
+        return;
+      } 
+      
+      // Se for criação de conta, vai para a tela de Verificação do E-mail
+      if (!isLogin) {
         localStorage.setItem('sidebyside_pending_email', email);
         navigate('/verify-code');
       }
+
     } catch (err: any) {
       setErrorMessage(err.message || 'Erro ao conectar com o servidor.');
     } finally {

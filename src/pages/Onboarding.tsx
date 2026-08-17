@@ -544,11 +544,10 @@ export const Onboarding: React.FC = () => {
                 variant="primary"
                 onClick={async () => {
                   try {
-                    const token = localStorage.getItem('token');
                     const response = await fetch('http://localhost:3000/api/user/profile', {
                       method: 'PUT',
+                      credentials: 'include', // CORREÇÃO DE SEGURANÇA: enviar cookies da sessão!
                       headers: {
-                        'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json',
                       },
                       body: JSON.stringify({
@@ -569,7 +568,8 @@ export const Onboarding: React.FC = () => {
                       throw new Error(errorData.error || 'Erro ao salvar dados do onboarding.');
                     }
 
-                    navigate('/auth-success');
+                    // CORREÇÃO: Força o redirecionamento com reload para a TELA DE SUCESSO.
+                    window.location.href = '/auth-success';
                   } catch (error: any) {
                     alert(error.message || 'Erro ao salvar o onboarding.');
                   }
