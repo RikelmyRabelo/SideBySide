@@ -603,21 +603,6 @@ export const Dashboard: React.FC = memo(() => {
               </button>
             ))}
           </div>
-
-          <div className="bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl p-5 flex flex-col gap-4">
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-[#78716C]">Pergunta Quebra-gelo Sugerida</span>
-              <p className="text-sm font-bold text-[#1C1917] italic">"{selectedTopic.icebreaker}"</p>
-            </div>
-            <div className="flex flex-col gap-1.5 pt-3 border-t border-[#E7E5E4]">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-[#78716C]">Vocabulário Recomendado</span>
-              <div className="flex flex-wrap gap-2">
-                {(selectedTopic.vocabPreview || []).map((word, idx) => (
-                  <span key={idx} className="text-xs font-bold px-2.5 py-1 bg-[#FFFFFF] border border-[#E7E5E4] rounded-md text-[#1C1917]">{word}</span>
-                ))}
-              </div>
-            </div>
-          </div>
         </section>
 
         <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
