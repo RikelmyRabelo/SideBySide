@@ -46,7 +46,7 @@ export const Onboarding: React.FC = () => {
     return () => cancelAnimationFrame(animationFrameId);
   }, [mousePos]);
 
-  const defaultAvatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80';
+  const defaultAvatar = 'https://qkeykngnurwniwdyegmp.supabase.co/storage/v1/object/public/avatars/default-icon.jpg';
   const [avatarUrl, setAvatarUrl] = useState(defaultAvatar);
   const [skipPhoto, setSkipPhoto] = useState(false);
 
