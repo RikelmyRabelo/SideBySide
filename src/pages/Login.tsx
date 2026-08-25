@@ -270,7 +270,7 @@ export const Login: React.FC = () => {
         const response = await fetch('http://localhost:3000/api/auth/forgot-password', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'include', // CORREÇÃO: Permite envio do cookie
+          credentials: 'include',
           body: JSON.stringify({ email }),
         });
 
@@ -320,7 +320,7 @@ export const Login: React.FC = () => {
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // CORREÇÃO DE SEGURANÇA: Garante o envio e o set do Cookie Http-Only!
+        credentials: 'include',
         body: JSON.stringify(payload),
       });
 

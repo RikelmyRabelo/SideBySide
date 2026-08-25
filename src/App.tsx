@@ -4,7 +4,7 @@ import { AppRoutes } from './routes/AppRoutes';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastProvider } from './components/ui/ToastContext';
 
-export const App: React.FC = () => {
+export default function App() {
   return (
     <ErrorBoundary>
       <ToastProvider>
@@ -14,6 +14,4 @@ export const App: React.FC = () => {
       </ToastProvider>
     </ErrorBoundary>
   );
-};
-
-export default App;
+}
