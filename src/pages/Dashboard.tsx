@@ -7,8 +7,9 @@ import { DirectChatsModal } from '../components/dashboard/DirectChatsModal';
 import { BadgesModal } from '../components/dashboard/BadgesModal';
 import { DeviceCheckModal } from '../components/dashboard/DeviceCheckModal';
 import { SupportModal } from '../components/dashboard/SupportModal';
+import { NotificationsModal } from '../components/dashboard/NotificationsModal';
 import { useToast } from '../components/ui/ToastContext';
-import { NotificationItem, TopicItemType } from '../types/user';
+import { TopicItemType } from '../types/user';
 import { useFetchCache } from '../hooks/useFetchCache';
 
 const FALLBACK_VOCAB_LIST = [
@@ -66,12 +67,11 @@ export const Dashboard: React.FC = memo(() => {
   const [isBadgesOpen, setIsBadgesOpen] = useState(false);
   const [isDeviceCheckOpen, setIsDeviceCheckOpen] = useState(false);
   const [isSupportOpen, setIsSupportOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [selectedChatContact, setSelectedChatContact] = useState<{ id: string; name: string; avatar: string; } | null>(null);
 
   const [friendRequestsCount] = useState(0);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const notificationsRef = useRef<HTMLDivElement>(null);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
 
   const [vocabTip, setVocabTip] = useState<VocabResult>(FALLBACK_VOCAB_LIST[0]);
   const [isLoadingVocab, setIsLoadingVocab] = useState(false);
@@ -90,7 +90,7 @@ export const Dashboard: React.FC = memo(() => {
   // Memoized derived data com fallback seguro para evitar erros de undefined
   const mockSessionsHistory = useMemo(() => userData?.sessionsHistory || [], [userData]);
   const mockMinutesHistory = useMemo(() => userData?.minutesHistory || DEFAULT_MINUTES_HISTORY, [userData]);
-  const unreadCount = useMemo(() => (notifications || []).filter((n) => n?.unread).length, [notifications]);
+  const unreadCount = useMemo(() => (notifications || []).filter((n) => !n?.read).length, [notifications]);
   
   const lastSessionFeedback = useMemo(() => userData?.lastSession || null, [userData]);
   const weeklyGoal = useMemo(() => userData?.weeklyGoal || {
@@ -150,11 +150,27 @@ export const Dashboard: React.FC = memo(() => {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) setIsUserMenuOpen(false);
-      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) setShowNotifications(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const response = await fetch('http://localhost:3000/api/notifications', {
+          credentials: 'include'
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setNotifications(data);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar notificações globais:', error);
+      }
+    };
+    fetchNotifications();
+  }, [isNotificationsOpen]); // Atualiza também quando o modal fechar/abrir
 
   useEffect(() => {
     return () => {
@@ -191,25 +207,6 @@ export const Dashboard: React.FC = memo(() => {
   useEffect(() => {
     if (isMatching) fetchDynamicVocab();
   }, [isMatching, fetchDynamicVocab]);
-
-  const markAllAsRead = useCallback(() => {
-    setNotifications((prev) => (prev || []).map((n) => ({ ...n, unread: false })));
-    showToast('Todas as notificações foram marcadas como lidas.', 'success');
-  }, [showToast]);
-
-  const removeNotification = useCallback((id: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    setNotifications((prev) => (prev || []).filter((n) => n.id !== id));
-  }, []);
-
-  const handleNotificationClick = useCallback((item: NotificationItem) => {
-    setNotifications((prev) => (prev || []).map((n) => (n.id === item.id ? { ...n, unread: false } : n)));
-    setShowNotifications(false);
-    if (item.type === 'friend') setIsFriendsOpen(true);
-    else if (item.type === 'badge') setIsBadgesOpen(true);
-    else if (item.type === 'reminder') setIsMatching(true);
-    else if (item.type === 'goal') setActiveModal('goals');
-  }, []);
 
   const startMatchingFlow = useCallback(() => {
     setIsMatching(true);
@@ -319,10 +316,10 @@ export const Dashboard: React.FC = memo(() => {
             Reputação: {userReputationDisplay}/100
           </div>
 
-          <div className="relative" ref={notificationsRef}>
+          <div className="relative">
             <button
               type="button"
-              onClick={() => setShowNotifications(!showNotifications)}
+              onClick={() => setIsNotificationsOpen(true)}
               className="p-2.5 bg-[#FAF9F6] border-2 border-[#1C1917] rounded-xl hover:bg-[#F5F5F4] transition-all relative flex items-center justify-center outline-none shadow-sm"
               title="Notificações"
             >
@@ -335,64 +332,6 @@ export const Dashboard: React.FC = memo(() => {
                 </span>
               )}
             </button>
-
-            {showNotifications && (
-              <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-[#FFFFFF] border-2 border-[#1C1917] rounded-2xl shadow-[6px_6px_0px_0px_#1C1917] py-3 z-50 flex flex-col gap-2 animate-in fade-in slide-in-from-top-2 duration-150">
-                <div className="px-4 py-2 border-b-2 border-[#E7E5E4] flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-xs font-black uppercase text-[#1C1917]">Notificações & Lembretes</h3>
-                    {unreadCount > 0 && (
-                      <span className="text-[10px] font-black bg-[#1C1917] text-[#FAF9F6] px-2 py-0.5 rounded">
-                        {unreadCount} novas
-                      </span>
-                    )}
-                  </div>
-                  {unreadCount > 0 && (
-                    <button type="button" onClick={markAllAsRead} className="text-[10px] font-black uppercase text-[#78716C] hover:text-[#1C1917] underline">
-                      Marcar lidas
-                    </button>
-                  )}
-                </div>
-
-                <div className="max-h-80 overflow-y-auto flex flex-col divide-y divide-[#E7E5E4]">
-                  {(notifications || []).length > 0 ? (
-                    (notifications || []).map((item) => (
-                      <div
-                        key={item.id}
-                        onClick={() => handleNotificationClick(item)}
-                        className={`p-3.5 flex items-start justify-between gap-3 transition-colors cursor-pointer hover:bg-[#F5F5F4] ${item.unread ? 'bg-[#FAF9F6]' : 'bg-[#FFFFFF]'}`}
-                      >
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-black text-[#1C1917] uppercase">
-                              {item.type === 'reminder' && '🔔 '}
-                              {item.type === 'goal' && '🎯 '}
-                              {item.type === 'friend' && '👤 '}
-                              {item.type === 'badge' && '🏆 '}
-                              {item.title}
-                            </span>
-                            {item.unread && <span className="w-2 h-2 rounded-full bg-red-600" />}
-                          </div>
-                          <p className="text-xs text-[#57534E] font-medium leading-relaxed">{item.message}</p>
-                          <span className="text-[10px] font-bold text-[#A8A29E] uppercase mt-0.5">{item.time}</span>
-                        </div>
-                        <button type="button" onClick={(e) => removeNotification(item.id, e)} className="text-xs font-bold text-[#A8A29E] hover:text-[#1C1917] shrink-0 p-1" title="Remover">✕</button>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="p-6 text-center text-xs font-bold text-[#78716C] uppercase">
-                      Nenhuma notificação por enquanto.
-                    </div>
-                  )}
-                </div>
-
-                <div className="px-3 pt-2 border-t-2 border-[#E7E5E4]">
-                  <button type="button" onClick={() => { setShowNotifications(false); navigate('/profile'); }} className="w-full py-2 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] text-[10px] font-black uppercase tracking-wider rounded-xl hover:bg-[#1C1917] hover:text-[#FAF9F6] transition-all">
-                    Gerenciar Lembretes e Metas
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
 
           <div className="relative" ref={userMenuRef}>
@@ -690,6 +629,7 @@ export const Dashboard: React.FC = memo(() => {
       <BadgesModal isOpen={isBadgesOpen} onClose={() => setIsBadgesOpen(false)} />
       <DeviceCheckModal isOpen={isDeviceCheckOpen} onClose={() => setIsDeviceCheckOpen(false)} mediaMode={mediaMode} />
       <SupportModal isOpen={isSupportOpen} onClose={() => setIsSupportOpen(false)} />
+      <NotificationsModal isOpen={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} />
 
       {showTopicConfirmModal && (topicToJoin || selectedTopic) && (
         <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
