@@ -433,9 +433,21 @@ app.post('/api/auth/verify-code', authLimiter, validateRequest(verifyCodeSchema)
     const pending = targetEmail ? pendingUsers.get(targetEmail) : null;
     if (!pending || pending.code !== code) return res.status(400).json({ error: 'Código inválido.' });
     pendingUsers.delete(targetEmail);
+    
     const newUser = await prisma.user.create({
       data: { name: pending.name, email: pending.email, password: pending.passwordHash, level: pending.level, reputation: 100 },
     });
+
+    // ✨ INSERÇÃO DA TAREFA SBS-130: Criar notificação automática de boas-vindas
+    await prisma.notification.create({
+      data: {
+        userId: newUser.id,
+        title: 'Bem-vindo ao SideBySide! 🎉',
+        message: 'Estamos muito felizes em ter você aqui. Complete seu onboarding e dê o primeiro passo para destravar seu inglês!',
+        read: false,
+      },
+    });
+
     const token = jwt.sign({ id: newUser.id, email: newUser.email }, JWT_SECRET, { expiresIn: '7d' });
     res.cookie('token', token, cookieOptions);
     return res.status(200).json({
@@ -591,6 +603,19 @@ app.get('/api/user/me', authenticateToken, async (req: Request, res: Response, n
     if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
     return res.status(200).json(user);
   } catch (error: any) { next(error); }
+});
+
+app.get('/api/notifications', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.id;
+    const notifications = await prisma.notification.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return res.status(200).json(notifications);
+  } catch (error: any) { 
+    next(error); 
+  }
 });
 
 app.get('/api/matches/candidates', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
