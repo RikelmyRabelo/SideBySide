@@ -10,10 +10,12 @@ import rateLimit from 'express-rate-limit';
 import winston from 'winston';
 import cookieParser from 'cookie-parser';
 import { prisma } from './lib/prisma';
-
 import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import cookie from 'cookie';
+
+// SBS-02: Importando o arquivo centralizador das filas
+import { setupMatchmaking } from './sockets/matchmaking';
 
 const app = express();
 
@@ -132,9 +134,10 @@ const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
 };
 
 /* =========================================
-   LÓGICA DO SOCKET.IO (MATCHMAKING & WEBRTC)
+   LÓGICA DO SOCKET.IO MODULARIZADA
 ========================================= */
 
+// Validação do token de autenticação nos Sockets
 io.use((socket, next) => {
   try {
     const cookies = cookie.parse(socket.request.headers.cookie || '');
@@ -152,167 +155,9 @@ io.use((socket, next) => {
   }
 });
 
-interface WaitingUser {
-  socketId: string;
-  userId: string;
-  email: string;
-}
-const waitingQueue: WaitingUser[] = [];
-const socketRooms = new Map<string, string>(); // Rastreamento de salas ativas por socket
+// SBS-02: Executando a lógica de matchmaking e delegando o io para o arquivo focado
+setupMatchmaking(io);
 
-// SBS-116: Mapeamento de segurança para restringir acesso apenas aos usuários pareados na sala
-const roomParticipants = new Map<string, Set<string>>();
-
-const validateRoomAccess = (roomId: string, userId: string): boolean => {
-  const participants = roomParticipants.get(roomId);
-  return participants ? participants.has(userId) : false;
-};
-
-// SBS-112: Mapas de controle para o Rate Limiting em tempo real do Socket.IO
-const socketRateLimits = new Map<string, { count: number; lastReset: number }>();
-const RATE_LIMIT_WINDOW_MS = 5000; // Janela de 5 segundos
-const MAX_EVENTS_IN_WINDOW = 10;   // Máximo de 10 eventos permitidos por janela em ações sensíveis
-
-const checkSocketRateLimit = (socketId: string): boolean => {
-  const now = Date.now();
-  const record = socketRateLimits.get(socketId);
-
-  if (!record || now - record.lastReset > RATE_LIMIT_WINDOW_MS) {
-    socketRateLimits.set(socketId, { count: 1, lastReset: now });
-    return true;
-  }
-
-  if (record.count >= MAX_EVENTS_IN_WINDOW) {
-    return false; // Excedeu o limite
-  }
-
-  record.count++;
-  return true;
-};
-
-io.on('connection', (socket) => {
-  const user = (socket as any).user;
-  logger.info(`🔌 Usuário conectado via Socket: ${user.email} (${socket.id})`);
-
-  socket.on('find_match', () => {
-    // SBS-112: Aplicação de Rate Limiting no evento de matchmaking
-    if (!checkSocketRateLimit(socket.id)) {
-      socket.emit('error_message', { message: 'Muitas tentativas de busca. Aguarde alguns segundos.' });
-      logger.warn(`⚠️ Rate limit excedido para find_match por ${user.email}`);
-      return;
-    }
-
-    logger.info(`🔍 ${user.email} entrou na fila de busca.`);
-
-    const alreadyInQueue = waitingQueue.find(u => u.userId === user.id);
-    if (alreadyInQueue) return;
-
-    if (waitingQueue.length > 0) {
-      const partner = waitingQueue.shift()!;
-      const roomId = `room_${Date.now()}`;
-      
-      // SBS-116: Atribui permissão exclusiva aos dois usuários pareados
-      roomParticipants.set(roomId, new Set([user.id, partner.userId]));
-
-      socket.join(roomId);
-      socketRooms.set(socket.id, roomId);
-
-      const partnerSocket = io.sockets.sockets.get(partner.socketId);
-      if (partnerSocket) {
-        partnerSocket.join(roomId);
-        socketRooms.set(partner.socketId, roomId);
-      }
-
-      logger.info(`🤝 MATCH ENCONTRADO: ${user.email} <> ${partner.email} na sala ${roomId}`);
-      
-      socket.emit('match_found', { 
-        roomId, 
-        partnerId: partner.userId,
-        initiator: true 
-      });
-      if (partnerSocket) {
-        partnerSocket.emit('match_found', { 
-          roomId, 
-          partnerId: user.id,
-          initiator: false 
-        });
-      }
-    } else {
-      waitingQueue.push({ socketId: socket.id, userId: user.id, email: user.email });
-    }
-  });
-
-  socket.on('cancel_match', () => {
-    const index = waitingQueue.findIndex(u => u.socketId === socket.id);
-    if (index !== -1) {
-      waitingQueue.splice(index, 1);
-      logger.info(`🚫 ${user.email} saiu da fila de busca.`);
-    }
-  });
-
-  socket.on('join_room', ({ roomId }) => {
-    // SBS-116: Validação anti-Socket Hijacking para impedir entrada em salas não autorizadas
-    if (!roomId || !validateRoomAccess(roomId, user.id)) {
-      socket.emit('error_message', { message: 'Acesso negado. Você não possui permissão para entrar nesta sala.' });
-      logger.warn(`🚨 TENTATIVA DE SEQUESTRO DE SALA (Socket Hijacking): ${user.email} tentou entrar em ${roomId}`);
-      return;
-    }
-
-    socket.join(roomId);
-    socketRooms.set(socket.id, roomId);
-    logger.info(`🚪 ${user.email} juntou-se à sala WebRTC com sucesso: ${roomId}`);
-  });
-
-  socket.on('webrtc_offer', (data) => {
-    if (!data.roomId || !validateRoomAccess(data.roomId, user.id)) return;
-    socket.to(data.roomId).emit('webrtc_offer', { sdp: data.sdp, senderId: user.id });
-  });
-
-  socket.on('webrtc_answer', (data) => {
-    if (!data.roomId || !validateRoomAccess(data.roomId, user.id)) return;
-    socket.to(data.roomId).emit('webrtc_answer', { sdp: data.sdp, senderId: user.id });
-  });
-
-  socket.on('webrtc_ice_candidate', (data) => {
-    if (!data.roomId || !validateRoomAccess(data.roomId, user.id)) return;
-    socket.to(data.roomId).emit('webrtc_ice_candidate', { candidate: data.candidate, senderId: user.id });
-  });
-
-  socket.on('chat_message', (data) => {
-    // SBS-112: Aplicação de Rate Limiting contra spam de mensagens no chat
-    if (!checkSocketRateLimit(socket.id)) {
-      socket.emit('error_message', { message: 'Envio de mensagens muito rápido. Espere um momento.' });
-      logger.warn(`⚠️ Rate limit excedido para chat_message por ${user.email}`);
-      return;
-    }
-
-    // SBS-116: Validação de permissão antes de relatar/enviar mensagem no chat
-    if (!data.roomId || !validateRoomAccess(data.roomId, user.id)) {
-      socket.emit('error_message', { message: 'Acesso negado para envio de mensagem nesta sala.' });
-      logger.warn(`🚨 Tentativa de envio não autorizado no chat da sala ${data.roomId} por ${user.email}`);
-      return;
-    }
-
-    socket.to(data.roomId).emit('chat_message', { text: data.text, senderId: user.id, id: Date.now() });
-  });
-
-  socket.on('disconnect', () => {
-    const index = waitingQueue.findIndex(u => u.socketId === socket.id);
-    if (index !== -1) {
-      waitingQueue.splice(index, 1);
-    }
-
-    const roomId = socketRooms.get(socket.id);
-    if (roomId) {
-      socket.to(roomId).emit('partner_left');
-      socketRooms.delete(socket.id);
-      roomParticipants.delete(roomId);
-    }
-
-    socketRateLimits.delete(socket.id);
-    logger.info(`❌ Usuário desconectado via Socket: ${user.email}`);
-  });
-});
 
 /* =========================================
    ROTAS EXPRESS PADRÃO
@@ -438,7 +283,6 @@ app.post('/api/auth/verify-code', authLimiter, validateRequest(verifyCodeSchema)
       data: { name: pending.name, email: pending.email, password: pending.passwordHash, level: pending.level, reputation: 100 },
     });
 
-    // ✨ INSERÇÃO DA TAREFA SBS-130: Criar notificação automática de boas-vindas
     await prisma.notification.create({
       data: {
         userId: newUser.id,
@@ -651,17 +495,14 @@ app.put('/api/user/profile', authenticateToken, async (req: Request, res: Respon
     const tokenUser = (req as any).user;
     const { cefrLevel, ...bodyData } = req.body;
     
-    // Mapeia o cefrLevel do frontend para o campo 'level' do banco de dados
     const updateData = {
       ...bodyData,
       ...(cefrLevel ? { level: cefrLevel } : {})
     };
 
-    // Tenta encontrar o usuário pelo ID do token
     let user = await prisma.user.findUnique({ where: { id: tokenUser.id } });
 
     if (!user) {
-      // Se o usuário não existir, tenta encontrar pelo email ou cria o registro automaticamente para salvar o onboarding
       user = await prisma.user.findUnique({ where: { email: tokenUser.email } });
       
       if (!user) {

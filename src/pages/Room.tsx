@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
 import { ReportModal } from '../components/room/ReportModal';
 import { RatingModal } from '../components/room/RatingModal';
-import { TOPICS_CATALOG, getRandomTopic, TopicItem } from '../data/topicsData';
+import { TOPICS_CATALOG, FREE_TALK_TOPIC, TopicItem } from '../data/topicsData';
 import { useRoomStatus } from '../hooks/useRoomStatus';
 
 const formatSessionTimer = (seconds: number) => {
@@ -27,7 +27,7 @@ export const Room: React.FC = memo(() => {
 
   const [currentTopic, setCurrentTopic] = useState<TopicItem>(() => {
     if (topicId && TOPICS_CATALOG[topicId]) return TOPICS_CATALOG[topicId];
-    return getRandomTopic();
+    return FREE_TALK_TOPIC;
   });
 
   const [micActive, setMicActive] = useState(true);
@@ -100,7 +100,7 @@ export const Room: React.FC = memo(() => {
   const streamRef = useRef<MediaStream | null>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const socketRef = useRef<Socket | null>(null);
-  const pendingCandidates = useRef<RTCIceCandidateInit[]>([]); // Fila para evitar Race Condition de IPs
+  const pendingCandidates = useRef<RTCIceCandidateInit[]>([]);
   const [mediaError, setMediaError] = useState<string | null>(null);
 
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
@@ -312,13 +312,12 @@ export const Room: React.FC = memo(() => {
       try {
         stream = await navigator.mediaDevices.getUserMedia(constraints);
       } catch (fallbackErr) {
-        // Fallback robusto: se os dispositivos salvos não existirem mais, usa o padrão do navegador
         console.warn('Dispositivos preferenciais falharam. Usando mídia padrão do sistema...');
         stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
       }
 
       streamRef.current = stream;
-      setLocalStream(stream); // O React ancorará na ref do HTML automaticamente
+      setLocalStream(stream);
       setupAudioAnalyzer(stream);
 
       const pc = new RTCPeerConnection(ICE_SERVERS);
@@ -328,7 +327,7 @@ export const Room: React.FC = memo(() => {
 
       pc.ontrack = (event) => {
         if (event.streams && event.streams[0]) {
-          setRemoteStream(event.streams[0]); // Ancoragem reativa do parceiro
+          setRemoteStream(event.streams[0]);
           setConnectionStatus('connected');
 
           const incomingStream = event.streams[0];
@@ -412,7 +411,6 @@ export const Room: React.FC = memo(() => {
       if (!pc) return;
       await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
       
-      // Processa a fila de ICE Candidates retidos
       while (pendingCandidates.current.length > 0) {
         const candidate = pendingCandidates.current.shift();
         if (candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
@@ -428,7 +426,6 @@ export const Room: React.FC = memo(() => {
       if (!pc) return;
       await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
       
-      // Processa a fila de ICE Candidates retidos
       while (pendingCandidates.current.length > 0) {
         const candidate = pendingCandidates.current.shift();
         if (candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
@@ -439,7 +436,6 @@ export const Room: React.FC = memo(() => {
       const pc = peerConnectionRef.current;
       if (!pc) return;
       
-      // Armazena candidatos na fila se o Remote Description ainda não chegou (Race Condition)
       if (pc.remoteDescription && pc.remoteDescription.type) {
         await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
       } else {
@@ -522,7 +518,7 @@ export const Room: React.FC = memo(() => {
     setChatMessages([]);
     setIsSearchingNextPair(true);
     setSessionElapsedSeconds(0);
-    setCurrentTopic(getRandomTopic());
+    setCurrentTopic(topicId && TOPICS_CATALOG[topicId] ? TOPICS_CATALOG[topicId] : FREE_TALK_TOPIC);
     
     if (socketRef.current) {
       socketRef.current.emit('find_match', { topicId: topicId || null });

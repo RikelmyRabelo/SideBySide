@@ -11,13 +11,48 @@ export interface TopicItem {
   category: string;
   title: string;
   steps: TopicStep[];
+  icebreaker?: string;
+  vocabPreview?: string[];
 }
+
+export const FREE_TALK_TOPIC: TopicItem = {
+  id: 'general',
+  category: 'Bate-papo Livre',
+  title: 'Conversação Aberta',
+  icebreaker: 'Como foi o seu dia hoje? Tem algo interessante para compartilhar?',
+  vocabPreview: ['Conversation', 'Casual', 'Introduction'],
+  steps: [
+    {
+      stepNumber: 1,
+      stageTitle: 'Quebra-gelo',
+      question: 'De onde você é e o que costuma fazer no seu dia a dia?',
+      transitionPhrase: 'That is so cool! Tell me more about...',
+      keywords: ['Routine', 'City', 'Work/Study']
+    },
+    {
+      stepNumber: 2,
+      stageTitle: 'Interesses',
+      question: 'Quais são seus maiores hobbies ou paixões no momento?',
+      transitionPhrase: 'I love that! Have you ever...',
+      keywords: ['Hobbies', 'Passions', 'Free time']
+    },
+    {
+      stepNumber: 3,
+      stageTitle: 'Despedida',
+      question: 'O que você achou da nossa conversa de hoje?',
+      transitionPhrase: 'It was great talking to you! Bye!',
+      keywords: ['Feedback', 'Goodbye', 'See you']
+    }
+  ]
+};
 
 export const TOPICS_CATALOG: Record<string, TopicItem> = {
   travel: {
     id: 'travel',
     category: 'Viagens & Culturas',
     title: 'Experiências Inesquecíveis',
+    icebreaker: 'Qual foi o destino mais marcante que você já visitou e por quê?',
+    vocabPreview: ['Destination', 'Wanderlust', 'Unforgettable'],
     steps: [
       {
         stepNumber: 1,
@@ -53,6 +88,8 @@ export const TOPICS_CATALOG: Record<string, TopicItem> = {
     id: 'career',
     category: 'Trabalho & Tecnologia',
     title: 'O Futuro da Inteligência Artificial',
+    icebreaker: 'Como a tecnologia e a IA têm mudado a sua rotina diária no trabalho?',
+    vocabPreview: ['Automation', 'Efficiency', 'Workflow'],
     steps: [
       {
         stepNumber: 1,
@@ -88,6 +125,8 @@ export const TOPICS_CATALOG: Record<string, TopicItem> = {
     id: 'hobbies',
     category: 'Estilo de Vida',
     title: 'Passatempos & Hábitos Diários',
+    icebreaker: 'O que você mais gosta de fazer para relaxar no final de semana?',
+    vocabPreview: ['Leisure', 'Unwind', 'Daily Routine'],
     steps: [
       {
         stepNumber: 1,
@@ -119,10 +158,4 @@ export const TOPICS_CATALOG: Record<string, TopicItem> = {
       },
     ],
   },
-};
-
-export const getRandomTopic = (): TopicItem => {
-  const keys = Object.keys(TOPICS_CATALOG);
-  const randomKey = keys[Math.floor(Math.random() * keys.length)];
-  return TOPICS_CATALOG[randomKey];
 };

@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { io, Socket } from 'socket.io-client';
 import { Button } from '../components/ui/Button';
 import { FriendsManagerModal, Friend, FriendRequest } from '../components/dashboard/FriendsManagerModal';
 import { DirectChatsModal } from '../components/dashboard/DirectChatsModal';
@@ -12,17 +11,6 @@ import { useToast } from '../components/ui/ToastContext';
 import { TopicItemType } from '../types/user';
 import { useFetchCache } from '../hooks/useFetchCache';
 import { BADGES_CATALOG } from '../data/badgesData';
-
-const FALLBACK_VOCAB_LIST = [
-  { word: 'serendipity', phonetic: '/ˌser.ənˈdɪp.ə.ti/', definition: 'A ocorrência de acontecimentos afortunados por mero acaso ou sorte.' },
-  { word: 'eloquent', phonetic: '/ˈel.ə.kwənt/', definition: 'Capacidade de se expressar com fluência, clareza e persuasão.' },
-  { word: 'resilience', phonetic: '/rɪˈzɪl.jəns/', definition: 'A capacidade de se recuperar rapidamente de dificuldades ou desafios.' },
-  { word: 'empathy', phonetic: '/ˈem.pə.θi/', definition: 'A habilidade de compreender e compartilhar os sentimentos de outra pessoa.' },
-  { word: 'ephemeral', phonetic: '/ɪˈfem.ər.əl/', definition: 'Coisas passageiras, que duram por um período de tempo muito curto.' },
-  { word: 'pragmatic', phonetic: '/præɡˈmæt.ɪk/', definition: 'Maneira de tratar as coisas de forma prática e realista em vez de teórica.' },
-  { word: 'tenacity', phonetic: '/təˈnæs.ə.ti/', definition: 'A qualidade de ser muito determinado, firme e persistente.' },
-  { word: 'gregarious', phonetic: '/ɡrɪˈɡeə.ri.əs/', definition: 'Pessoa sociável que gosta do convívio e da companhia dos outros.' },
-];
 
 const DEFAULT_MINUTES_HISTORY = [
   { day: 'Seg', min: 0 }, { day: 'Ter', min: 0 }, { day: 'Qua', min: 0 },
@@ -37,12 +25,6 @@ const DAILY_TOPICS: TopicItemType[] = [
   { id: 'hobbies', category: 'Estilo de Vida', title: 'Passatempos & Hábitos Diários', icebreaker: 'O que você mais gosta de fazer para relaxar no final de semana?', vocabPreview: ['Leisure', 'Unwind', 'Daily Routine'] },
 ];
 
-interface VocabResult {
-  word: string;
-  phonetic?: string;
-  definition: string;
-}
-
 export const Dashboard: React.FC = memo(() => {
   const navigate = useNavigate();
   const { showToast } = useToast();
@@ -53,9 +35,6 @@ export const Dashboard: React.FC = memo(() => {
 
   const [mediaMode, setMediaMode] = useState<'video' | 'audio'>('video');
   const [expandedMatching, setExpandedMatching] = useState(true);
-  
-  const [isMatching, setIsMatching] = useState(false);
-  const [socket, setSocket] = useState<Socket | null>(null);
 
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
@@ -72,8 +51,6 @@ export const Dashboard: React.FC = memo(() => {
   const [selectedChatContact, setSelectedChatContact] = useState<Friend | null>(null);
 
   const [notifications, setNotifications] = useState<any[]>([]);
-  const [vocabTip, setVocabTip] = useState<VocabResult>(FALLBACK_VOCAB_LIST[0]);
-  const [isLoadingVocab, setIsLoadingVocab] = useState(false);
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -231,79 +208,10 @@ export const Dashboard: React.FC = memo(() => {
     }).catch((error) => console.error('A rota PUT de notificações não existe no servidor (Ignorando erro).', error));
   };
 
-  useEffect(() => {
-    return () => {
-      if (socket) {
-        socket.emit('cancel_match');
-        socket.disconnect();
-      }
-    };
-  }, [socket]);
-
-  const fetchDynamicVocab = useCallback(async () => {
-    setIsLoadingVocab(true);
-    const randomFallback = FALLBACK_VOCAB_LIST[Math.floor(Math.random() * FALLBACK_VOCAB_LIST.length)];
-    try {
-      const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${randomFallback.word}`);
-      if (response.ok) {
-        const data = await response.json();
-        const entry = data[0];
-        setVocabTip({
-          word: entry.word,
-          phonetic: entry.phonetic || entry.phonetics?.find((p: { text?: string }) => p.text)?.text || randomFallback.phonetic,
-          definition: randomFallback.definition,
-        });
-      } else {
-        setVocabTip(randomFallback);
-      }
-    } catch {
-      setVocabTip(randomFallback);
-    } finally {
-      setIsLoadingVocab(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (isMatching) fetchDynamicVocab();
-  }, [isMatching, fetchDynamicVocab]);
-
   const startMatchingFlow = useCallback(() => {
-    setIsMatching(true);
-
-    const newSocket = io('http://localhost:3000', {
-      withCredentials: true
-    });
-
-    newSocket.on('connect', () => {
-      newSocket.emit('find_match');
-    });
-
-    newSocket.on('match_found', (data: { roomId: string; partnerId: string }) => {
-      showToast('Parceiro encontrado! Entrando na sala...', 'success');
-      newSocket.disconnect();
-      setSocket(null);
-      setIsMatching(false);
-      navigate(`/room`); 
-    });
-
-    newSocket.on('connect_error', (err) => {
-      console.error('Erro de conexão no Socket:', err.message);
-      showToast('Erro ao conectar na fila. Tente novamente.', 'error');
-      setIsMatching(false);
-      newSocket.disconnect();
-    });
-
-    setSocket(newSocket);
-  }, [showToast, navigate]);
-
-  const handleCancelMatch = useCallback(() => {
-    if (socket) {
-      socket.emit('cancel_match');
-      socket.disconnect();
-      setSocket(null);
-    }
-    setIsMatching(false);
-  }, [socket]);
+    // Apenas direciona para o Room.tsx, que assumirá a fila geral (null/general) com sua própria tela de loading
+    navigate('/room');
+  }, [navigate]);
 
   const toggleDaySelection = useCallback((day: string) => {
     setSelectedDays(prev => (prev || []).includes(day) ? (prev || []).filter((d) => d !== day) : [...(prev || []), day]);
@@ -680,42 +588,6 @@ export const Dashboard: React.FC = memo(() => {
                 Concordar e Começar
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {isMatching && (
-        <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-8 sm:p-10 max-w-lg w-full shadow-2xl flex flex-col items-center gap-8 animate-in fade-in zoom-in-95 duration-150">
-            <div className="relative flex items-center justify-center">
-              <div className="w-24 h-24 rounded-full border-4 border-[#F5F5F4] border-t-[#1C1917] animate-spin" />
-              <div className="absolute w-12 h-12 rounded-full bg-[#1C1917] text-[#FAF9F6] font-black text-base flex items-center justify-center uppercase">S</div>
-            </div>
-
-            <div className="flex flex-col items-center text-center gap-2">
-              <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-[#1C1917]">Buscando Par de Conversa...</h3>
-              <p className="text-sm font-bold text-[#78716C]">Aguardando conexão com estudante do nível <span className="text-[#1C1917] underline">{userLevelDisplay}</span></p>
-            </div>
-
-            <div className="w-full bg-[#FAF9F6] border border-[#E7E5E4] rounded-2xl p-6 flex flex-col gap-3 text-left">
-              <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-3">
-                <span className="text-xs font-black uppercase tracking-widest text-[#78716C]">Vocabulário para Praticar Hoje</span>
-                <button type="button" onClick={fetchDynamicVocab} className="text-xs font-bold text-[#1C1917] hover:underline uppercase flex items-center gap-1">Nova Palavra ↻</button>
-              </div>
-              {isLoadingVocab ? (
-                <div className="py-4 text-center text-sm font-bold text-[#78716C] animate-pulse">Atualizando sugestão de vocabulário...</div>
-              ) : (
-                <div className="flex flex-col gap-2 pt-1">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-lg font-black text-[#1C1917] capitalize">{vocabTip.word}</span>
-                    {vocabTip.phonetic && <span className="text-xs font-bold text-[#78716C] italic">{vocabTip.phonetic}</span>}
-                  </div>
-                  <p className="text-sm font-medium text-[#57534E] leading-relaxed">{vocabTip.definition}</p>
-                </div>
-              )}
-            </div>
-
-            <button type="button" onClick={handleCancelMatch} className="w-full py-4 bg-[#F5F5F4] hover:bg-[#E7E5E4] border border-[#E7E5E4] text-[#1C1917] font-bold text-xs uppercase tracking-widest rounded-xl transition-all">Cancelar Busca</button>
           </div>
         </div>
       )}
