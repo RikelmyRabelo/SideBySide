@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, memo } from 'react';
+import { io, Socket } from 'socket.io-client';
 import { Friend } from './FriendsManagerModal';
 
 interface Message {
@@ -19,15 +20,34 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
   const [activeContact, setActiveContact] = useState<Friend | null>(selectedContact);
   const [viewingProfile, setViewingProfile] = useState<Friend | null>(null);
   const [inputMessage, setInputMessage] = useState('');
-  
-  // Removidas as mensagens de exemplo (chat inicia vazio)
   const [messages, setMessages] = useState<Message[]>([]);
-
+  
+  const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      const newSocket = io('http://localhost:3000', { withCredentials: true });
+      socketRef.current = newSocket;
+
+      newSocket.on('direct_message', (data: { senderId: string; text: string; timestamp: number }) => {
+        if (activeContact && data.senderId === activeContact.id) {
+          const d = new Date(data.timestamp);
+          const timeString = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+          setMessages((prev) => [...prev, { id: data.timestamp, text: data.text, sender: 'them', time: timeString }]);
+        }
+      });
+
+      return () => {
+        newSocket.disconnect();
+      };
+    }
+  }, [isOpen, activeContact]);
 
   useEffect(() => {
     if (isOpen && selectedContact) {
       setActiveContact(selectedContact);
+      setMessages([]);
     }
   }, [isOpen, selectedContact]);
 
@@ -45,12 +65,19 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputMessage.trim()) return;
+    if (!inputMessage.trim() || !activeContact) return;
 
     const now = new Date();
     const timeString = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 
-    setMessages([...messages, { id: Date.now(), text: inputMessage, sender: 'me', time: timeString }]);
+    if (socketRef.current) {
+      socketRef.current.emit('direct_message', {
+        recipientId: activeContact.id,
+        text: inputMessage
+      });
+    }
+
+    setMessages((prev) => [...prev, { id: Date.now(), text: inputMessage, sender: 'me', time: timeString }]);
     setInputMessage('');
   };
 
@@ -88,7 +115,7 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
                   <button
                     key={friend.id}
                     type="button"
-                    onClick={() => setActiveContact(friend)}
+                    onClick={() => { setActiveContact(friend); setMessages([]); }}
                     className={`w-full p-3 rounded-2xl flex items-center gap-3 transition-all text-left border-2 ${activeContact?.id === friend.id ? 'bg-[#1C1917] border-[#1C1917] text-[#FAF9F6] shadow-md' : 'bg-[#FFFFFF] border-[#E7E5E4] hover:border-[#1C1917] text-[#1C1917]'}`}
                   >
                     <div className="relative w-10 h-10 rounded-xl overflow-hidden shrink-0 bg-[#E7E5E4] border-2 border-current">
@@ -129,7 +156,7 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
                   <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col gap-4 bg-[#FFFFFF]">
                     <div className="text-center my-2">
                       <span className="text-[9px] font-black uppercase tracking-widest text-[#A8A29E] bg-[#F5F5F4] px-2 py-1 rounded-md border border-[#E7E5E4]">
-                        Início da conversa criptografada
+                        Início da conversa em tempo real
                       </span>
                     </div>
 

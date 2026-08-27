@@ -11,9 +11,12 @@ export const setupMatchmaking = (io: Server) => {
     const user = (socket as any).user;
     console.log(`🔌 Novo usuário conectado: ${user?.email || socket.id}`);
 
+    if (user?.id) {
+      socket.join(`user_${user.id}`);
+    }
+
     socket.on('find_match', async (data?: { topicId?: string }) => {
       const topicId = data?.topicId || 'general';
-      console.log(`🔍 ${user?.email || socket.id} entrou na fila: ${topicId}`);
       
       if (!queues[topicId]) queues[topicId] = [];
       
@@ -48,29 +51,14 @@ export const setupMatchmaking = (io: Server) => {
 
           try {
             if (user1?.id) {
-              const dbU1 = await prisma.user.findUnique({ 
-                where: { id: user1.id }
-              });
-              if (dbU1) { 
-                u1Data.name = dbU1.name; 
-                u1Data.avatar = dbU1.avatar; 
-              }
+              const dbU1 = await prisma.user.findUnique({ where: { id: user1.id } });
+              if (dbU1) { u1Data.name = dbU1.name; u1Data.avatar = dbU1.avatar; }
             }
-            
             if (user2?.id) {
-              const dbU2 = await prisma.user.findUnique({ 
-                where: { id: user2.id }
-              });
-              if (dbU2) { 
-                u2Data.name = dbU2.name; 
-                u2Data.avatar = dbU2.avatar; 
-              }
+              const dbU2 = await prisma.user.findUnique({ where: { id: user2.id } });
+              if (dbU2) { u2Data.name = dbU2.name; u2Data.avatar = dbU2.avatar; }
             }
-          } catch (err) {
-            console.error('Erro ao buscar dados do parceiro no banco', err);
-          }
-
-          console.log(`🤝 MATCH ENCONTRADO [${topicId}]: ${u1Data.name} <> ${u2Data.name} (${roomId})`);
+          } catch (err) {}
 
           socket1.emit('match_found', { 
             roomId, 
@@ -96,7 +84,6 @@ export const setupMatchmaking = (io: Server) => {
       if (topicId && queues[topicId]) {
         queues[topicId] = queues[topicId].filter(s => s.id !== socket.id);
         socketTopicMap.delete(socket.id);
-        console.log(`❌ ${user?.email || socket.id} cancelou a busca na fila: ${topicId}`);
       }
     });
 
@@ -111,7 +98,6 @@ export const setupMatchmaking = (io: Server) => {
         }
         socketRoomMap.delete(socket.id);
         socket.leave(roomId);
-        console.log(`🚪 ${user?.email || socket.id} saiu da sala ${roomId}`);
       }
     };
 
@@ -124,12 +110,23 @@ export const setupMatchmaking = (io: Server) => {
       }
       handlePartnerLeave();
       socketTopicMap.delete(socket.id);
-      console.log(`🔌 Usuário desconectado: ${user?.email || socket.id}`);
     });
 
     socket.on('webrtc_offer', (data) => socket.to(data.roomId).emit('webrtc_offer', { sdp: data.sdp }));
     socket.on('webrtc_answer', (data) => socket.to(data.roomId).emit('webrtc_answer', { sdp: data.sdp }));
     socket.on('webrtc_ice_candidate', (data) => socket.to(data.roomId).emit('webrtc_ice_candidate', { candidate: data.candidate }));
-    socket.on('chat_message', (data) => socket.to(data.roomId).emit('chat_message', { text: data.text, id: Date.now() }));
+    
+    socket.on('chat_message', (data) => {
+      socket.to(data.roomId).emit('chat_message', { text: data.text, id: Date.now() });
+    });
+
+    // Roteamento de mensagens de chat direto entre amigos
+    socket.on('direct_message', (data: { recipientId: string; text: string }) => {
+      io.to(`user_${data.recipientId}`).emit('direct_message', {
+        senderId: user?.id,
+        text: data.text,
+        timestamp: Date.now()
+      });
+    });
   });
 };
