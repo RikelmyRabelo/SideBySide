@@ -1,202 +1,242 @@
-import React, { useState, useCallback, useMemo, memo } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
+import { Friend } from './FriendsManagerModal';
 
-interface DirectMessage {
-  id: string;
-  sender: 'me' | 'them';
+interface Message {
+  id: number;
   text: string;
+  sender: 'me' | 'them';
   time: string;
 }
 
-interface ChatContact {
-  id: string;
-  name: string;
-  avatar: string;
-  lastMessage: string;
-  time: string;
-  unread: boolean;
-  messages: DirectMessage[];
-}
-
-interface DirectChatsModalProps {
+export interface DirectChatsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  selectedContact?: { id: string; name: string; avatar: string } | null;
+  selectedContact: Friend | null;
+  friendsList: Friend[];
 }
 
-export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({
-  isOpen,
-  onClose,
-  selectedContact,
-}) => {
-  const [chats, setChats] = useState<ChatContact[]>([]);
+export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen, onClose, selectedContact, friendsList }) => {
+  const [activeContact, setActiveContact] = useState<Friend | null>(selectedContact);
+  const [viewingProfile, setViewingProfile] = useState<Friend | null>(null);
+  const [inputMessage, setInputMessage] = useState('');
+  
+  const [messages, setMessages] = useState<Message[]>([
+    { id: 1, text: 'Oi! Adorei nossa última conversa.', sender: 'them', time: '14:20' },
+    { id: 2, text: 'Olá! Também achei muito boa. Vamos praticar mais tarde?', sender: 'me', time: '14:22' }
+  ]);
 
-  const [activeChatId, setActiveChatId] = useState<string>(
-    selectedContact?.id || chats[0]?.id || ''
-  );
-  const [newMessageText, setNewMessageText] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const activeChat = useMemo(() => {
-    return chats.find((c) => c.id === activeChatId) || chats[0];
-  }, [chats, activeChatId]);
+  useEffect(() => {
+    if (isOpen && selectedContact) {
+      setActiveContact(selectedContact);
+    }
+  }, [isOpen, selectedContact]);
 
-  const handleSendMessage = useCallback((e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMessageText.trim() || !activeChat) return;
+  useEffect(() => {
+    if (!isOpen) {
+      setViewingProfile(null);
+    }
+  }, [isOpen]);
 
-    const newMsg: DirectMessage = {
-      id: `msg-${Date.now()}`,
-      sender: 'me',
-      text: newMessageText,
-      time: 'Agora',
-    };
-
-    setChats((prev) =>
-      prev.map((c) => {
-        if (c.id === activeChat.id) {
-          return {
-            ...c,
-            lastMessage: newMessageText,
-            time: 'Agora',
-            messages: [...c.messages, newMsg],
-          };
-        }
-        return c;
-      })
-    );
-
-    setNewMessageText('');
-  }, [newMessageText, activeChat]);
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, activeContact]);
 
   if (!isOpen) return null;
 
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputMessage.trim()) return;
+
+    const now = new Date();
+    const timeString = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+    setMessages([...messages, { id: Date.now(), text: inputMessage, sender: 'me', time: timeString }]);
+    setInputMessage('');
+  };
+
+  const hasFriends = friendsList && friendsList.length > 0;
+
   return (
     <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-      <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl max-w-2xl w-full h-[520px] shadow-[8px_8px_0px_0px_#1C1917] flex overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl overflow-hidden max-w-4xl w-full shadow-[8px_8px_0px_0px_#1C1917] flex h-[600px] max-h-[90vh] animate-in fade-in zoom-in-95 duration-200 relative">
         
-        {/* Lista Lateral de Contatos / Chats */}
-        <div className="w-1/3 border-r-2 border-[#E7E5E4] bg-[#FAF9F6] flex flex-col">
-          <div className="p-4 border-b-2 border-[#E7E5E4] flex items-center justify-between bg-[#FFFFFF]">
-            <h3 className="text-xs font-black uppercase text-[#1C1917]">Chats Diretos</h3>
+        {!hasFriends ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center gap-4 relative">
+            <button type="button" onClick={onClose} className="absolute top-6 right-6 text-sm font-black text-[#78716C] hover:text-[#1C1917]">✕</button>
+            <div className="w-16 h-16 rounded-2xl bg-[#F5F5F4] border-2 border-[#E7E5E4] flex items-center justify-center">
+              <svg className="w-8 h-8 stroke-[#A8A29E] fill-none stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
+            </div>
+            <div className="flex flex-col gap-2 max-w-sm">
+              <h2 className="text-xl font-black uppercase text-[#1C1917]">Chat Bloqueado</h2>
+              <p className="text-xs font-medium text-[#78716C] leading-relaxed">
+                Você só pode conversar diretamente com usuários que aceitaram sua solicitação de amizade. Adicione parceiros durante as salas temáticas ou pelo menu de contatos.
+              </p>
+            </div>
+            <button type="button" onClick={onClose} className="px-6 py-3 bg-[#1C1917] text-[#FAF9F6] font-black text-xs uppercase tracking-widest rounded-xl hover:bg-[#292524] transition-all mt-2">
+              Voltar ao Painel
+            </button>
           </div>
-
-          <div className="flex-1 overflow-y-auto flex flex-col divide-y divide-[#E7E5E4]">
-            {chats.length > 0 ? (
-              chats.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => setActiveChatId(c.id)}
-                  className={`p-3.5 text-left flex items-center gap-3 transition-colors ${
-                    c.id === activeChat?.id ? 'bg-[#FFFFFF] font-black' : 'hover:bg-[#F5F5F4]'
-                  }`}
-                >
-                  <img
-                    src={c.avatar}
-                    alt={c.name}
-                    className="w-9 h-9 rounded-xl object-cover border-2 border-[#1C1917] shrink-0"
-                  />
-                  <div className="flex flex-col min-w-0 flex-1">
-                    <div className="flex justify-between items-baseline">
-                      <span className="text-xs font-black text-[#1C1917] truncate">{c.name}</span>
-                      <span className="text-[9px] font-bold text-[#A8A29E] uppercase">{c.time}</span>
+        ) : (
+          <>
+            <div className={`w-full md:w-80 bg-[#FAF9F6] border-r-2 border-[#1C1917] flex-col shrink-0 ${activeContact ? 'hidden md:flex' : 'flex'}`}>
+              <div className="p-6 border-b-2 border-[#E7E5E4] flex items-center justify-between">
+                <h2 className="text-base font-black uppercase text-[#1C1917]">Conversas</h2>
+                <button type="button" onClick={onClose} className="md:hidden text-sm font-black text-[#78716C] hover:text-[#1C1917]">✕</button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2">
+                {friendsList.map((friend) => (
+                  <button
+                    key={friend.id}
+                    type="button"
+                    onClick={() => setActiveContact(friend)}
+                    className={`w-full p-3 rounded-2xl flex items-center gap-3 transition-all text-left border-2 ${activeContact?.id === friend.id ? 'bg-[#1C1917] border-[#1C1917] text-[#FAF9F6] shadow-md' : 'bg-[#FFFFFF] border-[#E7E5E4] hover:border-[#1C1917] text-[#1C1917]'}`}
+                  >
+                    <div className="relative w-10 h-10 rounded-xl overflow-hidden shrink-0 bg-[#E7E5E4] border-2 border-current">
+                      <img src={friend.avatar} alt={friend.name} className="w-full h-full object-cover" />
+                      <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 border-2 border-current rounded-full ${friend.isOnline ? 'bg-emerald-500' : 'bg-[#A8A29E]'}`} />
                     </div>
-                    <span className="text-[10px] text-[#78716C] truncate font-medium">{c.lastMessage}</span>
-                  </div>
-                </button>
-              ))
-            ) : (
-              <div className="p-6 text-center text-xs font-bold text-[#78716C] uppercase leading-relaxed">
-                Nenhum chat ativo no momento.
+                    <div className="flex flex-col overflow-hidden">
+                      <span className="text-xs font-black uppercase truncate">{friend.name}</span>
+                      <span className={`text-[10px] font-bold truncate ${activeContact?.id === friend.id ? 'text-[#D6D3D1]' : 'text-[#78716C]'}`}>{friend.tag}</span>
+                    </div>
+                  </button>
+                ))}
               </div>
-            )}
-          </div>
-        </div>
+            </div>
 
-        {/* Painel da Conversa / Estado Vazio */}
-        <div className="flex-1 flex flex-col bg-[#FFFFFF]">
-          <div className="p-4 border-b-2 border-[#E7E5E4] flex items-center justify-between">
-            {activeChat ? (
-              <div className="flex items-center gap-2.5">
-                <img
-                  src={activeChat.avatar}
-                  alt={activeChat.name}
-                  className="w-8 h-8 rounded-lg object-cover border-2 border-[#1C1917]"
-                />
-                <span className="text-xs font-black uppercase text-[#1C1917]">{activeChat.name}</span>
+            <div className={`flex-1 bg-[#FFFFFF] flex-col relative ${!activeContact ? 'hidden md:flex' : 'flex'}`}>
+              {activeContact ? (
+                <>
+                  <div className="p-4 sm:p-6 border-b-2 border-[#E7E5E4] flex items-center justify-between bg-[#FAF9F6]">
+                    <div className="flex items-center gap-3 sm:gap-4">
+                      <button type="button" onClick={() => setActiveContact(null)} className="md:hidden p-2 bg-[#E7E5E4] rounded-xl text-[#1C1917]">
+                        <svg className="w-4 h-4 fill-none stroke-current stroke-[3]" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
+                      </button>
+                      
+                      <button type="button" onClick={() => setViewingProfile(activeContact)} className="relative w-10 h-10 sm:w-12 sm:h-12 rounded-xl overflow-hidden border-2 border-[#1C1917] bg-[#E7E5E4] shrink-0 hover:opacity-80 transition-opacity" title="Ver Perfil">
+                        <img src={activeContact.avatar} alt={activeContact.name} className="w-full h-full object-cover" />
+                      </button>
+                      <div className="flex flex-col text-left">
+                        <button type="button" onClick={() => setViewingProfile(activeContact)} className="text-sm sm:text-base font-black uppercase text-[#1C1917] leading-tight hover:underline text-left">
+                          {activeContact.name}
+                        </button>
+                        <span className="text-[10px] font-bold text-[#78716C]">{activeContact.isOnline ? 'Online agora' : 'Offline'}</span>
+                      </div>
+                    </div>
+                    <button type="button" onClick={onClose} className="hidden md:block text-sm font-black text-[#78716C] hover:text-[#1C1917]">✕</button>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col gap-4 bg-[#FFFFFF]">
+                    <div className="text-center my-2">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-[#A8A29E] bg-[#F5F5F4] px-2 py-1 rounded-md border border-[#E7E5E4]">
+                        Início da conversa criptografada
+                      </span>
+                    </div>
+
+                    {messages.map((msg) => {
+                      const isMe = msg.sender === 'me';
+                      return (
+                        <div key={msg.id} className={`flex flex-col max-w-[80%] ${isMe ? 'self-end items-end' : 'self-start items-start'}`}>
+                          <div className={`p-3.5 rounded-2xl text-xs sm:text-sm font-medium leading-relaxed border-2 ${isMe ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917] rounded-br-sm' : 'bg-[#FAF9F6] text-[#1C1917] border-[#E7E5E4] rounded-bl-sm'}`}>
+                            {msg.text}
+                          </div>
+                          <span className="text-[9px] font-bold text-[#A8A29E] mt-1 uppercase">{msg.time}</span>
+                        </div>
+                      );
+                    })}
+                    <div ref={messagesEndRef} />
+                  </div>
+
+                  <div className="p-4 sm:p-6 border-t-2 border-[#E7E5E4] bg-[#FAF9F6]">
+                    <form onSubmit={handleSendMessage} className="flex items-center gap-2 sm:gap-3">
+                      <input
+                        type="text"
+                        value={inputMessage}
+                        onChange={(e) => setInputMessage(e.target.value)}
+                        placeholder="Escreva sua mensagem..."
+                        className="flex-1 bg-[#FFFFFF] border-2 border-[#E7E5E4] rounded-xl px-4 py-3.5 text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] transition-all"
+                      />
+                      <button
+                        type="submit"
+                        disabled={!inputMessage.trim()}
+                        className="p-3.5 bg-[#1C1917] text-[#FAF9F6] rounded-xl border-2 border-[#1C1917] disabled:opacity-50 hover:bg-[#292524] transition-all shadow-sm shrink-0"
+                      >
+                        <svg className="w-4 h-4 fill-none stroke-current stroke-[3]" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" /></svg>
+                      </button>
+                    </form>
+                  </div>
+                </>
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center gap-3">
+                  <button type="button" onClick={onClose} className="absolute top-6 right-6 text-sm font-black text-[#78716C] hover:text-[#1C1917]">✕</button>
+                  <div className="w-16 h-16 rounded-2xl bg-[#F5F5F4] border-2 border-[#E7E5E4] flex items-center justify-center">
+                    <svg className="w-8 h-8 stroke-[#D6D3D1] fill-none stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" /></svg>
+                  </div>
+                  <h3 className="text-sm font-black uppercase text-[#A8A29E]">Selecione uma conversa</h3>
+                  <p className="text-[11px] font-bold text-[#D6D3D1] max-w-[200px]">Escolha um contato na barra lateral para iniciar o chat.</p>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
+      {viewingProfile && (
+        <div className="fixed inset-0 bg-[#1C1917]/80 backdrop-blur-md z-[110] flex items-center justify-center p-4">
+          <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 max-w-sm w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-150 text-center">
+            <div className="flex justify-between items-center border-b-2 border-[#E7E5E4] pb-2">
+              <span className="text-[10px] font-black uppercase tracking-wider bg-[#1C1917] text-[#FAF9F6] px-2 py-0.5 rounded">
+                PERFIL DO USUÁRIO
+              </span>
+              <button
+                type="button"
+                onClick={() => setViewingProfile(null)}
+                className="text-xs font-black text-[#78716C] hover:text-[#1C1917]"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-[#1C1917] bg-[#E7E5E4] mx-auto">
+              <img
+                src={viewingProfile.avatar}
+                alt={viewingProfile.name}
+                className="w-full h-full object-cover"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center justify-center gap-2">
+                <h3 className="text-base font-black uppercase text-[#1C1917]">
+                  {viewingProfile.name}
+                </h3>
+                <span className="px-2 py-0.5 bg-[#1C1917] text-[#FAF9F6] font-black text-[10px] rounded uppercase">
+                  {viewingProfile.level || 'B1'}
+                </span>
               </div>
-            ) : (
-              <span className="text-xs font-black uppercase text-[#78716C]">Sem conversas ativas</span>
-            )}
+              <span className="text-[11px] font-bold text-[#78716C] uppercase">
+                {viewingProfile.tag}
+              </span>
+            </div>
+
+            <p className="text-xs text-[#57534E] font-medium italic bg-[#FAF9F6] p-3 rounded-xl border-2 border-[#E7E5E4] text-left">
+              "Estudante ativo praticando conversação P2P no SideBySide."
+            </p>
 
             <button
               type="button"
-              onClick={onClose}
-              className="text-sm font-black text-[#78716C] hover:text-[#1C1917]"
+              onClick={() => setViewingProfile(null)}
+              className="w-full py-2.5 bg-[#1C1917] text-[#FAF9F6] rounded-xl font-black text-xs uppercase mt-2 border-2 border-[#1C1917] hover:bg-[#292524] transition-all"
             >
-              ✕
+              Fechar Perfil
             </button>
           </div>
-
-          {/* Se houver chat ativo, exibe as mensagens; caso contrário, exibe estado vazio amigável sem inputs */}
-          {activeChat ? (
-            <>
-              <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-2.5 bg-[#FAF9F6]">
-                {activeChat.messages.map((m) => (
-                  <div
-                    key={m.id}
-                    className={`max-w-[75%] p-3 rounded-2xl text-xs font-medium ${
-                      m.sender === 'me'
-                        ? 'bg-[#1C1917] text-[#FAF9F6] self-end rounded-br-none'
-                        : 'bg-[#FFFFFF] border-2 border-[#E7E5E4] text-[#1C1917] self-start rounded-bl-none'
-                    }`}
-                  >
-                    <p>{m.text}</p>
-                    <span
-                      className={`text-[8px] font-bold uppercase mt-1 block text-right ${
-                        m.sender === 'me' ? 'text-[#A8A29E]' : 'text-[#78716C]'
-                      }`}
-                    >
-                      {m.time}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              <form onSubmit={handleSendMessage} className="p-3 border-t-2 border-[#E7E5E4] flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Digite uma mensagem privada..."
-                  value={newMessageText}
-                  onChange={(e) => setNewMessageText(e.target.value)}
-                  className="flex-1 px-3.5 py-2.5 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
-                />
-                <button
-                  type="submit"
-                  className="px-4 py-2.5 bg-[#1C1917] text-[#FAF9F6] font-black text-xs uppercase rounded-xl border-2 border-[#1C1917]"
-                >
-                  Enviar
-                </button>
-              </form>
-            </>
-          ) : (
-            <div className="flex-1 p-6 flex flex-col items-center justify-center text-center gap-3 bg-[#FAF9F6]">
-              <div className="w-12 h-12 rounded-2xl bg-[#E7E5E4] text-[#1C1917] flex items-center justify-center font-black text-lg">
-                💬
-              </div>
-              <div className="flex flex-col gap-1 max-w-xs">
-                <h4 className="text-xs font-black uppercase text-[#1C1917]">Nenhuma conversa selecionada</h4>
-                <p className="text-[11px] text-[#78716C] font-medium leading-relaxed">
-                  Você ainda não possui amigos adicionados para conversar por mensagens diretas. Participe de sessões e adicione parceiros para trocar ideias por aqui!
-                </p>
-              </div>
-            </div>
-          )}
-
         </div>
-      </div>
+      )}
     </div>
   );
 });
 
 DirectChatsModal.displayName = 'DirectChatsModal';
-export default DirectChatsModal;

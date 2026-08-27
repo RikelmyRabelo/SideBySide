@@ -870,7 +870,7 @@ export const Room: React.FC = memo(() => {
                           <span className="font-black text-[10px] uppercase">{message.sender === 'me' ? 'Você' : 'Parceiro'}: </span>
                           <span className="font-medium">{message.text}</span>
                         </div>
-                      ))
+                      ))  
                     )}
                   </div>
                   <form onSubmit={handleSendMessage} className="flex gap-2">
