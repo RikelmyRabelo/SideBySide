@@ -1,16 +1,18 @@
 import React, { useState, useCallback, memo } from 'react';
 
-interface Friend {
+export interface Friend {
   id: string;
   name: string;
+  tag: string;
   avatar: string;
   level: string;
   isOnline: boolean;
 }
 
-interface FriendRequest {
+export interface FriendRequest {
   id: string;
   name: string;
+  tag: string;
   avatar: string;
   level: string;
   time: string;
@@ -23,53 +25,76 @@ interface FriendsManagerModalProps {
   isOpen: boolean;
   onClose: () => void;
   onOpenDirectChat?: (friend: Friend) => void;
+  requestsList: FriendRequest[];
+  setRequestsList: React.Dispatch<React.SetStateAction<FriendRequest[]>>;
+  friendsList: Friend[];
+  setFriendsList: React.Dispatch<React.SetStateAction<Friend[]>>;
 }
 
 export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = memo(({
   isOpen,
   onClose,
   onOpenDirectChat,
+  requestsList,
+  setRequestsList,
+  friendsList,
+  setFriendsList
 }) => {
-  const [activeTab, setActiveTab] = useState<'friends' | 'requests'>('friends');
+  const [activeTab, setActiveTab] = useState<'friends' | 'requests' | 'add'>('friends');
   const [selectedUserProfile, setSelectedUserProfile] = useState<FriendRequest | Friend | null>(null);
 
-  const [friendsList, setFriendsList] = useState<Friend[]>([]);
-  const [requestsList, setRequestsList] = useState<FriendRequest[]>([]);
+  const [searchTag, setSearchTag] = useState('');
+  const [searchResult, setSearchResult] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
   const handleAcceptRequest = useCallback((req: FriendRequest) => {
     setFriendsList((prev) => [
       ...prev,
-      { id: req.id, name: req.name, avatar: req.avatar, level: req.level, isOnline: true },
+      { id: req.id, name: req.name, tag: req.tag, avatar: req.avatar, level: req.level, isOnline: true },
     ]);
     setRequestsList((prev) => prev.filter((r) => r.id !== req.id));
     if (selectedUserProfile?.id === req.id) {
       setSelectedUserProfile(null);
     }
-  }, [selectedUserProfile?.id]);
+  }, [selectedUserProfile?.id, setFriendsList, setRequestsList]);
 
   const handleDeclineRequest = useCallback((id: string) => {
     setRequestsList((prev) => prev.filter((r) => r.id !== id));
     if (selectedUserProfile?.id === id) {
       setSelectedUserProfile(null);
     }
-  }, [selectedUserProfile?.id]);
+  }, [selectedUserProfile?.id, setRequestsList]);
 
   const handleRemoveFriend = useCallback((id: string) => {
     setFriendsList((prev) => prev.filter((f) => f.id !== id));
     if (selectedUserProfile?.id === id) {
       setSelectedUserProfile(null);
     }
-  }, [selectedUserProfile?.id]);
+  }, [selectedUserProfile?.id, setFriendsList]);
+
+  const handleSearchFriend = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchTag.includes('#')) {
+      setSearchResult({ type: 'error', message: 'Formato inválido. Use Nome#Número (ex: Usuario#1234).' });
+      return;
+    }
+    setSearchResult({ type: 'success', message: `Solicitação enviada para ${searchTag} com sucesso!` });
+    setSearchTag('');
+  };
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-      <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 max-w-md w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-5 animate-in fade-in zoom-in-95 duration-150 max-h-[85vh] overflow-hidden relative">
-        <div className="flex items-center justify-between border-b-2 border-[#E7E5E4] pb-3">
-          <h2 className="text-base font-black uppercase text-[#1C1917]">
-            Gerenciamento de Amizades
-          </h2>
+      <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 max-w-md w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-5 animate-in fade-in zoom-in-95 duration-150 h-[500px] max-h-[85vh] overflow-hidden relative">
+        <div className="flex items-center justify-between border-b-2 border-[#E7E5E4] pb-3 shrink-0">
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] font-black uppercase tracking-widest text-[#FAF9F6] bg-[#1C1917] px-2.5 py-0.5 rounded w-fit">
+              REDE DE CONTATOS
+            </span>
+            <h2 className="text-base font-black uppercase text-[#1C1917]">
+              Gerenciamento de Amigos
+            </h2>
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -79,7 +104,7 @@ export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = memo(({
           </button>
         </div>
 
-        <div className="grid grid-cols-2 bg-[#F5F5F4] p-1 border-2 border-[#1C1917] rounded-xl text-xs font-black uppercase tracking-wider">
+        <div className="grid grid-cols-3 bg-[#F5F5F4] p-1 border-2 border-[#1C1917] rounded-xl text-[10px] font-black uppercase tracking-wider shrink-0">
           <button
             type="button"
             onClick={() => setActiveTab('friends')}
@@ -96,17 +121,26 @@ export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = memo(({
               activeTab === 'requests' ? 'bg-[#1C1917] text-[#FAF9F6]' : 'text-[#78716C]'
             }`}
           >
-            Solicitações
+            Pedidos
             {requestsList.length > 0 && (
               <span className="w-4 h-4 bg-red-600 text-white rounded-full text-[9px] font-black flex items-center justify-center">
                 {requestsList.length}
               </span>
             )}
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('add')}
+            className={`py-2 rounded-lg transition-all ${
+              activeTab === 'add' ? 'bg-[#1C1917] text-[#FAF9F6]' : 'text-[#78716C]'
+            }`}
+          >
+            Adicionar
+          </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto flex flex-col gap-2.5 pr-1">
-          {activeTab === 'friends' ? (
+        <div className="flex-1 overflow-y-auto flex flex-col gap-2.5 pr-1 min-h-0">
+          {activeTab === 'friends' && (
             friendsList.length > 0 ? (
               friendsList.map((friend) => (
                 <div
@@ -136,7 +170,7 @@ export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = memo(({
                         {friend.name}
                       </button>
                       <span className="text-[10px] font-bold text-[#78716C] uppercase">
-                        Nível {friend.level} • {friend.isOnline ? 'Online' : 'Offline'}
+                        {friend.tag} • {friend.isOnline ? 'Online' : 'Offline'}
                       </span>
                     </div>
                   </div>
@@ -171,64 +205,102 @@ export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = memo(({
                 </div>
               ))
             ) : (
-              <div className="py-8 text-center text-xs font-bold text-[#78716C] uppercase">
-                Sua lista de amigos está vazia.
+              <div className="flex-1 flex items-center justify-center text-center text-[11px] font-bold text-[#78716C] uppercase border-2 border-dashed border-[#E7E5E4] rounded-2xl p-4">
+                Sua lista de amigos está vazia. Adicione pessoas para praticar!
               </div>
             )
-          ) : requestsList.length > 0 ? (
-            requestsList.map((req) => (
-              <div
-                key={req.id}
-                className="bg-[#FAF9F6] border-2 border-[#E7E5E4] p-3 rounded-2xl flex items-center justify-between gap-3"
-              >
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedUserProfile(req)}
-                    className="w-10 h-10 rounded-xl overflow-hidden border-2 border-[#1C1917] bg-[#E7E5E4] shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
-                    title="Ver Perfil"
-                  >
-                    <img
-                      src={req.avatar}
-                      alt={req.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </button>
-                  <div className="flex flex-col text-left">
+          )}
+
+          {activeTab === 'requests' && (
+            requestsList.length > 0 ? (
+              requestsList.map((req) => (
+                <div
+                  key={req.id}
+                  className="bg-[#FAF9F6] border-2 border-[#E7E5E4] p-3 rounded-2xl flex flex-col gap-3 hover:border-[#1C1917] transition-all"
+                >
+                  <div className="flex items-center gap-3">
                     <button
                       type="button"
                       onClick={() => setSelectedUserProfile(req)}
-                      className="text-xs font-black text-[#1C1917] hover:underline text-left"
+                      className="w-10 h-10 rounded-xl overflow-hidden border-2 border-[#1C1917] bg-[#E7E5E4] shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                      title="Ver Perfil"
                     >
-                      {req.name}
+                      <img
+                        src={req.avatar}
+                        alt={req.name}
+                        className="w-full h-full object-cover"
+                      />
                     </button>
-                    <span className="text-[10px] font-bold text-[#78716C] uppercase">
-                      Nível {req.level} • {req.time}
-                    </span>
+                    <div className="flex flex-col text-left">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedUserProfile(req)}
+                        className="text-xs font-black text-[#1C1917] hover:underline text-left"
+                      >
+                        {req.name}
+                      </button>
+                      <span className="text-[10px] font-bold text-[#78716C] uppercase">
+                        {req.tag} quer te adicionar
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleDeclineRequest(req.id)}
+                      className="flex-1 py-2 bg-[#F5F5F4] border-2 border-[#E7E5E4] text-[#1C1917] text-[10px] font-black uppercase rounded-lg hover:border-[#1C1917] transition-all"
+                    >
+                      Recusar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAcceptRequest(req)}
+                      className="flex-1 py-2 bg-[#1C1917] border-2 border-[#1C1917] text-[#FAF9F6] text-[10px] font-black uppercase rounded-lg hover:bg-[#292524] transition-all shadow-sm"
+                    >
+                      Aceitar
+                    </button>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => handleAcceptRequest(req)}
-                    className="px-3 py-1.5 bg-emerald-600 text-white rounded-xl font-black text-xs uppercase hover:bg-emerald-700 transition-all"
-                  >
-                    Aceitar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDeclineRequest(req.id)}
-                    className="px-2.5 py-1.5 bg-[#FAF9F6] border border-[#E7E5E4] text-[#78716C] rounded-xl font-black text-xs uppercase hover:text-[#1C1917] transition-all"
-                  >
-                    Recusar
-                  </button>
-                </div>
+              ))
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-center text-[11px] font-bold text-[#78716C] uppercase border-2 border-dashed border-[#E7E5E4] rounded-2xl p-4">
+                Nenhuma solicitação pendente.
               </div>
-            ))
-          ) : (
-            <div className="py-8 text-center text-xs font-bold text-[#78716C] uppercase">
-              Nenhuma solicitação pendente.
+            )
+          )}
+
+          {activeTab === 'add' && (
+            <div className="flex flex-col gap-4">
+              <div className="p-4 bg-[#F5F5F4] border-2 border-[#E7E5E4] rounded-2xl flex flex-col gap-2 text-left">
+                <span className="text-[10px] font-black uppercase text-[#1C1917] tracking-wider">Adicionar por Tag</span>
+                <p className="text-[11px] text-[#78716C] font-medium leading-relaxed">
+                  Digite a tag única do usuário para enviar um convite (ex: Joao#5432). O chat só será liberado após o aceite da solicitação pelo usuário.
+                </p>
+              </div>
+
+              <form onSubmit={handleSearchFriend} className="flex flex-col gap-3">
+                <input
+                  type="text"
+                  placeholder="Ex: Usuario#1234"
+                  value={searchTag}
+                  onChange={(e) => setSearchTag(e.target.value)}
+                  className="w-full px-4 py-3.5 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+                />
+                <button
+                  type="submit"
+                  disabled={!searchTag.trim()}
+                  className="w-full py-3.5 bg-[#1C1917] text-[#FAF9F6] font-black text-xs uppercase tracking-widest rounded-xl border-2 border-[#1C1917] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#292524] transition-all shadow-sm"
+                >
+                  Enviar Solicitação
+                </button>
+              </form>
+
+              {searchResult && (
+                <div className={`p-3 rounded-xl text-xs font-black text-center border-2 ${searchResult.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-amber-50 text-amber-800 border-amber-200'}`}>
+                  {searchResult.message}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -268,7 +340,7 @@ export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = memo(({
                 </span>
               </div>
               <span className="text-[11px] font-bold text-[#78716C] uppercase">
-                {'gender' in selectedUserProfile && selectedUserProfile.gender ? selectedUserProfile.gender : 'Usuário Comunidade'}
+                {selectedUserProfile.tag}
               </span>
             </div>
 
@@ -281,14 +353,14 @@ export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = memo(({
                 <button
                   type="button"
                   onClick={() => handleAcceptRequest(selectedUserProfile as FriendRequest)}
-                  className="flex-1 py-2.5 bg-emerald-600 text-white rounded-xl font-black text-xs uppercase"
+                  className="flex-1 py-2.5 bg-[#1C1917] text-white rounded-xl font-black text-[10px] uppercase border-2 border-[#1C1917] hover:bg-[#292524] transition-all"
                 >
                   Aceitar Amizade
                 </button>
                 <button
                   type="button"
                   onClick={() => handleDeclineRequest(selectedUserProfile.id)}
-                  className="flex-1 py-2.5 bg-[#FAF9F6] border-2 border-[#E7E5E4] text-[#78716C] rounded-xl font-black text-xs uppercase"
+                  className="flex-1 py-2.5 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] rounded-xl font-black text-[10px] uppercase hover:bg-[#E7E5E4] transition-all"
                 >
                   Recusar
                 </button>
@@ -297,7 +369,7 @@ export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = memo(({
               <button
                 type="button"
                 onClick={() => setSelectedUserProfile(null)}
-                className="w-full py-2.5 bg-[#1C1917] text-[#FAF9F6] rounded-xl font-black text-xs uppercase mt-2"
+                className="w-full py-2.5 bg-[#1C1917] text-[#FAF9F6] rounded-xl font-black text-xs uppercase mt-2 border-2 border-[#1C1917] hover:bg-[#292524]"
               >
                 Fechar Perfil
               </button>
