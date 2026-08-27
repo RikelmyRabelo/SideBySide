@@ -320,6 +320,7 @@ app.post('/api/room/join', authenticateToken, async (req: Request, res: Response
   } catch (error: any) { next(error); }
 });
 
+
 app.post('/api/room/report', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user.id;
@@ -429,6 +430,41 @@ app.post('/api/room/want-to-talk-again', authenticateToken, async (req: Request,
     repeatMatchPreferences.set(userId, userPreferences);
     return res.status(200).json({ message: 'Preferência salva.' });
   } catch (error: any) { next(error); }
+});
+
+// Adicione esta rota no seu backend/src/index.ts junto às demais rotas /api/room/...
+app.post('/api/friends/request', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.id;
+    const { targetUserId } = req.body || {};
+    
+    if (!targetUserId) {
+      return res.status(400).json({ error: 'targetUserId é obrigatório.' });
+    }
+
+    if (userId === targetUserId) {
+      return res.status(400).json({ error: 'Você não pode adicionar a si mesmo.' });
+    }
+
+    const targetUser = await prisma.user.findUnique({ where: { id: targetUserId } });
+    if (!targetUser) {
+      return res.status(404).json({ error: 'Usuário alvo não encontrado.' });
+    }
+
+    // Cria ou atualiza a solicitação de amizade (ajuste conforme seu schema do Prisma se necessário)
+    await prisma.notification.create({
+      data: {
+        userId: targetUserId,
+        title: 'Nova Solicitação de Amizade 🤝',
+        message: 'Você recebeu um convite de amizade de um parceiro de conversa!',
+        read: false,
+      },
+    });
+
+    return res.status(200).json({ message: 'Solicitação de amizade enviada com sucesso.' });
+  } catch (error: any) { 
+    next(error); 
+  }
 });
 
 app.get('/api/user/me', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {

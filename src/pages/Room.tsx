@@ -45,6 +45,8 @@ export const Room: React.FC = memo(() => {
   const [pendingAction, setPendingAction] = useState<'exit' | 'nextPair' | null>(null);
   const [partnerDisconnected, setPartnerDisconnected] = useState(false);
 
+  const [friendRequestSent, setFriendRequestSent] = useState(false);
+
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [currentTranscript, setCurrentTranscript] = useState('');
   const [spokenHistory, setSpokenHistory] = useState<string[]>([]);
@@ -393,6 +395,7 @@ export const Room: React.FC = memo(() => {
       
       setPartnerDisconnected(false);
       setIsSearchingNextPair(false);
+      setFriendRequestSent(false);
       await initializeWebRTC(newSocket, data.roomId, data.initiator);
     });
 
@@ -447,6 +450,25 @@ export const Room: React.FC = memo(() => {
       newSocket.disconnect();
     };
   }, [topicId, initializeWebRTC, stopMediaStream]);
+
+  const handleSendFriendRequest = useCallback(async () => {
+    if (!partnerId || friendRequestSent) return;
+    try {
+      const response = await fetch('http://localhost:3000/api/friends/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ targetUserId: partnerId })
+      });
+      if (response.ok) {
+        setFriendRequestSent(true);
+      } else {
+        console.error('Erro ao enviar solicitação de amizade');
+      }
+    } catch (err) {
+      console.error('Erro de rede ao enviar solicitação de amizade:', err);
+    }
+  }, [partnerId, friendRequestSent]);
 
   const toggleMicrophone = useCallback(() => {
     if (streamRef.current) {
@@ -787,6 +809,31 @@ export const Room: React.FC = memo(() => {
             {!isSearchingNextPair && (
               <>
                 <div className="w-px h-6 bg-[#E7E5E4]" />
+                
+                <button
+                  type="button"
+                  onClick={handleSendFriendRequest}
+                  disabled={friendRequestSent || !partnerId}
+                  className={`p-3 rounded-xl transition-all border text-xs font-bold flex items-center gap-1.5 ${
+                    friendRequestSent
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 cursor-default'
+                      : 'bg-[#FAF9F6] border-[#E7E5E4] text-[#1C1917] hover:bg-[#F5F5F4]'
+                  }`}
+                  title={friendRequestSent ? 'Solicitação enviada' : 'Adicionar amigo'}
+                >
+                  {friendRequestSent ? (
+                    <>
+                      <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                      <span className="hidden sm:inline">Enviado</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM3 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 019.374 21c-2.331 0-4.512-.645-6.374-1.766z" /></svg>
+                      <span className="hidden sm:inline">Adicionar Amigo</span>
+                    </>
+                  )}
+                </button>
+
                 <button type="button" onClick={() => setIsReportOpen(true)} className="p-3 bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 rounded-xl transition-all text-xs font-bold">
                   <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0l2.77-1.385a1.125 1.125 0 011.008 0L10.5 15l3.722-1.861a1.125 1.125 0 011.008 0L19.5 15V4.5l-4.27-2.135a1.125 1.125 0 00-1.008 0L10.5 4.23 6.778 2.369a1.125 1.125 0 00-1.008 0L3 3.75V15z" /></svg>
                 </button>
