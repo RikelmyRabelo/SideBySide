@@ -13,8 +13,6 @@ import { prisma } from './lib/prisma';
 import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import cookie from 'cookie';
-
-// SBS-02: Importando o arquivo centralizador das filas
 import { setupMatchmaking } from './sockets/matchmaking';
 
 const app = express();
@@ -133,11 +131,6 @@ const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
   });
 };
 
-/* =========================================
-   LÓGICA DO SOCKET.IO MODULARIZADA
-========================================= */
-
-// Validação do token de autenticação nos Sockets
 io.use((socket, next) => {
   try {
     const cookies = cookie.parse(socket.request.headers.cookie || '');
@@ -155,13 +148,7 @@ io.use((socket, next) => {
   }
 });
 
-// SBS-02: Executando a lógica de matchmaking e delegando o io para o arquivo focado
 setupMatchmaking(io);
-
-
-/* =========================================
-   ROTAS EXPRESS PADRÃO
-========================================= */
 
 const registerSchema = z.object({
   name: z.string().trim().min(1, 'Nome não pode estar vazio.').optional().default('Usuário'),
@@ -317,6 +304,10 @@ app.post('/api/auth/resend-code', passwordResetLimiter, validateRequest(emailOnl
     });
     return res.status(200).json({ message: 'Código reenviado com sucesso.' });
   } catch (error: any) { next(error); }
+});
+
+app.get('/api/room/status', (req: Request, res: Response) => {
+  return res.status(200).json({ hasActiveSession: false, sessionId: null });
 });
 
 app.post('/api/room/join', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {

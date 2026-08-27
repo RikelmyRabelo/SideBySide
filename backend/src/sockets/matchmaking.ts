@@ -1,4 +1,5 @@
 import { Server, Socket } from 'socket.io';
+import { prisma } from '../lib/prisma';
 
 const queues: Record<string, Socket[]> = {};
 const activeRooms: Map<string, Set<string>> = new Map();
@@ -7,16 +8,15 @@ const socketTopicMap: Map<string, string> = new Map();
 
 export const setupMatchmaking = (io: Server) => {
   io.on('connection', (socket: Socket) => {
-    console.log(`🔌 Novo usuário conectado: ${socket.id}`);
+    const user = (socket as any).user;
+    console.log(`🔌 Novo usuário conectado: ${user?.email || socket.id}`);
 
-    socket.on('find_match', (data?: { topicId?: string }) => {
-      // Se não houver tópico, vai para a fila geral (bate-papo livre)
+    socket.on('find_match', async (data?: { topicId?: string }) => {
       const topicId = data?.topicId || 'general';
-      console.log(`🔍 ${socket.id} entrou na fila: ${topicId}`);
+      console.log(`🔍 ${user?.email || socket.id} entrou na fila: ${topicId}`);
       
       if (!queues[topicId]) queues[topicId] = [];
       
-      // Remove de outras filas de segurança para evitar duplicatas
       for (const key in queues) {
         queues[key] = queues[key].filter(s => s.id !== socket.id);
       }
@@ -24,29 +24,69 @@ export const setupMatchmaking = (io: Server) => {
       queues[topicId].push(socket);
       socketTopicMap.set(socket.id, topicId);
 
-      // Algoritmo de Pareamento Restrito à Fila do Tópico
       if (queues[topicId].length >= 2) {
-        const user1 = queues[topicId].shift();
-        const user2 = queues[topicId].shift();
+        const socket1 = queues[topicId].shift();
+        const socket2 = queues[topicId].shift();
 
-        if (user1 && user2) {
+        if (socket1 && socket2) {
+          const user1 = (socket1 as any).user;
+          const user2 = (socket2 as any).user;
           const roomId = `room_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
           
-          user1.join(roomId);
-          user2.join(roomId);
+          socket1.join(roomId);
+          socket2.join(roomId);
 
-          activeRooms.set(roomId, new Set([user1.id, user2.id]));
-          socketRoomMap.set(user1.id, roomId);
-          socketRoomMap.set(user2.id, roomId);
+          activeRooms.set(roomId, new Set([socket1.id, socket2.id]));
+          socketRoomMap.set(socket1.id, roomId);
+          socketRoomMap.set(socket2.id, roomId);
           
-          socketTopicMap.delete(user1.id);
-          socketTopicMap.delete(user2.id);
+          socketTopicMap.delete(socket1.id);
+          socketTopicMap.delete(socket2.id);
 
-          console.log(`🤝 MATCH ENCONTRADO na fila [${topicId}]: ${user1.id} <> ${user2.id} (${roomId})`);
+          let u1Data = { name: 'Estudante', avatar: null as string | null };
+          let u2Data = { name: 'Estudante', avatar: null as string | null };
 
-          // Initiator = true define quem inicia a oferta WebRTC
-          user1.emit('match_found', { roomId, partnerId: user2.id, partnerName: 'Estudante', initiator: true });
-          user2.emit('match_found', { roomId, partnerId: user1.id, partnerName: 'Estudante', initiator: false });
+          try {
+            if (user1?.id) {
+              const dbU1 = await prisma.user.findUnique({ 
+                where: { id: user1.id }
+              });
+              if (dbU1) { 
+                u1Data.name = dbU1.name; 
+                u1Data.avatar = dbU1.avatar; 
+              }
+            }
+            
+            if (user2?.id) {
+              const dbU2 = await prisma.user.findUnique({ 
+                where: { id: user2.id }
+              });
+              if (dbU2) { 
+                u2Data.name = dbU2.name; 
+                u2Data.avatar = dbU2.avatar; 
+              }
+            }
+          } catch (err) {
+            console.error('Erro ao buscar dados do parceiro no banco', err);
+          }
+
+          console.log(`🤝 MATCH ENCONTRADO [${topicId}]: ${u1Data.name} <> ${u2Data.name} (${roomId})`);
+
+          socket1.emit('match_found', { 
+            roomId, 
+            partnerId: user2?.id || socket2.id, 
+            partnerName: u2Data.name, 
+            partnerAvatar: u2Data.avatar, 
+            initiator: true 
+          });
+          
+          socket2.emit('match_found', { 
+            roomId, 
+            partnerId: user1?.id || socket1.id, 
+            partnerName: u1Data.name, 
+            partnerAvatar: u1Data.avatar, 
+            initiator: false 
+          });
         }
       }
     });
@@ -56,7 +96,7 @@ export const setupMatchmaking = (io: Server) => {
       if (topicId && queues[topicId]) {
         queues[topicId] = queues[topicId].filter(s => s.id !== socket.id);
         socketTopicMap.delete(socket.id);
-        console.log(`❌ ${socket.id} cancelou a busca na fila: ${topicId}`);
+        console.log(`❌ ${user?.email || socket.id} cancelou a busca na fila: ${topicId}`);
       }
     });
 
@@ -71,7 +111,7 @@ export const setupMatchmaking = (io: Server) => {
         }
         socketRoomMap.delete(socket.id);
         socket.leave(roomId);
-        console.log(`🚪 ${socket.id} saiu da sala ${roomId}`);
+        console.log(`🚪 ${user?.email || socket.id} saiu da sala ${roomId}`);
       }
     };
 
@@ -84,7 +124,7 @@ export const setupMatchmaking = (io: Server) => {
       }
       handlePartnerLeave();
       socketTopicMap.delete(socket.id);
-      console.log(`🔌 Usuário desconectado: ${socket.id}`);
+      console.log(`🔌 Usuário desconectado: ${user?.email || socket.id}`);
     });
 
     socket.on('webrtc_offer', (data) => socket.to(data.roomId).emit('webrtc_offer', { sdp: data.sdp }));

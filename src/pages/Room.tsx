@@ -4,7 +4,6 @@ import { io, Socket } from 'socket.io-client';
 import { ReportModal } from '../components/room/ReportModal';
 import { RatingModal } from '../components/room/RatingModal';
 import { TOPICS_CATALOG, FREE_TALK_TOPIC, TopicItem } from '../data/topicsData';
-import { useRoomStatus } from '../hooks/useRoomStatus';
 
 const formatSessionTimer = (seconds: number) => {
   const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -19,12 +18,16 @@ const ICE_SERVERS = {
   ],
 };
 
+const getAvatarFallback = (name: string) => {
+  const cleanName = name?.trim() || 'Estudante';
+  const initial = cleanName.charAt(0).toUpperCase();
+  return `https://ui-avatars.com/api/?name=${initial}&background=292524&color=FAF9F6&bold=true`;
+};
+
 export const Room: React.FC = memo(() => {
   const navigate = useNavigate();
   const { topicId } = useParams<{ topicId?: string }>();
   
-  const { status: roomStatus, loading: roomStatusLoading } = useRoomStatus();
-
   const [currentTopic, setCurrentTopic] = useState<TopicItem>(() => {
     if (topicId && TOPICS_CATALOG[topicId]) return TOPICS_CATALOG[topicId];
     return FREE_TALK_TOPIC;
@@ -62,12 +65,12 @@ export const Room: React.FC = memo(() => {
   
   const [partnerId, setPartnerId] = useState<string | null>(null);
   const [partnerName, setPartnerName] = useState<string>('Estudante');
+  const [partnerAvatarUrl, setPartnerAvatarUrl] = useState<string>(getAvatarFallback('Estudante'));
   const [roomId, setRoomId] = useState<string | null>(null);
 
   const roomIdRef = useRef<string | null>(null);
   const micActiveRef = useRef(micActive);
 
-  // Estados seguros para mídias
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
 
@@ -75,7 +78,7 @@ export const Room: React.FC = memo(() => {
   const [chatMessages, setChatMessages] = useState<{ id: number; sender: 'me' | 'other'; text: string }[]>([]);
   const [chatInput, setChatInput] = useState('');
 
-  const [userAvatarUrl, setUserAvatarUrl] = useState<string>('https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80');
+  const [userAvatarUrl, setUserAvatarUrl] = useState<string>(getAvatarFallback('S'));
 
   useEffect(() => {
     micActiveRef.current = micActive;
@@ -87,11 +90,9 @@ export const Room: React.FC = memo(() => {
         const response = await fetch('http://localhost:3000/api/user/me', { credentials: 'include' });
         if (response.ok) {
           const data = await response.json();
-          if (data.avatar) setUserAvatarUrl(data.avatar);
+          setUserAvatarUrl(data.avatar || getAvatarFallback(data.name || 'Estudante'));
         }
-      } catch (err) {
-        console.error('Erro ao buscar foto de perfil do usuário na sala:', err);
-      }
+      } catch (err) {}
     };
     fetchUserAvatar();
   }, []);
@@ -139,9 +140,7 @@ export const Room: React.FC = memo(() => {
       };
 
       checkAudioLevel();
-    } catch (e) {
-      console.error('Erro ao configurar Web Audio API:', e);
-    }
+    } catch (e) {}
   }, []);
 
   const stopMediaStream = useCallback(() => {
@@ -312,7 +311,6 @@ export const Room: React.FC = memo(() => {
       try {
         stream = await navigator.mediaDevices.getUserMedia(constraints);
       } catch (fallbackErr) {
-        console.warn('Dispositivos preferenciais falharam. Usando mídia padrão do sistema...');
         stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
       }
 
@@ -376,25 +374,22 @@ export const Room: React.FC = memo(() => {
   }, [setupAudioAnalyzer]);
 
   useEffect(() => {
-    if (roomStatusLoading) return;
-
     const newSocket = io('http://localhost:3000', { withCredentials: true });
     socketRef.current = newSocket;
 
     newSocket.on('connect', () => {
-      if (roomStatus?.hasActiveSession) {
-        newSocket.emit('join_room', { roomId: roomStatus.sessionId });
-      } else {
-        newSocket.emit('find_match', { topicId: topicId || null });
-      }
+      newSocket.emit('find_match', { topicId: topicId || null });
     });
 
-    newSocket.on('match_found', async (data: { roomId: string; partnerId: string; partnerName?: string; initiator: boolean }) => {
+    newSocket.on('match_found', async (data: { roomId: string; partnerId: string; partnerName?: string; partnerAvatar?: string; initiator: boolean }) => {
       setRoomId(data.roomId);
       roomIdRef.current = data.roomId;
       
       setPartnerId(data.partnerId);
-      if (data.partnerName) setPartnerName(data.partnerName);
+      
+      const resolvedPartnerName = data.partnerName || 'Estudante';
+      setPartnerName(resolvedPartnerName);
+      setPartnerAvatarUrl(data.partnerAvatar || getAvatarFallback(resolvedPartnerName));
       
       setPartnerDisconnected(false);
       setIsSearchingNextPair(false);
@@ -451,8 +446,7 @@ export const Room: React.FC = memo(() => {
       stopMediaStream();
       newSocket.disconnect();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomStatusLoading, topicId]);
+  }, [topicId, initializeWebRTC, stopMediaStream]);
 
   const toggleMicrophone = useCallback(() => {
     if (streamRef.current) {
@@ -578,6 +572,12 @@ export const Room: React.FC = memo(() => {
   }, [chatInput]);
 
   const formattedTimer = useMemo(() => formatSessionTimer(sessionElapsedSeconds), [sessionElapsedSeconds]);
+
+  const isRemoteVideoActive = useMemo(() => {
+    if (!remoteStream) return false;
+    const videoTracks = remoteStream.getVideoTracks();
+    return videoTracks.length > 0 && videoTracks.some(track => track.enabled && track.readyState === 'live');
+  }, [remoteStream]);
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col font-sans h-screen overflow-hidden relative selection:bg-[#1C1917] selection:text-[#FAF9F6]">
@@ -721,8 +721,20 @@ export const Room: React.FC = memo(() => {
                 ref={(el) => { if (el && remoteStream && el.srcObject !== remoteStream) el.srcObject = remoteStream; }} 
                 autoPlay 
                 playsInline 
-                className={`w-full h-full object-cover transition-opacity duration-300 ${connectionStatus === 'reconnecting' ? 'opacity-40 grayscale-[50%]' : 'opacity-100'}`} 
+                className={`w-full h-full object-cover transition-opacity duration-300 ${connectionStatus === 'reconnecting' ? 'opacity-40 grayscale-[50%]' : 'opacity-100'} ${!isRemoteVideoActive ? 'hidden' : 'block'}`} 
               />
+              
+              {!isRemoteVideoActive && connectionStatus === 'connected' && (
+                <div className="absolute inset-0 bg-[#1C1917] flex flex-col items-center justify-center z-0">
+                  <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#292524] shadow-2xl mb-6">
+                    <img src={partnerAvatarUrl} alt="Foto do Parceiro" className="w-full h-full object-cover" />
+                  </div>
+                  <span className="text-[10px] font-black tracking-widest uppercase text-[#FAF9F6] bg-[#292524] border border-[#57534E] px-4 py-2 rounded-full shadow-sm">
+                    Câmera Desativada
+                  </span>
+                </div>
+              )}
+
               <div className="absolute bottom-4 left-6 bg-[#1C1917]/80 backdrop-blur-md px-3.5 py-2 rounded-xl text-xs font-black text-[#FAF9F6] uppercase z-10 flex items-center gap-3 shadow-md">
                 <span>{partnerName}</span>
                 {isPartnerSpeaking && <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />}
@@ -730,7 +742,7 @@ export const Room: React.FC = memo(() => {
             </div>
           )}
 
-          <div className={`absolute bottom-5 right-6 left-auto top-auto z-40 w-48 h-32 rounded-2xl overflow-hidden border-2 shadow-2xl bg-[#1C1917] transition-all duration-300 ${isUserSpeaking ? 'border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'border-[#FFFFFF]'}`}>
+          <div className={`absolute bottom-5 right-6 left-auto top-auto z-40 w-48 h-32 rounded-2xl overflow-hidden border-2 shadow-2xl transition-all duration-300 ${isUserSpeaking ? 'border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'border-[#FFFFFF]'}`}>
             <video 
               ref={(el) => { if (el && localStream && el.srcObject !== localStream) el.srcObject = localStream; }} 
               autoPlay 
@@ -738,12 +750,15 @@ export const Room: React.FC = memo(() => {
               muted 
               className={`w-full h-full object-cover transform -scale-x-100 ${camActive ? 'block' : 'hidden'}`} 
             />
+            
             {!camActive && (
-              <div className="w-full h-full bg-[#1C1917] flex flex-col items-center justify-center relative overflow-hidden">
-                <img src={userAvatarUrl} alt="Sua Foto" className="w-full h-full object-cover opacity-80" />
-                <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px]" />
+              <div className="absolute inset-0 bg-[#1C1917] flex flex-col items-center justify-center z-0">
+                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-[#57534E] shadow-xl mb-1">
+                  <img src={userAvatarUrl} alt="Sua Foto" className="w-full h-full object-cover" />
+                </div>
               </div>
             )}
+
             <div className="absolute bottom-2 left-2 right-2 bg-[#1C1917]/90 backdrop-blur-sm px-2.5 py-1 rounded-lg text-[9px] font-black uppercase text-[#FAF9F6] z-10 flex flex-col gap-1">
               <div className="flex items-center justify-between">
                 <span>Você {!micActive && '(Mudo)'}</span>
