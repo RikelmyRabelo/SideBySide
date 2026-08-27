@@ -53,6 +53,9 @@ const conversationQuality = new Map<string, Map<string, { duration: number; mess
 const repeatMatchPreferences = new Map<string, Set<string>>();
 const reports = new Map<string, { reporterId: string; reason: string; timestamp: Date }[]>();
 
+// Armazenamento em memória para pedidos de amizade reais gerados na sala
+const friendRequestsMap = new Map<string, { id: string; senderId: string; name: string; tag: string; avatar: string; level: string; time: string }[]>();
+
 const logger = winston.createLogger({
   level: 'info',
   format: winston.format.combine(
@@ -320,7 +323,6 @@ app.post('/api/room/join', authenticateToken, async (req: Request, res: Response
   } catch (error: any) { next(error); }
 });
 
-
 app.post('/api/room/report', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user.id;
@@ -432,7 +434,7 @@ app.post('/api/room/want-to-talk-again', authenticateToken, async (req: Request,
   } catch (error: any) { next(error); }
 });
 
-// Adicione esta rota no seu backend/src/index.ts junto às demais rotas /api/room/...
+// Rotas de Gerenciamento de Amigos (Pedidos e Aceites)
 app.post('/api/friends/request', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user.id;
@@ -446,17 +448,32 @@ app.post('/api/friends/request', authenticateToken, async (req: Request, res: Re
       return res.status(400).json({ error: 'Você não pode adicionar a si mesmo.' });
     }
 
+    const sender = await prisma.user.findUnique({ where: { id: userId } });
     const targetUser = await prisma.user.findUnique({ where: { id: targetUserId } });
-    if (!targetUser) {
+    
+    if (!targetUser || !sender) {
       return res.status(404).json({ error: 'Usuário alvo não encontrado.' });
     }
 
-    // Cria ou atualiza a solicitação de amizade (ajuste conforme seu schema do Prisma se necessário)
+    const targetRequests = friendRequestsMap.get(targetUserId) || [];
+    if (!targetRequests.some(r => r.senderId === userId)) {
+      targetRequests.push({
+        id: `req_${Date.now()}`,
+        senderId: userId,
+        name: sender.name,
+        tag: `${sender.name.replace(/\s+/g, '')}#${userId.slice(0, 4)}`,
+        avatar: sender.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+        level: sender.level || 'B1',
+        time: 'Agora mesmo'
+      });
+      friendRequestsMap.set(targetUserId, targetRequests);
+    }
+
     await prisma.notification.create({
       data: {
         userId: targetUserId,
         title: 'Nova Solicitação de Amizade 🤝',
-        message: 'Você recebeu um convite de amizade de um parceiro de conversa!',
+        message: `${sender.name} enviou uma solicitação de amizade!`,
         read: false,
       },
     });
@@ -464,6 +481,30 @@ app.post('/api/friends/request', authenticateToken, async (req: Request, res: Re
     return res.status(200).json({ message: 'Solicitação de amizade enviada com sucesso.' });
   } catch (error: any) { 
     next(error); 
+  }
+});
+
+app.get('/api/friends/requests', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.id;
+    const requests = friendRequestsMap.get(userId) || [];
+    return res.status(200).json(requests);
+  } catch (error: any) {
+    next(error);
+  }
+});
+
+app.post('/api/friends/accept', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.id;
+    const { requestId, senderId } = req.body;
+    
+    let targetRequests = friendRequestsMap.get(userId) || [];
+    friendRequestsMap.set(userId, targetRequests.filter(r => r.id !== requestId && r.senderId !== senderId));
+
+    return res.status(200).json({ message: 'Amizade aceita com sucesso.' });
+  } catch (error: any) {
+    next(error);
   }
 });
 

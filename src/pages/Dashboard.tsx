@@ -64,42 +64,29 @@ export const Dashboard: React.FC = memo(() => {
   const [reminderTime, setReminderTime] = useState('19:00');
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
 
-  const [friendsList, setFriendsList] = useState<Friend[]>(() => {
-    const saved = localStorage.getItem('sbs_friendsList');
-    if (saved !== null) {
-      try { return JSON.parse(saved); } catch (e) { }
-    }
-    return [
-      { id: '1', name: 'Carlos T.', tag: 'Carlos#9988', avatar: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=100&auto=format&fit=crop&q=80', level: 'B1', isOnline: true },
-    ];
-  });
+  // Listas limpas sem dados fictícios de teste
+  const [friendsList, setFriendsList] = useState<Friend[]>([]);
+  const [requestsList, setRequestsList] = useState<FriendRequest[]>([]);
 
-  const [requestsList, setRequestsList] = useState<FriendRequest[]>(() => {
-    const saved = localStorage.getItem('sbs_requestsList');
-    if (saved !== null) {
-      try { return JSON.parse(saved); } catch (e) { }
-    }
-    return [
-      { id: '2', name: 'Ana Silva', tag: 'Ana#4321', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80', level: 'A2', time: 'Há 2 horas' }
-    ];
-  });
+  const [unreadChatMessages, setUnreadChatMessages] = useState<number>(0);
 
-  const [unreadChatMessages, setUnreadChatMessages] = useState<number>(() => {
-    const saved = localStorage.getItem('sbs_unreadChats');
-    return saved !== null ? parseInt(saved, 10) : 1;
-  });
-
+  // Busca pedidos de amizade pendentes da API
   useEffect(() => {
-    localStorage.setItem('sbs_friendsList', JSON.stringify(friendsList));
-  }, [friendsList]);
-
-  useEffect(() => {
-    localStorage.setItem('sbs_requestsList', JSON.stringify(requestsList));
-  }, [requestsList]);
-
-  useEffect(() => {
-    localStorage.setItem('sbs_unreadChats', unreadChatMessages.toString());
-  }, [unreadChatMessages]);
+    const fetchRequests = async () => {
+      try {
+        const res = await fetch('http://localhost:3000/api/friends/requests', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          setRequestsList(data);
+        }
+      } catch (e) {
+        console.error('Erro ao buscar solicitações de amizade:', e);
+      }
+    };
+    fetchRequests();
+    const interval = setInterval(fetchRequests, 10000); // Atualiza a cada 10s
+    return () => clearInterval(interval);
+  }, []);
 
   const friendRequestsCount = requestsList.length;
 
@@ -209,7 +196,6 @@ export const Dashboard: React.FC = memo(() => {
   };
 
   const startMatchingFlow = useCallback(() => {
-    // Apenas direciona para o Room.tsx, que assumirá a fila geral (null/general) com sua própria tela de loading
     navigate('/room');
   }, [navigate]);
 
@@ -546,7 +532,6 @@ export const Dashboard: React.FC = memo(() => {
 
       </main>
 
-      {/* Modals e Overlays */}
       <FriendsManagerModal isOpen={isFriendsOpen} onClose={() => setIsFriendsOpen(false)} onOpenDirectChat={(friend) => { setSelectedChatContact(friend); setIsDirectChatsOpen(true); }} requestsList={requestsList} setRequestsList={setRequestsList} friendsList={friendsList} setFriendsList={setFriendsList} />
       <DirectChatsModal isOpen={isDirectChatsOpen} onClose={() => setIsDirectChatsOpen(false)} selectedContact={selectedChatContact} friendsList={friendsList} />
       <BadgesModal isOpen={isBadgesOpen} onClose={() => setIsBadgesOpen(false)} />
@@ -554,7 +539,6 @@ export const Dashboard: React.FC = memo(() => {
       <SupportModal isOpen={isSupportOpen} onClose={() => setIsSupportOpen(false)} />
       <NotificationsModal isOpen={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} notifications={notifications} />
 
-      {/* Modal de Confirmação do Tópico no Dashboard Atualizado */}
       {showTopicConfirmModal && (topicToJoin || selectedTopic) && (
         <div className="fixed inset-0 bg-[#1C1917]/80 backdrop-blur-md z-[130] flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-8 max-w-md w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-6 text-center">
