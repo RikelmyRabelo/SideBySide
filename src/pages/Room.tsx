@@ -37,7 +37,10 @@ export const Room: React.FC = memo(() => {
   const [isRatingOpen, setIsRatingOpen] = useState(false);
   const [isConfirmExitOpen, setIsConfirmExitOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isSearchingNextPair, setIsSearchingNextPair] = useState(false);
+  
+  // Estado para saber se estamos no meio de uma busca (sem parceiro definido)
+  const [isSearchingNextPair, setIsSearchingNextPair] = useState(true);
+  
   const [pendingAction, setPendingAction] = useState<'exit' | 'nextPair' | null>(null);
 
   const [partnerDisconnected, setPartnerDisconnected] = useState(false);
@@ -61,6 +64,7 @@ export const Room: React.FC = memo(() => {
   const sessionStartedAtRef = useRef<number | null>(null);
   
   const [partnerId, setPartnerId] = useState<string | null>(null);
+  const [partnerName, setPartnerName] = useState<string>('Estudante');
   const [roomId, setRoomId] = useState<string | null>(null);
 
   const [animStep, setAnimStep] = useState<0 | 1 | 2 | 3 | 4>(0);
@@ -285,18 +289,18 @@ export const Room: React.FC = memo(() => {
   }, [isSearchingNextPair]);
 
   useEffect(() => {
-    if (connectionStatus === 'connected' && !partnerDisconnected) {
+    if (connectionStatus === 'connected' && !partnerDisconnected && !isSearchingNextPair) {
       if (!sessionStartedAtRef.current) sessionStartedAtRef.current = Date.now();
       const timer = window.setInterval(() => {
         if (sessionStartedAtRef.current) setSessionElapsedSeconds(Math.floor((Date.now() - sessionStartedAtRef.current) / 1000));
       }, 1000);
       return () => window.clearInterval(timer);
     }
-    if (connectionStatus === 'reconnecting' || connectionStatus === 'failed' || partnerDisconnected) {
+    if (connectionStatus === 'reconnecting' || connectionStatus === 'failed' || partnerDisconnected || isSearchingNextPair) {
       sessionStartedAtRef.current = null;
     }
     return undefined;
-  }, [connectionStatus, partnerDisconnected]);
+  }, [connectionStatus, partnerDisconnected, isSearchingNextPair]);
 
   const toggleFullscreen = useCallback(async () => {
     try {
@@ -399,9 +403,11 @@ export const Room: React.FC = memo(() => {
       }
     });
 
-    newSocket.on('match_found', async (data: { roomId: string; partnerId: string; initiator: boolean }) => {
+    newSocket.on('match_found', async (data: { roomId: string; partnerId: string; partnerName?: string; initiator: boolean }) => {
       setRoomId(data.roomId);
       setPartnerId(data.partnerId);
+      if (data.partnerName) setPartnerName(data.partnerName);
+      
       setPartnerDisconnected(false);
       setIsSearchingNextPair(false);
       await initializeWebRTC(newSocket, data.roomId, data.initiator);
@@ -481,7 +487,19 @@ export const Room: React.FC = memo(() => {
     setIsRatingOpen(true);
   }, [partnerId, sessionElapsedSeconds, chatMessages.length, roomId]);
 
-  const handleEndCall = useCallback(() => setIsConfirmExitOpen(true), []);
+  const handleEndCall = useCallback(() => {
+    // Se o usuário tentar sair da sala enquanto ainda está na tela de "Procurando novo conversante",
+    // ele deve ser direcionado para o RatingModal, mas com o nome do parceiro VAZIO,
+    // garantindo que ele avalie apenas o sistema e não o parceiro fantasma.
+    if (isSearchingNextPair) {
+      if (socketRef.current) socketRef.current.emit('cancel_match');
+      stopMediaStream();
+      setPendingAction('exit');
+      setIsRatingOpen(true);
+    } else {
+      setIsConfirmExitOpen(true);
+    }
+  }, [isSearchingNextPair, stopMediaStream]);
 
   const handleConfirmExit = useCallback(() => {
     stopMediaStream();
@@ -501,6 +519,7 @@ export const Room: React.FC = memo(() => {
     setConnectionStatus('reconnecting');
     setChatMessages([]);
     setIsSearchingNextPair(true);
+    setSessionElapsedSeconds(0);
     setCurrentTopic(getRandomTopic());
     
     if (socketRef.current) {
@@ -508,7 +527,7 @@ export const Room: React.FC = memo(() => {
     }
   }, [stopMediaStream]);
 
-  const handleRatingSubmit = useCallback(async (data: { partnerRating: number; platformRating: number; comment: string }) => {
+  const handleRatingSubmit = useCallback(async (data: { partnerRating?: number; platformRating: number; comment: string }) => {
     setIsRatingOpen(false);
     try {
       await fetch('http://localhost:3000/api/room/rate', {
@@ -517,7 +536,9 @@ export const Room: React.FC = memo(() => {
         credentials: 'include',
         body: JSON.stringify(data)
       });
-      if (partnerId && !partnerDisconnected) {
+      
+      // Só computa a avaliação do parceiro se de fato havia um parceiro conectado e avaliado
+      if (partnerId && !partnerDisconnected && !isSearchingNextPair && data.partnerRating) {
         const averageRating = (data.partnerRating + data.platformRating) / 2;
         await fetch('http://localhost:3000/api/room/quality', {
           method: 'POST',
@@ -538,7 +559,7 @@ export const Room: React.FC = memo(() => {
     
     if (pendingAction === 'exit') navigate('/dashboard');
     else triggerSearchNextPair();
-  }, [partnerId, partnerDisconnected, sessionElapsedSeconds, chatMessages.length, pendingAction, navigate, triggerSearchNextPair]);
+  }, [partnerId, partnerDisconnected, sessionElapsedSeconds, chatMessages.length, pendingAction, navigate, triggerSearchNextPair, isSearchingNextPair]);
 
   const handleRatingClose = useCallback(() => {
     setIsRatingOpen(false);
@@ -575,19 +596,23 @@ export const Room: React.FC = memo(() => {
               <div className="w-8 h-8 rounded-md bg-[#1C1917] flex items-center justify-center font-black text-[#FAF9F6] text-base">S</div>
               <span className="text-lg font-black tracking-tight text-[#1C1917] uppercase">SideBySide</span>
             </div>
-            <div className="flex items-center gap-2 bg-[#FAF9F6] border border-[#E7E5E4] px-3 py-1 rounded-xl text-xs font-black text-[#1C1917] uppercase">
-              <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l3 3" /></svg>
-              <span>{formattedTimer}</span>
-            </div>
+            
+            {/* Ocultar timer se ainda estiver buscando um par */}
+            {!isSearchingNextPair && (
+              <div className="flex items-center gap-2 bg-[#FAF9F6] border border-[#E7E5E4] px-3 py-1 rounded-xl text-xs font-black text-[#1C1917] uppercase">
+                <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l3 3" /></svg>
+                <span>{formattedTimer}</span>
+              </div>
+            )}
           </div>
           
-          <div className="bg-[#FAF9F6] border border-[#E7E5E4] px-4 py-1.5 rounded-xl text-xs font-black uppercase text-[#1C1917] flex items-center gap-2">
+          <div className="bg-[#FAF9F6] border border-[#E7E5E4] px-4 py-1.5 rounded-xl text-xs font-black uppercase text-[#1C1917] flex items-center gap-2 hidden sm:flex">
             <span className="text-[10px] bg-[#1C1917] text-[#FAF9F6] px-2 py-0.5 rounded">Prática Ativa</span>
-            <span>Você está conversando sobre: <strong className="text-emerald-700">{currentTopic.title}</strong> (Siga o assunto da sala)</span>
+            <span className="truncate max-w-[200px] md:max-w-md">Conversando sobre: <strong className="text-emerald-700">{currentTopic.title}</strong></span>
           </div>
 
-          <button type="button" onClick={handleEndCall} className="bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all">
-            Encerrar e Sair
+          <button type="button" onClick={handleEndCall} className="bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-sm">
+            {isSearchingNextPair ? 'Cancelar Busca' : 'Encerrar e Sair'}
           </button>
         </header>
       )}
@@ -697,8 +722,8 @@ export const Room: React.FC = memo(() => {
           ) : (
             <div className="absolute inset-0 bg-[#F5F5F4] flex items-center justify-center">
               <video ref={remoteVideoRef} autoPlay playsInline className={`w-full h-full object-cover transition-opacity duration-300 ${connectionStatus === 'reconnecting' ? 'opacity-40 grayscale-[50%]' : 'opacity-100'}`} />
-              <div className="absolute bottom-4 left-6 bg-[#1C1917]/80 backdrop-blur-md px-3.5 py-2 rounded-xl text-xs font-black text-[#FAF9F6] uppercase z-10 flex items-center gap-3">
-                <span>Parceiro de Prática</span>
+              <div className="absolute bottom-4 left-6 bg-[#1C1917]/80 backdrop-blur-md px-3.5 py-2 rounded-xl text-xs font-black text-[#FAF9F6] uppercase z-10 flex items-center gap-3 shadow-md">
+                <span>{partnerName}</span>
                 {isPartnerSpeaking && <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />}
               </div>
             </div>
@@ -736,18 +761,31 @@ export const Room: React.FC = memo(() => {
             <button type="button" onClick={toggleFullscreen} className="p-3 bg-[#FAF9F6] border border-[#E7E5E4] hover:bg-[#F5F5F4] text-[#1C1917] rounded-xl transition-all">
               {isFullscreen ? <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 9L4.5 4.5m0 0H9m-4.5 0V9m10.5 0l4.5-4.5m0 0H15m4.5 0V9M9 15l-4.5 4.5m0 0H9m-4.5 0v-4.5m10.5 4.5l4.5 4.5m0 0H15m4.5 0v-4.5" /></svg> : <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" /></svg>}
             </button>
-            <div className="w-px h-6 bg-[#E7E5E4]" />
-            <button type="button" onClick={() => setIsReportOpen(true)} className="p-3 bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 rounded-xl transition-all text-xs font-bold">
-              <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0l2.77-1.385a1.125 1.125 0 011.008 0L10.5 15l3.722-1.861a1.125 1.125 0 011.008 0L19.5 15V4.5l-4.27-2.135a1.125 1.125 0 00-1.008 0L10.5 4.23 6.778 2.369a1.125 1.125 0 00-1.008 0L3 3.75V15z" /></svg>
-            </button>
-            <button type="button" onClick={handleNextPair} className="px-5 py-2.5 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 shadow-sm pointer-events-auto">
-              <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-[3]" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 8.25V18a2.25 2.25 0 002.25 2.25h13.5A2.25 2.25 0 0021 18V8.25m-18 0V6a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 6v2.25m-18 0h18M12 11.25v6m0 0l-3-3m3 3l3-3" /></svg>
-              <span>PRÓXIMO PAR</span>
-            </button>
+            
+            {/* Ocultar botão de denunciar e próximo par se não houver um par ainda */}
+            {!isSearchingNextPair && (
+              <>
+                <div className="w-px h-6 bg-[#E7E5E4]" />
+                <button type="button" onClick={() => setIsReportOpen(true)} className="p-3 bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 rounded-xl transition-all text-xs font-bold">
+                  <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0l2.77-1.385a1.125 1.125 0 011.008 0L10.5 15l3.722-1.861a1.125 1.125 0 011.008 0L19.5 15V4.5l-4.27-2.135a1.125 1.125 0 00-1.008 0L10.5 4.23 6.778 2.369a1.125 1.125 0 00-1.008 0L3 3.75V15z" /></svg>
+                </button>
+                <button type="button" onClick={handleNextPair} className="px-5 py-2.5 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 shadow-sm pointer-events-auto">
+                  <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-[3]" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 8.25V18a2.25 2.25 0 002.25 2.25h13.5A2.25 2.25 0 0021 18V8.25m-18 0V6a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 6v2.25m-18 0h18M12 11.25v6m0 0l-3-3m3 3l3-3" /></svg>
+                  <span>PRÓXIMO PAR</span>
+                </button>
+              </>
+            )}
           </div>
 
           <ReportModal isOpen={isReportOpen} onClose={() => setIsReportOpen(false)} onConfirm={handleConfirmReport} />
-          <RatingModal isOpen={isRatingOpen} onClose={handleRatingClose} onSubmit={handleRatingSubmit} partnerName="Estudante" />
+          
+          {/* O RatingModal recebe o partnerName apenas se não estiver buscando o próximo par */}
+          <RatingModal 
+            isOpen={isRatingOpen} 
+            onClose={handleRatingClose} 
+            onSubmit={handleRatingSubmit} 
+            partnerName={isSearchingNextPair ? "" : partnerName} 
+          />
 
           {isConfirmExitOpen && (
             <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-[110] flex items-center justify-center p-4">
@@ -761,7 +799,7 @@ export const Room: React.FC = memo(() => {
                   <p className="text-xs text-[#57534E] font-medium leading-relaxed">Sua chamada de vídeo ativa será encerrada e você perderá a conexão com o seu par atual.</p>
                 </div>
                 <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={() => setIsConfirmExitOpen(false)} className="flex-1 py-3 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] text-xs font-black uppercase rounded-xl hover:bg-[#F5F5F4] transition-all">Continuar na Sala</button>
+                  <button type="button" onClick={() => setIsConfirmExitOpen(false)} className="flex-1 py-3 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] text-xs font-black uppercase rounded-xl hover:bg-[#F5F5F4] transition-all shadow-sm">Continuar na Sala</button>
                   <button type="button" onClick={handleConfirmExit} className="flex-1 py-3 bg-red-600 text-white text-xs font-black uppercase rounded-xl border-2 border-[#1C1917] hover:bg-red-700 transition-all shadow-sm">Sim, Sair</button>
                 </div>
               </div>
@@ -770,7 +808,7 @@ export const Room: React.FC = memo(() => {
         </div>
 
         {!isFullscreen && (
-          <aside className="w-80 bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl flex flex-col overflow-hidden shrink-0 shadow-sm">
+          <aside className="w-80 bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl flex flex-col overflow-hidden shrink-0 shadow-sm hidden md:flex">
             <div className="grid grid-cols-2 bg-[#F5F5F4] p-1 border-b border-[#E7E5E4] text-xs font-black uppercase tracking-wider">
               <button type="button" onClick={() => setActiveTab('topics')} className={`py-2.5 rounded-lg transition-all ${activeTab === 'topics' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C]'}`}>Guia de Tópicos</button>
               <button type="button" onClick={() => setActiveTab('chat')} className={`py-2.5 rounded-lg transition-all ${activeTab === 'chat' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C]'}`}>Chat ({chatMessages.length})</button>
