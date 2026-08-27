@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { io, Socket } from 'socket.io-client'; // Cliente do Socket.io
+import { io, Socket } from 'socket.io-client';
 import { ReportModal } from '../components/room/ReportModal';
 import { RatingModal } from '../components/room/RatingModal';
 import { TOPICS_CATALOG, getRandomTopic, TopicItem } from '../data/topicsData';
@@ -12,7 +12,6 @@ const formatSessionTimer = (seconds: number) => {
   return `${mins}:${secs}`;
 };
 
-// Configuração dos servidores STUN do Google (ajudam a achar os IPs públicos para o WebRTC)
 const ICE_SERVERS = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
@@ -31,11 +30,6 @@ export const Room: React.FC = memo(() => {
     return getRandomTopic();
   });
 
-  // Estado para o Modal de Termos/Instruções da Sala Temática
-  const [showTopicAgreementModal, setShowTopicAgreementModal] = useState<boolean>(() => {
-    return Boolean(topicId); // Abre automaticamente se entrou por um link/tópico específico
-  });
-
   const [micActive, setMicActive] = useState(true);
   const [camActive, setCamActive] = useState(true);
   const [activeTab, setActiveTab] = useState<'topics' | 'chat'>('topics');
@@ -46,16 +40,13 @@ export const Room: React.FC = memo(() => {
   const [isSearchingNextPair, setIsSearchingNextPair] = useState(false);
   const [pendingAction, setPendingAction] = useState<'exit' | 'nextPair' | null>(null);
 
-  // SBS-105: Estado para controle de desconexão do parceiro
   const [partnerDisconnected, setPartnerDisconnected] = useState(false);
 
-  // SBS-107: Estados da Web Speech API (Transcrição de voz)
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [currentTranscript, setCurrentTranscript] = useState('');
   const [spokenHistory, setSpokenHistory] = useState<string[]>([]);
   const speechRecognitionRef = useRef<any>(null);
 
-  // SBS-110: Estados de Fala Ativa e Nível de Áudio (Audio Analyzer & Volume Bars)
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
   const [isPartnerSpeaking, setIsPartnerSpeaking] = useState(false);
   const [userAudioLevel, setUserAudioLevel] = useState(0);
@@ -78,7 +69,6 @@ export const Room: React.FC = memo(() => {
 
   const [userAvatarUrl, setUserAvatarUrl] = useState<string>('https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80');
 
-  // Carrega a foto de perfil real do usuário logado ao abrir a sala
   useEffect(() => {
     const fetchUserAvatar = async () => {
       try {
@@ -98,7 +88,6 @@ export const Room: React.FC = memo(() => {
     fetchUserAvatar();
   }, []);
 
-  // Referências cruciais para o WebRTC e Socket
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -111,7 +100,6 @@ export const Room: React.FC = memo(() => {
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
   const [cursorOpacity, setCursorOpacity] = useState(1);
 
-  // SBS-110: Inicializador do Analisador de Áudio para o Usuário
   const setupAudioAnalyzer = useCallback((stream: MediaStream) => {
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
@@ -151,7 +139,6 @@ export const Room: React.FC = memo(() => {
     }
   }, [micActive]);
 
-  // SBS-104: Função centralizada para limpeza rigorosa do hardware (Câmera e Microfone)
   const stopMediaStream = useCallback(() => {
     if (animationFrameAudioRef.current) {
       cancelAnimationFrame(animationFrameAudioRef.current);
@@ -189,7 +176,6 @@ export const Room: React.FC = memo(() => {
     }
   }, []);
 
-  // SBS-107: Inicialização e configuração da Web Speech API
   const toggleSpeechTranscription = useCallback(() => {
     const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     
@@ -325,12 +311,8 @@ export const Room: React.FC = memo(() => {
     }
   }, []);
 
-  /* =======================================================
-     LÓGICA PRINCIPAL WEBRTC + SOCKET.IO (SINALIZAÇÃO P2P)
-  ======================================================== */
   const initializeWebRTC = useCallback(async (socket: Socket, currentRoomId: string, isInitiator: boolean) => {
     try {
-      // SBS-115: Recupera preferências de hardware salvas no localStorage
       const preferredAudioId = localStorage.getItem('sbs_preferred_audio_id');
       const preferredVideoId = localStorage.getItem('sbs_preferred_video_id');
 
@@ -477,7 +459,6 @@ export const Room: React.FC = memo(() => {
     setCamActive(!camActive);
   }, [camActive]);
 
-  // SBS-113: Envio de denúncia com metadados contextuais de auditoria da sessão
   const handleConfirmReport = useCallback(async (reason: string) => {
     setIsReportOpen(false);
     try {
@@ -587,37 +568,6 @@ export const Room: React.FC = memo(() => {
         style={{ left: `${followerPos.x}px`, top: `${followerPos.y}px`, opacity: cursorOpacity }}
       />
 
-      {/* Modal de Instrução e Concordância para Salas Temáticas */}
-      {showTopicAgreementModal && (
-        <div className="fixed inset-0 bg-[#1C1917]/80 backdrop-blur-md z-[130] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-8 max-w-md w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-6 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-indigo-50 border-2 border-indigo-200 text-indigo-600 flex items-center justify-center mx-auto shadow-sm">
-              <svg className="w-8 h-8 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
-              </svg>
-            </div>
-            <div className="flex flex-col gap-2">
-              <span className="text-[10px] font-black uppercase tracking-widest text-[#FAF9F6] bg-[#1C1917] px-2.5 py-0.5 rounded w-fit mx-auto">
-                SALA TEMÁTICA: {currentTopic.category}
-              </span>
-              <h3 className="text-lg font-black uppercase text-[#1C1917]">
-                Entrando na sala: {currentTopic.title}
-              </h3>
-              <p className="text-xs text-[#57534E] font-medium leading-relaxed">
-                Você está entrando em uma sessão temática guiada. Para garantir um excelente aprendizado, você concorda em focar e seguir o assunto proposto pela sala junto ao seu parceiro?
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowTopicAgreementModal(false)}
-              className="w-full py-3.5 bg-[#1C1917] text-[#FAF9F6] text-xs font-black uppercase rounded-xl border-2 border-[#1C1917] hover:bg-[#292524] transition-all shadow-sm cursor-pointer"
-            >
-              Concordar e Começar
-            </button>
-          </div>
-        </div>
-      )}
-
       {!isFullscreen && (
         <header className="bg-[#FFFFFF] border-b border-[#E7E5E4] px-6 py-3 flex items-center justify-between shrink-0 z-30 shadow-sm">
           <div className="flex items-center gap-4">
@@ -631,7 +581,6 @@ export const Room: React.FC = memo(() => {
             </div>
           </div>
           
-          {/* Mensagem simples e direta informando a atividade e a diretriz de seguir o assunto */}
           <div className="bg-[#FAF9F6] border border-[#E7E5E4] px-4 py-1.5 rounded-xl text-xs font-black uppercase text-[#1C1917] flex items-center gap-2">
             <span className="text-[10px] bg-[#1C1917] text-[#FAF9F6] px-2 py-0.5 rounded">Prática Ativa</span>
             <span>Você está conversando sobre: <strong className="text-emerald-700">{currentTopic.title}</strong> (Siga o assunto da sala)</span>
@@ -699,7 +648,6 @@ export const Room: React.FC = memo(() => {
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>Conexão Excelente</span>
               
-              {/* SBS-110: Medidor visual de volume/onda sonora do parceiro */}
               <div className="flex items-center gap-1 bg-[#F5F5F4] px-2 py-0.5 rounded-lg border border-[#E7E5E4]">
                 <span className="text-[9px] text-[#78716C]">Vol:</span>
                 <div className="w-12 h-1.5 bg-[#E7E5E4] rounded-full overflow-hidden flex">
@@ -756,7 +704,6 @@ export const Room: React.FC = memo(() => {
             </div>
           )}
 
-          {/* Card de vídeo local com medidor de volume integrado e foto real do usuário */}
           <div className={`absolute bottom-5 right-6 left-auto top-auto z-40 w-48 h-32 rounded-2xl overflow-hidden border-2 shadow-2xl bg-[#1C1917] transition-all duration-300 ${isUserSpeaking ? 'border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'border-[#FFFFFF]'}`}>
             <video ref={localVideoRef} autoPlay playsInline muted className={`w-full h-full object-cover transform -scale-x-100 ${camActive ? 'block' : 'hidden'}`} />
             {!camActive && (
@@ -770,7 +717,6 @@ export const Room: React.FC = memo(() => {
                 <span>Você {!micActive && '(Mudo)'}</span>
                 {isUserSpeaking && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
               </div>
-              {/* Barra de volume local */}
               <div className="w-full h-1 bg-[#292524] rounded-full overflow-hidden flex">
                 <div className="bg-emerald-500 h-full transition-all duration-75" style={{ width: `${userAudioLevel}%` }} />
               </div>

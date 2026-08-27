@@ -87,11 +87,10 @@ export const Dashboard: React.FC = memo(() => {
   const [reminderTime, setReminderTime] = useState('19:00');
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
 
-  // Estados Globais persistidos corretamente com checagem do localStorage
   const [friendsList, setFriendsList] = useState<Friend[]>(() => {
     const saved = localStorage.getItem('sbs_friendsList');
     if (saved !== null) {
-      try { return JSON.parse(saved); } catch (e) { /* fallback */ }
+      try { return JSON.parse(saved); } catch (e) { }
     }
     return [
       { id: '1', name: 'Carlos T.', tag: 'Carlos#9988', avatar: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=100&auto=format&fit=crop&q=80', level: 'B1', isOnline: true },
@@ -101,7 +100,7 @@ export const Dashboard: React.FC = memo(() => {
   const [requestsList, setRequestsList] = useState<FriendRequest[]>(() => {
     const saved = localStorage.getItem('sbs_requestsList');
     if (saved !== null) {
-      try { return JSON.parse(saved); } catch (e) { /* fallback */ }
+      try { return JSON.parse(saved); } catch (e) { }
     }
     return [
       { id: '2', name: 'Ana Silva', tag: 'Ana#4321', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80', level: 'A2', time: 'Há 2 horas' }
@@ -201,7 +200,6 @@ export const Dashboard: React.FC = memo(() => {
       });
       if (response.ok) {
         const data = await response.json();
-        // Fallback: Verifica no localStorage quais IDs já foram lidos para forçar no frontend
         const localReadCache = JSON.parse(localStorage.getItem('sbs_read_notifications') || '[]');
         const mergedData = data.map((n: any) => 
           localReadCache.includes(n.id) ? { ...n, read: true } : n
@@ -222,13 +220,11 @@ export const Dashboard: React.FC = memo(() => {
     
     setNotifications((prev) => {
       const updated = prev.map((n) => ({ ...n, read: true }));
-      // Salva os IDs lidos localmente para resolver o erro 404 (Not Found) da API no F5
       const readIds = updated.map(n => n.id);
       localStorage.setItem('sbs_read_notifications', JSON.stringify(readIds));
       return updated;
     });
     
-    // Tenta atualizar no servidor, mas o catch impede que o app quebre devido ao 404
     fetch('http://localhost:3000/api/notifications/read-all', {
       method: 'PUT',
       credentials: 'include'
@@ -650,27 +646,39 @@ export const Dashboard: React.FC = memo(() => {
       <SupportModal isOpen={isSupportOpen} onClose={() => setIsSupportOpen(false)} />
       <NotificationsModal isOpen={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} notifications={notifications} />
 
-      {/* Modal de Confirmação do Tópico no Dashboard */}
+      {/* Modal de Confirmação do Tópico no Dashboard Atualizado */}
       {showTopicConfirmModal && (topicToJoin || selectedTopic) && (
-        <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-3">
-              <span className="text-[10px] font-black uppercase tracking-widest bg-[#F5F5F4] text-[#1C1917] px-2.5 py-1 rounded border border-[#E7E5E4]">
-                {(topicToJoin || selectedTopic)?.category}
-              </span>
-              <button type="button" onClick={() => setShowTopicConfirmModal(false)} className="text-sm font-bold text-[#78716C] hover:text-[#1C1917]">✕</button>
+        <div className="fixed inset-0 bg-[#1C1917]/80 backdrop-blur-md z-[130] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-8 max-w-md w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-6 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-indigo-50 border-2 border-indigo-200 text-indigo-600 flex items-center justify-center mx-auto shadow-sm">
+              <svg className="w-8 h-8 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+              </svg>
             </div>
             <div className="flex flex-col gap-2">
-              <h3 className="text-lg font-black uppercase text-[#1C1917]">{(topicToJoin || selectedTopic)?.title}</h3>
-              <p className="text-xs text-[#57534E] font-medium leading-relaxed">Deseja entrar na sala de conversação com o guia deste tópico ativado? Os assuntos e a linha narrativa da sala serão ajustados para esse tema.</p>
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#FAF9F6] bg-[#1C1917] px-2.5 py-0.5 rounded w-fit mx-auto">
+                SALA TEMÁTICA: {(topicToJoin || selectedTopic)?.category}
+              </span>
+              <h3 className="text-lg font-black uppercase text-[#1C1917]">
+                Entrando na sala: {(topicToJoin || selectedTopic)?.title}
+              </h3>
+              <p className="text-xs text-[#57534E] font-medium leading-relaxed">
+                Você está entrando em uma sessão temática guiada. Para garantir um excelente aprendizado, você concorda em focar e seguir o assunto proposto pela sala junto ao seu parceiro?
+              </p>
             </div>
-            <div className="bg-[#FAF9F6] border border-[#E7E5E4] p-4 rounded-xl flex flex-col gap-2">
+            
+            <div className="bg-[#FAF9F6] border-2 border-[#E7E5E4] p-4 rounded-xl flex flex-col gap-2 text-left">
               <span className="text-[10px] font-bold uppercase tracking-wider text-[#78716C]">Pergunta Quebra-gelo Inicial:</span>
               <p className="text-xs font-bold text-[#1C1917] italic">"{(topicToJoin || selectedTopic)?.icebreaker}"</p>
             </div>
-            <div className="flex gap-3">
-              <button type="button" onClick={() => setShowTopicConfirmModal(false)} className="flex-1 py-3 bg-[#F5F5F4] hover:bg-[#E7E5E4] text-[#1C1917] font-bold text-xs uppercase tracking-wider rounded-xl transition-all">Cancelar</button>
-              <button type="button" onClick={confirmJoinRoomWithTopic} className="flex-1 py-3 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md">Entrar na Sala</button>
+
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={() => setShowTopicConfirmModal(false)} className="flex-1 py-3.5 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] text-xs font-black uppercase rounded-xl hover:bg-[#F5F5F4] transition-all">
+                Cancelar
+              </button>
+              <button type="button" onClick={confirmJoinRoomWithTopic} className="flex-1 py-3.5 bg-[#1C1917] text-[#FAF9F6] text-xs font-black uppercase rounded-xl border-2 border-[#1C1917] hover:bg-[#292524] transition-all shadow-sm cursor-pointer">
+                Concordar e Começar
+              </button>
             </div>
           </div>
         </div>
