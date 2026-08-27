@@ -38,11 +38,8 @@ export const Room: React.FC = memo(() => {
   const [isConfirmExitOpen, setIsConfirmExitOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   
-  // Estado para saber se estamos no meio de uma busca (sem parceiro definido)
   const [isSearchingNextPair, setIsSearchingNextPair] = useState(true);
-  
   const [pendingAction, setPendingAction] = useState<'exit' | 'nextPair' | null>(null);
-
   const [partnerDisconnected, setPartnerDisconnected] = useState(false);
 
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -67,6 +64,13 @@ export const Room: React.FC = memo(() => {
   const [partnerName, setPartnerName] = useState<string>('Estudante');
   const [roomId, setRoomId] = useState<string | null>(null);
 
+  const roomIdRef = useRef<string | null>(null);
+  const micActiveRef = useRef(micActive);
+
+  // Estados seguros para mídias
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+
   const [animStep, setAnimStep] = useState<0 | 1 | 2 | 3 | 4>(0);
   const [chatMessages, setChatMessages] = useState<{ id: number; sender: 'me' | 'other'; text: string }[]>([]);
   const [chatInput, setChatInput] = useState('');
@@ -74,16 +78,16 @@ export const Room: React.FC = memo(() => {
   const [userAvatarUrl, setUserAvatarUrl] = useState<string>('https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80');
 
   useEffect(() => {
+    micActiveRef.current = micActive;
+  }, [micActive]);
+
+  useEffect(() => {
     const fetchUserAvatar = async () => {
       try {
-        const response = await fetch('http://localhost:3000/api/user/me', {
-          credentials: 'include'
-        });
+        const response = await fetch('http://localhost:3000/api/user/me', { credentials: 'include' });
         if (response.ok) {
           const data = await response.json();
-          if (data.avatar) {
-            setUserAvatarUrl(data.avatar);
-          }
+          if (data.avatar) setUserAvatarUrl(data.avatar);
         }
       } catch (err) {
         console.error('Erro ao buscar foto de perfil do usuário na sala:', err);
@@ -93,11 +97,10 @@ export const Room: React.FC = memo(() => {
   }, []);
 
   const videoContainerRef = useRef<HTMLDivElement>(null);
-  const localVideoRef = useRef<HTMLVideoElement>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const socketRef = useRef<Socket | null>(null);
+  const pendingCandidates = useRef<RTCIceCandidateInit[]>([]); // Fila para evitar Race Condition de IPs
   const [mediaError, setMediaError] = useState<string | null>(null);
 
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
@@ -126,14 +129,12 @@ export const Room: React.FC = memo(() => {
         analyserRef.current.getByteFrequencyData(dataArray);
         
         let sum = 0;
-        for (let i = 0; i < dataArray.length; i++) {
-          sum += dataArray[i];
-        }
+        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
         const average = sum / dataArray.length;
         const normalizedLevel = Math.min(100, Math.round((average / 128) * 100));
 
         setUserAudioLevel(normalizedLevel);
-        setIsUserSpeaking(average > 12 && micActive);
+        setIsUserSpeaking(average > 12 && micActiveRef.current);
         animationFrameAudioRef.current = requestAnimationFrame(checkAudioLevel);
       };
 
@@ -141,7 +142,7 @@ export const Room: React.FC = memo(() => {
     } catch (e) {
       console.error('Erro ao configurar Web Audio API:', e);
     }
-  }, [micActive]);
+  }, []);
 
   const stopMediaStream = useCallback(() => {
     if (animationFrameAudioRef.current) {
@@ -155,9 +156,7 @@ export const Room: React.FC = memo(() => {
     }
 
     if (speechRecognitionRef.current) {
-      try {
-        speechRecognitionRef.current.stop();
-      } catch (e) {}
+      try { speechRecognitionRef.current.stop(); } catch (e) {}
       speechRecognitionRef.current = null;
       setIsTranscribing(false);
     }
@@ -170,9 +169,9 @@ export const Room: React.FC = memo(() => {
       streamRef.current = null;
     }
 
-    if (localVideoRef.current) {
-      localVideoRef.current.srcObject = null;
-    }
+    setLocalStream(null);
+    setRemoteStream(null);
+    pendingCandidates.current = [];
 
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close();
@@ -182,7 +181,6 @@ export const Room: React.FC = memo(() => {
 
   const toggleSpeechTranscription = useCallback(() => {
     const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    
     if (!SpeechRecognitionAPI) {
       alert('Seu navegador não suporta a Web Speech API para transcrição em tempo real.');
       return;
@@ -199,21 +197,15 @@ export const Room: React.FC = memo(() => {
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = 'en-US';
-
-      recognition.onstart = () => {
-        setIsTranscribing(true);
-      };
+      recognition.onstart = () => setIsTranscribing(true);
 
       recognition.onresult = (event: any) => {
         let interimText = '';
         let finalText = '';
 
         for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalText += event.results[i][0].transcript;
-          } else {
-            interimText += event.results[i][0].transcript;
-          }
+          if (event.results[i].isFinal) finalText += event.results[i][0].transcript;
+          else interimText += event.results[i][0].transcript;
         }
 
         if (finalText.trim()) {
@@ -224,19 +216,12 @@ export const Room: React.FC = memo(() => {
         }
       };
 
-      recognition.onerror = (event: any) => {
-        console.error('Erro na Web Speech API:', event.error);
-        setIsTranscribing(false);
-      };
-
-      recognition.onend = () => {
-        setIsTranscribing(false);
-      };
+      recognition.onerror = () => setIsTranscribing(false);
+      recognition.onend = () => setIsTranscribing(false);
 
       speechRecognitionRef.current = recognition;
       recognition.start();
     } catch (err) {
-      console.error('Não foi possível iniciar o reconhecimento de fala:', err);
       setIsTranscribing(false);
     }
   }, [isTranscribing]);
@@ -310,9 +295,7 @@ export const Room: React.FC = memo(() => {
         await document.exitFullscreen();
       }
       setIsFullscreen(!document.fullscreenElement);
-    } catch (err) {
-      console.error('Erro ao alternar modo tela cheia:', err);
-    }
+    } catch (err) {}
   }, []);
 
   const initializeWebRTC = useCallback(async (socket: Socket, currentRoomId: string, isInitiator: boolean) => {
@@ -325,10 +308,17 @@ export const Room: React.FC = memo(() => {
         video: preferredVideoId ? { deviceId: { exact: preferredVideoId } } : true,
       };
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      streamRef.current = stream;
-      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (fallbackErr) {
+        // Fallback robusto: se os dispositivos salvos não existirem mais, usa o padrão do navegador
+        console.warn('Dispositivos preferenciais falharam. Usando mídia padrão do sistema...');
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      }
 
+      streamRef.current = stream;
+      setLocalStream(stream); // O React ancorará na ref do HTML automaticamente
       setupAudioAnalyzer(stream);
 
       const pc = new RTCPeerConnection(ICE_SERVERS);
@@ -337,17 +327,17 @@ export const Room: React.FC = memo(() => {
       stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
       pc.ontrack = (event) => {
-        if (remoteVideoRef.current && event.streams[0]) {
-          remoteVideoRef.current.srcObject = event.streams[0];
+        if (event.streams && event.streams[0]) {
+          setRemoteStream(event.streams[0]); // Ancoragem reativa do parceiro
           setConnectionStatus('connected');
 
-          const remoteStream = event.streams[0];
+          const incomingStream = event.streams[0];
           try {
             const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
             const remoteAudioCtx = new AudioCtx();
             const remoteAnalyser = remoteAudioCtx.createAnalyser();
             remoteAnalyser.fftSize = 256;
-            const remoteSource = remoteAudioCtx.createMediaStreamSource(remoteStream);
+            const remoteSource = remoteAudioCtx.createMediaStreamSource(incomingStream);
             remoteSource.connect(remoteAnalyser);
             const remoteArray = new Uint8Array(remoteAnalyser.frequencyBinCount);
 
@@ -368,9 +358,7 @@ export const Room: React.FC = memo(() => {
       };
 
       pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          socket.emit('webrtc_ice_candidate', { roomId: currentRoomId, candidate: event.candidate });
-        }
+        if (event.candidate) socket.emit('webrtc_ice_candidate', { roomId: currentRoomId, candidate: event.candidate });
       };
 
       pc.oniceconnectionstatechange = () => {
@@ -385,7 +373,6 @@ export const Room: React.FC = memo(() => {
 
     } catch (err: any) {
       setMediaError('Permita o uso da câmera e do microfone para conversar.');
-      console.error('Erro no WebRTC:', err);
     }
   }, [setupAudioAnalyzer]);
 
@@ -399,12 +386,14 @@ export const Room: React.FC = memo(() => {
       if (roomStatus?.hasActiveSession) {
         newSocket.emit('join_room', { roomId: roomStatus.sessionId });
       } else {
-        newSocket.emit('find_match');
+        newSocket.emit('find_match', { topicId: topicId || null });
       }
     });
 
     newSocket.on('match_found', async (data: { roomId: string; partnerId: string; partnerName?: string; initiator: boolean }) => {
       setRoomId(data.roomId);
+      roomIdRef.current = data.roomId;
+      
       setPartnerId(data.partnerId);
       if (data.partnerName) setPartnerName(data.partnerName);
       
@@ -422,21 +411,40 @@ export const Room: React.FC = memo(() => {
       const pc = peerConnectionRef.current;
       if (!pc) return;
       await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+      
+      // Processa a fila de ICE Candidates retidos
+      while (pendingCandidates.current.length > 0) {
+        const candidate = pendingCandidates.current.shift();
+        if (candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      }
+
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      newSocket.emit('webrtc_answer', { roomId: roomId, sdp: pc.localDescription });
+      newSocket.emit('webrtc_answer', { roomId: roomIdRef.current, sdp: pc.localDescription });
     });
 
     newSocket.on('webrtc_answer', async (data: { sdp: RTCSessionDescriptionInit }) => {
       const pc = peerConnectionRef.current;
       if (!pc) return;
       await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+      
+      // Processa a fila de ICE Candidates retidos
+      while (pendingCandidates.current.length > 0) {
+        const candidate = pendingCandidates.current.shift();
+        if (candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      }
     });
 
     newSocket.on('webrtc_ice_candidate', async (data: { candidate: RTCIceCandidateInit }) => {
       const pc = peerConnectionRef.current;
       if (!pc) return;
-      await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+      
+      // Armazena candidatos na fila se o Remote Description ainda não chegou (Race Condition)
+      if (pc.remoteDescription && pc.remoteDescription.type) {
+        await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+      } else {
+        pendingCandidates.current.push(data.candidate);
+      }
     });
 
     newSocket.on('chat_message', (data: { text: string; id: number }) => {
@@ -447,20 +455,19 @@ export const Room: React.FC = memo(() => {
       stopMediaStream();
       newSocket.disconnect();
     };
-  }, [roomStatusLoading, roomStatus, initializeWebRTC, roomId, stopMediaStream]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomStatusLoading, topicId]);
 
   const toggleMicrophone = useCallback(() => {
     if (streamRef.current) {
-      const audioTracks = streamRef.current.getAudioTracks();
-      audioTracks.forEach((track) => { track.enabled = !micActive; });
+      streamRef.current.getAudioTracks().forEach((track) => { track.enabled = !micActive; });
     }
     setMicActive(!micActive);
   }, [micActive]);
 
   const toggleCamera = useCallback(() => {
     if (streamRef.current) {
-      const videoTracks = streamRef.current.getVideoTracks();
-      videoTracks.forEach((track) => { track.enabled = !camActive; });
+      streamRef.current.getVideoTracks().forEach((track) => { track.enabled = !camActive; });
     }
     setCamActive(!camActive);
   }, [camActive]);
@@ -480,17 +487,12 @@ export const Room: React.FC = memo(() => {
           roomId
         })
       });
-    } catch (err) {
-      console.error('Erro ao enviar relatório:', err);
-    }
+    } catch (err) {}
     setPendingAction('nextPair');
     setIsRatingOpen(true);
   }, [partnerId, sessionElapsedSeconds, chatMessages.length, roomId]);
 
   const handleEndCall = useCallback(() => {
-    // Se o usuário tentar sair da sala enquanto ainda está na tela de "Procurando novo conversante",
-    // ele deve ser direcionado para o RatingModal, mas com o nome do parceiro VAZIO,
-    // garantindo que ele avalie apenas o sistema e não o parceiro fantasma.
     if (isSearchingNextPair) {
       if (socketRef.current) socketRef.current.emit('cancel_match');
       stopMediaStream();
@@ -523,9 +525,9 @@ export const Room: React.FC = memo(() => {
     setCurrentTopic(getRandomTopic());
     
     if (socketRef.current) {
-      socketRef.current.emit('find_match');
+      socketRef.current.emit('find_match', { topicId: topicId || null });
     }
-  }, [stopMediaStream]);
+  }, [stopMediaStream, topicId]);
 
   const handleRatingSubmit = useCallback(async (data: { partnerRating?: number; platformRating: number; comment: string }) => {
     setIsRatingOpen(false);
@@ -537,7 +539,6 @@ export const Room: React.FC = memo(() => {
         body: JSON.stringify(data)
       });
       
-      // Só computa a avaliação do parceiro se de fato havia um parceiro conectado e avaliado
       if (partnerId && !partnerDisconnected && !isSearchingNextPair && data.partnerRating) {
         const averageRating = (data.partnerRating + data.platformRating) / 2;
         await fetch('http://localhost:3000/api/room/quality', {
@@ -570,15 +571,15 @@ export const Room: React.FC = memo(() => {
   const handleSendMessage = useCallback((e?: React.FormEvent) => {
     e?.preventDefault();
     const trimmed = chatInput.trim();
-    if (!trimmed) return;
+    if (!trimmed || !roomIdRef.current) return;
 
-    if (socketRef.current && roomId) {
-      socketRef.current.emit('chat_message', { roomId, text: trimmed });
+    if (socketRef.current) {
+      socketRef.current.emit('chat_message', { roomId: roomIdRef.current, text: trimmed });
     }
 
     setChatMessages((prev) => [...prev, { id: Date.now(), sender: 'me', text: trimmed }]);
     setChatInput('');
-  }, [chatInput, roomId]);
+  }, [chatInput]);
 
   const formattedTimer = useMemo(() => formatSessionTimer(sessionElapsedSeconds), [sessionElapsedSeconds]);
 
@@ -597,7 +598,6 @@ export const Room: React.FC = memo(() => {
               <span className="text-lg font-black tracking-tight text-[#1C1917] uppercase">SideBySide</span>
             </div>
             
-            {/* Ocultar timer se ainda estiver buscando um par */}
             {!isSearchingNextPair && (
               <div className="flex items-center gap-2 bg-[#FAF9F6] border border-[#E7E5E4] px-3 py-1 rounded-xl text-xs font-black text-[#1C1917] uppercase">
                 <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l3 3" /></svg>
@@ -721,7 +721,12 @@ export const Room: React.FC = memo(() => {
             </div>
           ) : (
             <div className="absolute inset-0 bg-[#F5F5F4] flex items-center justify-center">
-              <video ref={remoteVideoRef} autoPlay playsInline className={`w-full h-full object-cover transition-opacity duration-300 ${connectionStatus === 'reconnecting' ? 'opacity-40 grayscale-[50%]' : 'opacity-100'}`} />
+              <video 
+                ref={(el) => { if (el && remoteStream && el.srcObject !== remoteStream) el.srcObject = remoteStream; }} 
+                autoPlay 
+                playsInline 
+                className={`w-full h-full object-cover transition-opacity duration-300 ${connectionStatus === 'reconnecting' ? 'opacity-40 grayscale-[50%]' : 'opacity-100'}`} 
+              />
               <div className="absolute bottom-4 left-6 bg-[#1C1917]/80 backdrop-blur-md px-3.5 py-2 rounded-xl text-xs font-black text-[#FAF9F6] uppercase z-10 flex items-center gap-3 shadow-md">
                 <span>{partnerName}</span>
                 {isPartnerSpeaking && <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />}
@@ -730,7 +735,13 @@ export const Room: React.FC = memo(() => {
           )}
 
           <div className={`absolute bottom-5 right-6 left-auto top-auto z-40 w-48 h-32 rounded-2xl overflow-hidden border-2 shadow-2xl bg-[#1C1917] transition-all duration-300 ${isUserSpeaking ? 'border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'border-[#FFFFFF]'}`}>
-            <video ref={localVideoRef} autoPlay playsInline muted className={`w-full h-full object-cover transform -scale-x-100 ${camActive ? 'block' : 'hidden'}`} />
+            <video 
+              ref={(el) => { if (el && localStream && el.srcObject !== localStream) el.srcObject = localStream; }} 
+              autoPlay 
+              playsInline 
+              muted 
+              className={`w-full h-full object-cover transform -scale-x-100 ${camActive ? 'block' : 'hidden'}`} 
+            />
             {!camActive && (
               <div className="w-full h-full bg-[#1C1917] flex flex-col items-center justify-center relative overflow-hidden">
                 <img src={userAvatarUrl} alt="Sua Foto" className="w-full h-full object-cover opacity-80" />
@@ -762,7 +773,6 @@ export const Room: React.FC = memo(() => {
               {isFullscreen ? <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 9L4.5 4.5m0 0H9m-4.5 0V9m10.5 0l4.5-4.5m0 0H15m4.5 0V9M9 15l-4.5 4.5m0 0H9m-4.5 0v-4.5m10.5 4.5l4.5 4.5m0 0H15m4.5 0v-4.5" /></svg> : <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" /></svg>}
             </button>
             
-            {/* Ocultar botão de denunciar e próximo par se não houver um par ainda */}
             {!isSearchingNextPair && (
               <>
                 <div className="w-px h-6 bg-[#E7E5E4]" />
@@ -779,7 +789,6 @@ export const Room: React.FC = memo(() => {
 
           <ReportModal isOpen={isReportOpen} onClose={() => setIsReportOpen(false)} onConfirm={handleConfirmReport} />
           
-          {/* O RatingModal recebe o partnerName apenas se não estiver buscando o próximo par */}
           <RatingModal 
             isOpen={isRatingOpen} 
             onClose={handleRatingClose} 
@@ -851,7 +860,7 @@ export const Room: React.FC = memo(() => {
                     ) : (
                       chatMessages.map((message) => (
                         <div key={message.id} className={`p-2.5 rounded-xl text-xs ${message.sender === 'me' ? 'bg-[#1C1917] text-[#FAF9F6] self-end' : 'bg-[#FAF9F6] text-[#1C1917] border border-[#E7E5E4]'}`}>
-                          <span className="font-black text-[10px] uppercase">{message.sender === 'me' ? 'Você' : 'Parceiro'}: </span>
+                          <span className="font-black text-[10px] uppercase">{message.sender === 'me' ? 'Você' : partnerName}: </span>
                           <span className="font-medium">{message.text}</span>
                         </div>
                       ))  
