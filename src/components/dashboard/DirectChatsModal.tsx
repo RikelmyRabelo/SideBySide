@@ -20,10 +20,8 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
   const [viewingProfile, setViewingProfile] = useState<Friend | null>(null);
   const [inputMessage, setInputMessage] = useState('');
   
-  const [messages, setMessages] = useState<Message[]>([
-    { id: 1, text: 'Oi! Adorei nossa última conversa.', sender: 'them', time: '14:20' },
-    { id: 2, text: 'Olá! Também achei muito boa. Vamos praticar mais tarde?', sender: 'me', time: '14:22' }
-  ]);
+  // Removidas as mensagens de exemplo (chat inicia vazio)
+  const [messages, setMessages] = useState<Message[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -174,7 +172,7 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
                   <div className="w-16 h-16 rounded-2xl bg-[#F5F5F4] border-2 border-[#E7E5E4] flex items-center justify-center">
                     <svg className="w-8 h-8 stroke-[#D6D3D1] fill-none stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" /></svg>
                   </div>
-                  <h3 className="text-sm font-black uppercase text-[#A8A29E]">Selecione uma conversa</h3>
+                  <h3 className="text-sm font-black uppercase text-[#A8A29E]">Seu espaço de conversas</h3>
                   <p className="text-[11px] font-bold text-[#D6D3D1] max-w-[200px]">Escolha um contato na barra lateral para iniciar o chat.</p>
                 </div>
               )}
@@ -182,59 +180,6 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
           </>
         )}
       </div>
-
-      {viewingProfile && (
-        <div className="fixed inset-0 bg-[#1C1917]/80 backdrop-blur-md z-[110] flex items-center justify-center p-4">
-          <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 max-w-sm w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-150 text-center">
-            <div className="flex justify-between items-center border-b-2 border-[#E7E5E4] pb-2">
-              <span className="text-[10px] font-black uppercase tracking-wider bg-[#1C1917] text-[#FAF9F6] px-2 py-0.5 rounded">
-                PERFIL DO USUÁRIO
-              </span>
-              <button
-                type="button"
-                onClick={() => setViewingProfile(null)}
-                className="text-xs font-black text-[#78716C] hover:text-[#1C1917]"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-[#1C1917] bg-[#E7E5E4] mx-auto">
-              <img
-                src={viewingProfile.avatar}
-                alt={viewingProfile.name}
-                className="w-full h-full object-cover"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center justify-center gap-2">
-                <h3 className="text-base font-black uppercase text-[#1C1917]">
-                  {viewingProfile.name}
-                </h3>
-                <span className="px-2 py-0.5 bg-[#1C1917] text-[#FAF9F6] font-black text-[10px] rounded uppercase">
-                  {viewingProfile.level || 'B1'}
-                </span>
-              </div>
-              <span className="text-[11px] font-bold text-[#78716C] uppercase">
-                {viewingProfile.tag}
-              </span>
-            </div>
-
-            <p className="text-xs text-[#57534E] font-medium italic bg-[#FAF9F6] p-3 rounded-xl border-2 border-[#E7E5E4] text-left">
-              "Estudante ativo praticando conversação P2P no SideBySide."
-            </p>
-
-            <button
-              type="button"
-              onClick={() => setViewingProfile(null)}
-              className="w-full py-2.5 bg-[#1C1917] text-[#FAF9F6] rounded-xl font-black text-xs uppercase mt-2 border-2 border-[#1C1917] hover:bg-[#292524] transition-all"
-            >
-              Fechar Perfil
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 });

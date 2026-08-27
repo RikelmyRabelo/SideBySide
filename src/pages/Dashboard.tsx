@@ -64,27 +64,31 @@ export const Dashboard: React.FC = memo(() => {
   const [reminderTime, setReminderTime] = useState('19:00');
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
 
-  // Listas limpas sem dados fictícios de teste
   const [friendsList, setFriendsList] = useState<Friend[]>([]);
   const [requestsList, setRequestsList] = useState<FriendRequest[]>([]);
 
   const [unreadChatMessages, setUnreadChatMessages] = useState<number>(0);
 
-  // Busca pedidos de amizade pendentes da API
+  // Sincroniza solicitações e lista de amigos via API periodicamente
   useEffect(() => {
-    const fetchRequests = async () => {
+    const fetchData = async () => {
       try {
-        const res = await fetch('http://localhost:3000/api/friends/requests', { credentials: 'include' });
-        if (res.ok) {
-          const data = await res.json();
-          setRequestsList(data);
+        const [reqRes, friendsRes] = await Promise.all([
+          fetch('http://localhost:3000/api/friends/requests', { credentials: 'include' }),
+          fetch('http://localhost:3000/api/friends/list', { credentials: 'include' })
+        ]);
+        if (reqRes.ok) {
+          setRequestsList(await reqRes.json());
+        }
+        if (friendsRes.ok) {
+          setFriendsList(await friendsRes.json());
         }
       } catch (e) {
-        console.error('Erro ao buscar solicitações de amizade:', e);
+        console.error('Erro ao buscar dados de amigos/solicitações:', e);
       }
     };
-    fetchRequests();
-    const interval = setInterval(fetchRequests, 10000); // Atualiza a cada 10s
+    fetchData();
+    const interval = setInterval(fetchData, 8000);
     return () => clearInterval(interval);
   }, []);
 

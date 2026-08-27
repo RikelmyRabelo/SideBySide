@@ -53,8 +53,9 @@ const conversationQuality = new Map<string, Map<string, { duration: number; mess
 const repeatMatchPreferences = new Map<string, Set<string>>();
 const reports = new Map<string, { reporterId: string; reason: string; timestamp: Date }[]>();
 
-// Armazenamento em memória para pedidos de amizade reais gerados na sala
+// Armazenamento em memória robusto para pedidos e amizades bilaterais reais
 const friendRequestsMap = new Map<string, { id: string; senderId: string; name: string; tag: string; avatar: string; level: string; time: string }[]>();
+const friendshipsMap = new Map<string, Set<string>>();
 
 const logger = winston.createLogger({
   level: 'info',
@@ -434,31 +435,34 @@ app.post('/api/room/want-to-talk-again', authenticateToken, async (req: Request,
   } catch (error: any) { next(error); }
 });
 
-// Rotas de Gerenciamento de Amigos (Pedidos e Aceites)
+// Rotas de Gerenciamento de Amigos com vínculo bilateral real e prevenção de duplicatas
 app.post('/api/friends/request', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user.id;
     const { targetUserId } = req.body || {};
     
-    if (!targetUserId) {
-      return res.status(400).json({ error: 'targetUserId é obrigatório.' });
-    }
-
-    if (userId === targetUserId) {
-      return res.status(400).json({ error: 'Você não pode adicionar a si mesmo.' });
+    if (!targetUserId || userId === targetUserId) {
+      return res.status(400).json({ error: 'ID de usuário inválido.' });
     }
 
     const sender = await prisma.user.findUnique({ where: { id: userId } });
     const targetUser = await prisma.user.findUnique({ where: { id: targetUserId } });
     
     if (!targetUser || !sender) {
-      return res.status(404).json({ error: 'Usuário alvo não encontrado.' });
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+
+    // Verifica se já são amigos
+    const userFriends = friendshipsMap.get(userId);
+    if (userFriends && userFriends.has(targetUserId)) {
+      return res.status(400).json({ error: 'Vocês já são amigos.' });
     }
 
     const targetRequests = friendRequestsMap.get(targetUserId) || [];
+    // Evita acumular pedidos duplicados se já houver um pendente do mesmo remetente
     if (!targetRequests.some(r => r.senderId === userId)) {
       targetRequests.push({
-        id: `req_${Date.now()}`,
+        id: `req_${Date.now()}_${Math.random()}`,
         senderId: userId,
         name: sender.name,
         tag: `${sender.name.replace(/\s+/g, '')}#${userId.slice(0, 4)}`,
@@ -467,18 +471,18 @@ app.post('/api/friends/request', authenticateToken, async (req: Request, res: Re
         time: 'Agora mesmo'
       });
       friendRequestsMap.set(targetUserId, targetRequests);
+
+      await prisma.notification.create({
+        data: {
+          userId: targetUserId,
+          title: 'Nova Solicitação de Amizade 🤝',
+          message: `${sender.name} enviou uma solicitação de amizade!`,
+          read: false,
+        },
+      });
     }
 
-    await prisma.notification.create({
-      data: {
-        userId: targetUserId,
-        title: 'Nova Solicitação de Amizade 🤝',
-        message: `${sender.name} enviou uma solicitação de amizade!`,
-        read: false,
-      },
-    });
-
-    return res.status(200).json({ message: 'Solicitação de amizade enviada com sucesso.' });
+    return res.status(200).json({ message: 'Solicitação enviada com sucesso.' });
   } catch (error: any) { 
     next(error); 
   }
@@ -499,10 +503,47 @@ app.post('/api/friends/accept', authenticateToken, async (req: Request, res: Res
     const userId = (req as any).user.id;
     const { requestId, senderId } = req.body;
     
+    // Remove o pedido pendente de quem aceitou
     let targetRequests = friendRequestsMap.get(userId) || [];
     friendRequestsMap.set(userId, targetRequests.filter(r => r.id !== requestId && r.senderId !== senderId));
 
+    if (senderId) {
+      // Adiciona amizade bilateralmente para os dois usuários
+      const userFriends = friendshipsMap.get(userId) || new Set();
+      userFriends.add(senderId);
+      friendshipsMap.set(userId, userFriends);
+
+      const senderFriends = friendshipsMap.get(senderId) || new Set();
+      senderFriends.add(userId);
+      friendshipsMap.set(senderId, senderFriends);
+    }
+
     return res.status(200).json({ message: 'Amizade aceita com sucesso.' });
+  } catch (error: any) {
+    next(error);
+  }
+});
+
+app.get('/api/friends/list', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.id;
+    const friendIds = Array.from(friendshipsMap.get(userId) || []);
+    
+    const friendsData = await prisma.user.findMany({
+      where: { id: { in: friendIds } },
+      select: { id: true, name: true, level: true, avatar: true }
+    });
+
+    const formatted = friendsData.map(f => ({
+      id: f.id,
+      name: f.name,
+      tag: `${f.name.replace(/\s+/g, '')}#${f.id.slice(0, 4)}`,
+      avatar: f.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+      level: f.level || 'B1',
+      isOnline: true
+    }));
+
+    return res.status(200).json(formatted);
   } catch (error: any) {
     next(error);
   }

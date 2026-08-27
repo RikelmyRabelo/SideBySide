@@ -11,6 +11,7 @@ export interface Friend {
 
 export interface FriendRequest {
   id: string;
+  senderId: string;
   name: string;
   tag: string;
   avatar: string;
@@ -46,21 +47,44 @@ export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = memo(({
   const [searchTag, setSearchTag] = useState('');
   const [searchResult, setSearchResult] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
-  const handleAcceptRequest = useCallback((req: FriendRequest) => {
-    setFriendsList((prev) => [
-      ...prev,
-      { id: req.id, name: req.name, tag: req.tag, avatar: req.avatar, level: req.level, isOnline: true },
-    ]);
-    setRequestsList((prev) => prev.filter((r) => r.id !== req.id));
-    if (selectedUserProfile?.id === req.id) {
-      setSelectedUserProfile(null);
+  const handleAcceptRequest = useCallback(async (req: FriendRequest) => {
+    try {
+      const response = await fetch('http://localhost:3000/api/friends/accept', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ requestId: req.id, senderId: req.senderId })
+      });
+
+      if (response.ok) {
+        setFriendsList((prev) => [
+          ...prev,
+          { id: req.senderId || req.id, name: req.name, tag: req.tag, avatar: req.avatar, level: req.level, isOnline: true },
+        ]);
+        setRequestsList((prev) => prev.filter((r) => r.id !== req.id));
+        if (selectedUserProfile?.id === req.id) {
+          setSelectedUserProfile(null);
+        }
+      }
+    } catch (e) {
+      console.error('Erro ao aceitar solicitação de amizade:', e);
     }
   }, [selectedUserProfile?.id, setFriendsList, setRequestsList]);
 
-  const handleDeclineRequest = useCallback((id: string) => {
-    setRequestsList((prev) => prev.filter((r) => r.id !== id));
-    if (selectedUserProfile?.id === id) {
-      setSelectedUserProfile(null);
+  const handleDeclineRequest = useCallback(async (id: string, senderId?: string) => {
+    try {
+      await fetch('http://localhost:3000/api/friends/accept', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ requestId: id, senderId })
+      });
+      setRequestsList((prev) => prev.filter((r) => r.id !== id));
+      if (selectedUserProfile?.id === id) {
+        setSelectedUserProfile(null);
+      }
+    } catch (e) {
+      console.error('Erro ao recusar solicitação de amizade:', e);
     }
   }, [selectedUserProfile?.id, setRequestsList]);
 
@@ -248,7 +272,7 @@ export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = memo(({
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={() => handleDeclineRequest(req.id)}
+                      onClick={() => handleDeclineRequest(req.id, req.senderId)}
                       className="flex-1 py-2 bg-[#F5F5F4] border-2 border-[#E7E5E4] text-[#1C1917] text-[10px] font-black uppercase rounded-lg hover:border-[#1C1917] transition-all"
                     >
                       Recusar
@@ -348,7 +372,7 @@ export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = memo(({
               "{'bio' in selectedUserProfile && selectedUserProfile.bio ? selectedUserProfile.bio : 'Estudante ativo praticando conversação P2P no SideBySide.'}"
             </p>
 
-            {'time' in selectedUserProfile ? (
+            {'senderId' in selectedUserProfile ? (
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
@@ -359,7 +383,7 @@ export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = memo(({
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleDeclineRequest(selectedUserProfile.id)}
+                  onClick={() => handleDeclineRequest(selectedUserProfile.id, selectedUserProfile.senderId)}
                   className="flex-1 py-2.5 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] rounded-xl font-black text-[10px] uppercase hover:bg-[#E7E5E4] transition-all"
                 >
                   Recusar
