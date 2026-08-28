@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { io, Socket } from 'socket.io-client';
 import { Button } from '../components/ui/Button';
 import { FriendsManagerModal, Friend, FriendRequest } from '../components/dashboard/FriendsManagerModal';
 import { DirectChatsModal } from '../components/dashboard/DirectChatsModal';
@@ -67,9 +68,32 @@ export const Dashboard: React.FC = memo(() => {
   const [friendsList, setFriendsList] = useState<Friend[]>([]);
   const [requestsList, setRequestsList] = useState<FriendRequest[]>([]);
 
-  const [unreadChatMessages, setUnreadChatMessages] = useState<number>(0);
+  const [unreadCounts, setUnreadCounts] = useState<{ [key: string]: number }>({});
 
-  // Sincroniza solicitações e lista de amigos via API periodicamente
+  useEffect(() => {
+    const socket: Socket = io('http://localhost:3000', { withCredentials: true });
+
+    socket.on('direct_message', (data: { senderId: string }) => {
+      setUnreadCounts((prev) => ({
+        ...prev,
+        [data.senderId]: (prev[data.senderId] || 0) + 1
+      }));
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
+
+  const clearUnreadForSender = useCallback((senderId: string) => {
+    setUnreadCounts((prev) => {
+      if (!prev[senderId]) return prev;
+      const newCounts = { ...prev };
+      delete newCounts[senderId];
+      return newCounts;
+    });
+  }, []);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -93,6 +117,7 @@ export const Dashboard: React.FC = memo(() => {
   }, []);
 
   const friendRequestsCount = requestsList.length;
+  const unreadChatMessages = Object.keys(unreadCounts).length;
 
   const mockSessionsHistory = useMemo(() => userData?.sessionsHistory || [], [userData]);
   const mockMinutesHistory = useMemo(() => userData?.minutesHistory || DEFAULT_MINUTES_HISTORY, [userData]);
@@ -322,7 +347,7 @@ export const Dashboard: React.FC = memo(() => {
                   {friendRequestsCount > 0 && <span className="text-[10px] font-black bg-red-100 text-red-600 px-2 py-0.5 rounded">{friendRequestsCount}</span>}
                 </button>
 
-                <button type="button" onClick={() => { setIsUserMenuOpen(false); setSelectedChatContact(null); setUnreadChatMessages(0); setIsDirectChatsOpen(true); }} className="px-4 py-2.5 hover:bg-[#FAF9F6] text-left flex items-center justify-between transition-colors group">
+                <button type="button" onClick={() => { setIsUserMenuOpen(false); setSelectedChatContact(null); setIsDirectChatsOpen(true); }} className="px-4 py-2.5 hover:bg-[#FAF9F6] text-left flex items-center justify-between transition-colors group">
                   <div className="flex items-center gap-2.5">
                     <svg className="w-4 h-4 stroke-[#57534E] group-hover:stroke-[#1C1917] fill-none stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" /></svg>
                     <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Conversas</span>
@@ -539,7 +564,7 @@ export const Dashboard: React.FC = memo(() => {
       </main>
 
       <FriendsManagerModal isOpen={isFriendsOpen} onClose={() => setIsFriendsOpen(false)} onOpenDirectChat={(friend) => { setSelectedChatContact(friend); setIsDirectChatsOpen(true); }} requestsList={requestsList} setRequestsList={setRequestsList} friendsList={friendsList} setFriendsList={setFriendsList} />
-      <DirectChatsModal isOpen={isDirectChatsOpen} onClose={() => setIsDirectChatsOpen(false)} selectedContact={selectedChatContact} friendsList={friendsList} />
+      <DirectChatsModal isOpen={isDirectChatsOpen} onClose={() => setIsDirectChatsOpen(false)} selectedContact={selectedChatContact} friendsList={friendsList} unreadCounts={unreadCounts} onClearUnread={clearUnreadForSender} />
       <BadgesModal isOpen={isBadgesOpen} onClose={() => setIsBadgesOpen(false)} />
       <DeviceCheckModal isOpen={isDeviceCheckOpen} onClose={() => setIsDeviceCheckOpen(false)} mediaMode={mediaMode} />
       <SupportModal isOpen={isSupportOpen} onClose={() => setIsSupportOpen(false)} />

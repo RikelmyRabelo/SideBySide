@@ -14,10 +14,12 @@ export interface DirectChatsModalProps {
   onClose: () => void;
   selectedContact: Friend | null;
   friendsList: Friend[];
+  unreadCounts: { [key: string]: number };
+  onClearUnread: (senderId: string) => void;
 }
 
-export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen, onClose, selectedContact, friendsList }) => {
-  const [activeContact, setActiveContact] = useState<Friend | null>(selectedContact);
+export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen, onClose, selectedContact, friendsList, unreadCounts, onClearUnread }) => {
+  const [activeContact, setActiveContact] = useState<Friend | null>(null);
   const [viewingProfile, setViewingProfile] = useState<any | null>(null);
   const [inputMessage, setInputMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -29,6 +31,36 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
   useEffect(() => {
     activeContactRef.current = activeContact;
   }, [activeContact]);
+
+  useEffect(() => {
+    if (selectedContact) {
+      if (activeContact?.id !== selectedContact.id) {
+        setActiveContact(selectedContact);
+        setMessages([]);
+      }
+      onClearUnread(selectedContact.id);
+    }
+  }, [selectedContact, onClearUnread, activeContact]);
+
+  useEffect(() => {
+    if (isOpen) {
+      const newSocket = io('http://localhost:3000', { withCredentials: true });
+      socketRef.current = newSocket;
+
+      newSocket.on('direct_message', (data: { id: string; senderId: string; text: string; timestamp: number }) => {
+        if (activeContactRef.current && data.senderId === activeContactRef.current.id) {
+          const d = new Date(data.timestamp);
+          const timeString = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+          setMessages((prev) => [...prev, { id: data.id || data.timestamp, text: data.text, sender: 'them', time: timeString }]);
+          onClearUnread(data.senderId);
+        }
+      });
+
+      return () => {
+        newSocket.disconnect();
+      };
+    }
+  }, [isOpen, onClearUnread]);
 
   useEffect(() => {
     if (isOpen && activeContact) {
@@ -50,39 +82,17 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
           }
         })
         .catch(console.error);
-    } else {
+
+      onClearUnread(activeContact.id);
+    } else if (!activeContact) {
       setMessages([]);
     }
-  }, [isOpen, activeContact?.id]);
-
-  useEffect(() => {
-    if (isOpen) {
-      const newSocket = io('http://localhost:3000', { withCredentials: true });
-      socketRef.current = newSocket;
-
-      newSocket.on('direct_message', (data: { id: string; senderId: string; text: string; timestamp: number }) => {
-        if (activeContactRef.current && data.senderId === activeContactRef.current.id) {
-          const d = new Date(data.timestamp);
-          const timeString = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
-          setMessages((prev) => [...prev, { id: data.id || data.timestamp, text: data.text, sender: 'them', time: timeString }]);
-        }
-      });
-
-      return () => {
-        newSocket.disconnect();
-      };
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (isOpen && selectedContact) {
-      setActiveContact(selectedContact);
-    }
-  }, [isOpen, selectedContact]);
+  }, [isOpen, activeContact?.id, onClearUnread]);
 
   useEffect(() => {
     if (!isOpen) {
       setViewingProfile(null);
+      setActiveContact(null);
     }
   }, [isOpen]);
 
@@ -141,6 +151,7 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
   };
 
   const hasFriends = friendsList && friendsList.length > 0;
+  const totalSendersWithUnread = Object.keys(unreadCounts).length;
 
   return (
     <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-[100] flex items-center justify-center p-4">
@@ -166,32 +177,51 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
           <>
             <div className={`w-full md:w-80 bg-[#FAF9F6] border-r-2 border-[#1C1917] flex-col shrink-0 ${activeContact ? 'hidden md:flex' : 'flex'}`}>
               <div className="p-6 border-b-2 border-[#E7E5E4] flex items-center justify-between">
-                <h2 className="text-base font-black uppercase text-[#1C1917]">Conversas</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-black uppercase text-[#1C1917]">Conversas</h2>
+                  {totalSendersWithUnread > 0 && (
+                    <span className="w-5 h-5 bg-red-600 text-white rounded-full text-[10px] font-black flex items-center justify-center shrink-0 border border-white">
+                      {totalSendersWithUnread}
+                    </span>
+                  )}
+                </div>
                 <button type="button" onClick={onClose} className="md:hidden text-sm font-black text-[#78716C] hover:text-[#1C1917]">✕</button>
               </div>
               <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2">
-                {friendsList.map((friend) => (
-                  <button
-                    key={friend.id}
-                    type="button"
-                    onClick={() => {
-                      if (activeContact?.id !== friend.id) {
-                        setActiveContact(friend);
-                        setMessages([]);
-                      }
-                    }}
-                    className={`w-full p-3 rounded-2xl flex items-center gap-3 transition-all text-left border-2 ${activeContact?.id === friend.id ? 'bg-[#1C1917] border-[#1C1917] text-[#FAF9F6] shadow-md' : 'bg-[#FFFFFF] border-[#E7E5E4] hover:border-[#1C1917] text-[#1C1917]'}`}
-                  >
-                    <div className="relative w-10 h-10 rounded-xl overflow-hidden shrink-0 bg-[#E7E5E4] border-2 border-current">
-                      <img src={friend.avatar} alt={friend.name} className="w-full h-full object-cover" />
-                      <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 border-2 border-current rounded-full ${friend.isOnline ? 'bg-emerald-500' : 'bg-[#A8A29E]'}`} />
-                    </div>
-                    <div className="flex flex-col overflow-hidden">
-                      <span className="text-xs font-black uppercase truncate">{friend.name}</span>
-                      <span className={`text-[10px] font-bold truncate ${activeContact?.id === friend.id ? 'text-[#D6D3D1]' : 'text-[#78716C]'}`}>{friend.tag}</span>
-                    </div>
-                  </button>
-                ))}
+                {friendsList.map((friend) => {
+                  const unread = unreadCounts[friend.id] || 0;
+                  const displayUnread = unread > 4 ? '4+' : unread;
+                  return (
+                    <button
+                      key={friend.id}
+                      type="button"
+                      onClick={() => {
+                        if (activeContact?.id !== friend.id) {
+                          setActiveContact(friend);
+                          setMessages([]);
+                        }
+                        onClearUnread(friend.id);
+                      }}
+                      className={`w-full p-3 rounded-2xl flex items-center justify-between gap-3 transition-all text-left border-2 ${activeContact?.id === friend.id ? 'bg-[#1C1917] border-[#1C1917] text-[#FAF9F6] shadow-md' : 'bg-[#FFFFFF] border-[#E7E5E4] hover:border-[#1C1917] text-[#1C1917]'}`}
+                    >
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <div className="relative w-10 h-10 rounded-xl overflow-hidden shrink-0 bg-[#E7E5E4] border-2 border-current">
+                          <img src={friend.avatar} alt={friend.name} className="w-full h-full object-cover" />
+                          <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 border-2 border-current rounded-full ${friend.isOnline ? 'bg-emerald-500' : 'bg-[#A8A29E]'}`} />
+                        </div>
+                        <div className="flex flex-col overflow-hidden">
+                          <span className="text-xs font-black uppercase truncate">{friend.name}</span>
+                          <span className={`text-[10px] font-bold truncate ${activeContact?.id === friend.id ? 'text-[#D6D3D1]' : 'text-[#78716C]'}`}>{friend.tag}</span>
+                        </div>
+                      </div>
+                      {unread > 0 && (
+                        <span className="w-5 h-5 bg-red-600 text-white rounded-full text-[10px] font-black flex items-center justify-center shrink-0 border border-white">
+                          {displayUnread}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -263,8 +293,8 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
                   <div className="w-16 h-16 rounded-2xl bg-[#F5F5F4] border-2 border-[#E7E5E4] flex items-center justify-center">
                     <svg className="w-8 h-8 stroke-[#D6D3D1] fill-none stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" /></svg>
                   </div>
-                  <h3 className="text-sm font-black uppercase text-[#A8A29E]">Seu espaço de conversas</h3>
-                  <p className="text-[11px] font-bold text-[#D6D3D1] max-w-[200px]">Escolha um contato na barra lateral para iniciar o chat.</p>
+                  <h3 className="text-sm font-black uppercase text-[#A8A29E]">Selecione uma conversa</h3>
+                  <p className="text-[11px] font-bold text-[#D6D3D1] max-w-[200px]">Escolha um amigo na barra lateral para exibir o chat.</p>
                 </div>
               )}
             </div>
@@ -272,7 +302,6 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
         )}
       </div>
 
-      {/* Modal de Perfil Completo do Parceiro buscando do Banco de Dados */}
       {viewingProfile && (
         <div className="fixed inset-0 bg-[#1C1917]/80 backdrop-blur-md z-[110] flex items-center justify-center p-4">
           <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto text-center">
