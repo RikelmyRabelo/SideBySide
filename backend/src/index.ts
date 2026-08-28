@@ -709,6 +709,36 @@ app.get('/api/user/me', authenticateToken, async (req: Request, res: Response, n
   } catch (error: any) { next(error); }
 });
 
+app.get('/api/user/:id', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const targetUserId = String(req.params.id);
+    const user = await prisma.user.findUnique({ 
+      where: { id: targetUserId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        level: true,
+        avatar: true,
+        bio: true,
+        birthDate: true,
+        showAgeInProfile: true,
+        gender: true,
+        pronouns: true,
+        reputation: true,
+        streak: true,
+        interests: true,
+        sessionsHistory: true
+      }
+    });
+
+    if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
+    return res.status(200).json(user);
+  } catch (error: any) { 
+    next(error); 
+  }
+});
+
 app.get('/api/notifications', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user.id;
