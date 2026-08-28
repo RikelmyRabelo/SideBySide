@@ -53,10 +53,6 @@ const conversationQuality = new Map<string, Map<string, { duration: number; mess
 const repeatMatchPreferences = new Map<string, Set<string>>();
 const reports = new Map<string, { reporterId: string; reason: string; timestamp: Date }[]>();
 
-// Armazenamento em memória robusto para pedidos e amizades bilaterais reais
-const friendRequestsMap = new Map<string, { id: string; senderId: string; name: string; tag: string; avatar: string; level: string; time: string }[]>();
-const friendshipsMap = new Map<string, Set<string>>();
-
 const logger = winston.createLogger({
   level: 'info',
   format: winston.format.combine(
@@ -92,7 +88,7 @@ const transporter = nodemailer.createTransport({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, 
-  max: 10, 
+  max: 100, 
   message: { error: 'Muitas requisições a partir deste IP, tente novamente após 15 minutos.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -207,7 +203,7 @@ app.post('/api/auth/login', authLimiter, validateRequest(loginSchema), async (re
     res.cookie('token', token, cookieOptions);
     return res.status(200).json({
       message: 'Login com sucesso.',
-      user: { id: user.id, name: user.name, email: user.email, level: user.level, reputation: user.reputation },
+      user: { id: user.id, name: user.name, email: user.email, level: user.level, reputation: user.reputation, tag: user.tag },
     });
   } catch (error: any) { next(error); }
 });
@@ -270,8 +266,14 @@ app.post('/api/auth/verify-code', authLimiter, validateRequest(verifyCodeSchema)
     if (!pending || pending.code !== code) return res.status(400).json({ error: 'Código inválido.' });
     pendingUsers.delete(targetEmail);
     
-    const newUser = await prisma.user.create({
+    const tempUser = await prisma.user.create({
       data: { name: pending.name, email: pending.email, password: pending.passwordHash, level: pending.level, reputation: 100 },
+    });
+
+    const generatedTag = `${pending.name.replace(/\s+/g, '')}#${tempUser.id.slice(0, 4)}`;
+    const newUser = await prisma.user.update({
+      where: { id: tempUser.id },
+      data: { tag: generatedTag }
     });
 
     await prisma.notification.create({
@@ -287,7 +289,7 @@ app.post('/api/auth/verify-code', authLimiter, validateRequest(verifyCodeSchema)
     res.cookie('token', token, cookieOptions);
     return res.status(200).json({
       message: 'Conta criada.',
-      user: { id: newUser.id, name: newUser.name, email: newUser.email, level: newUser.level, reputation: newUser.reputation }
+      user: { id: newUser.id, name: newUser.name, email: newUser.email, level: newUser.level, reputation: newUser.reputation, tag: newUser.tag }
     });
   } catch (error: any) { next(error); }
 });
@@ -435,52 +437,63 @@ app.post('/api/room/want-to-talk-again', authenticateToken, async (req: Request,
   } catch (error: any) { next(error); }
 });
 
-// Rotas de Gerenciamento de Amigos com vínculo bilateral real e prevenção de duplicatas
 app.post('/api/friends/request', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user.id;
-    const { targetUserId } = req.body || {};
+    const { targetUserId, tag } = req.body || {};
     
-    if (!targetUserId || userId === targetUserId) {
-      return res.status(400).json({ error: 'ID de usuário inválido.' });
+    let resolvedTargetId = targetUserId;
+    if (!resolvedTargetId && tag) {
+      let targetUserByTag = await prisma.user.findFirst({ where: { tag } });
+      if (!targetUserByTag) {
+        const cleanName = tag.split('#')[0].trim();
+        targetUserByTag = await prisma.user.findFirst({
+          where: { name: { contains: cleanName, mode: 'insensitive' } }
+        });
+      }
+      if (targetUserByTag) resolvedTargetId = targetUserByTag.id;
+    }
+
+    if (!resolvedTargetId || userId === resolvedTargetId) {
+      return res.status(400).json({ error: 'ID ou Tag de usuário inválida.' });
     }
 
     const sender = await prisma.user.findUnique({ where: { id: userId } });
-    const targetUser = await prisma.user.findUnique({ where: { id: targetUserId } });
+    const targetUser = await prisma.user.findUnique({ where: { id: resolvedTargetId } });
     
     if (!targetUser || !sender) {
       return res.status(404).json({ error: 'Usuário não encontrado.' });
     }
 
-    // Verifica se já são amigos
-    const userFriends = friendshipsMap.get(userId);
-    if (userFriends && userFriends.has(targetUserId)) {
-      return res.status(400).json({ error: 'Vocês já são amigos.' });
+    const existing = await prisma.friendRelation.findFirst({
+      where: {
+        OR: [
+          { userId, friendId: resolvedTargetId },
+          { userId: resolvedTargetId, friendId: userId }
+        ]
+      }
+    });
+
+    if (existing) {
+      return res.status(400).json({ error: 'Já existe uma solicitação ou amizade entre vocês.' });
     }
 
-    const targetRequests = friendRequestsMap.get(targetUserId) || [];
-    // Evita acumular pedidos duplicados se já houver um pendente do mesmo remetente
-    if (!targetRequests.some(r => r.senderId === userId)) {
-      targetRequests.push({
-        id: `req_${Date.now()}_${Math.random()}`,
-        senderId: userId,
-        name: sender.name,
-        tag: `${sender.name.replace(/\s+/g, '')}#${userId.slice(0, 4)}`,
-        avatar: sender.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
-        level: sender.level || 'B1',
-        time: 'Agora mesmo'
-      });
-      friendRequestsMap.set(targetUserId, targetRequests);
+    await prisma.friendRelation.create({
+      data: {
+        userId: userId,
+        friendId: String(resolvedTargetId),
+        status: 'pending'
+      }
+    });
 
-      await prisma.notification.create({
-        data: {
-          userId: targetUserId,
-          title: 'Nova Solicitação de Amizade 🤝',
-          message: `${sender.name} enviou uma solicitação de amizade!`,
-          read: false,
-        },
-      });
-    }
+    await prisma.notification.create({
+      data: {
+        userId: String(resolvedTargetId),
+        title: 'Nova Solicitação de Amizade 🤝',
+        message: `${sender.name} enviou uma solicitação de amizade!`,
+        read: false,
+      },
+    });
 
     return res.status(200).json({ message: 'Solicitação enviada com sucesso.' });
   } catch (error: any) { 
@@ -491,7 +504,21 @@ app.post('/api/friends/request', authenticateToken, async (req: Request, res: Re
 app.get('/api/friends/requests', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user.id;
-    const requests = friendRequestsMap.get(userId) || [];
+    const pendingRelations = await prisma.friendRelation.findMany({
+      where: { friendId: userId, status: 'pending' },
+      include: { user: true }
+    });
+
+    const requests = pendingRelations.map((rel: any) => ({
+      id: rel.id,
+      senderId: rel.userId,
+      name: rel.user.name,
+      tag: rel.user.tag || `${rel.user.name.replace(/\s+/g, '')}#${rel.user.id.slice(0, 4)}`,
+      avatar: rel.user.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+      level: rel.user.level || 'B1',
+      time: 'Pendente'
+    }));
+
     return res.status(200).json(requests);
   } catch (error: any) {
     next(error);
@@ -503,19 +530,28 @@ app.post('/api/friends/accept', authenticateToken, async (req: Request, res: Res
     const userId = (req as any).user.id;
     const { requestId, senderId } = req.body;
     
-    // Remove o pedido pendente de quem aceitou
-    let targetRequests = friendRequestsMap.get(userId) || [];
-    friendRequestsMap.set(userId, targetRequests.filter(r => r.id !== requestId && r.senderId !== senderId));
+    await prisma.friendRelation.updateMany({
+      where: {
+        OR: [
+          { id: String(requestId) },
+          { userId: String(senderId), friendId: userId }
+        ]
+      },
+      data: { status: 'accepted' }
+    });
 
-    if (senderId) {
-      // Adiciona amizade bilateralmente para os dois usuários
-      const userFriends = friendshipsMap.get(userId) || new Set();
-      userFriends.add(senderId);
-      friendshipsMap.set(userId, userFriends);
+    const reverseExists = await prisma.friendRelation.findFirst({
+      where: { userId: userId, friendId: String(senderId) }
+    });
 
-      const senderFriends = friendshipsMap.get(senderId) || new Set();
-      senderFriends.add(userId);
-      friendshipsMap.set(senderId, senderFriends);
+    if (!reverseExists && senderId) {
+      await prisma.friendRelation.create({
+        data: {
+          userId: userId,
+          friendId: String(senderId),
+          status: 'accepted'
+        }
+      }).catch(() => {});
     }
 
     return res.status(200).json({ message: 'Amizade aceita com sucesso.' });
@@ -527,23 +563,83 @@ app.post('/api/friends/accept', authenticateToken, async (req: Request, res: Res
 app.get('/api/friends/list', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user.id;
-    const friendIds = Array.from(friendshipsMap.get(userId) || []);
     
-    const friendsData = await prisma.user.findMany({
-      where: { id: { in: friendIds } },
-      select: { id: true, name: true, level: true, avatar: true }
+    const relations = await prisma.friendRelation.findMany({
+      where: {
+        status: 'accepted',
+        OR: [{ userId }, { friendId: userId }]
+      }
     });
 
-    const formatted = friendsData.map(f => ({
+    const friendIds = new Set<string>();
+    relations.forEach((rel: any) => {
+      if (rel.userId === userId) friendIds.add(rel.friendId);
+      if (rel.friendId === userId) friendIds.add(rel.userId);
+    });
+
+    const friendsData = await prisma.user.findMany({
+      where: { id: { in: Array.from(friendIds) } },
+      select: { id: true, name: true, level: true, avatar: true, tag: true }
+    });
+
+    const formatted = friendsData.map((f: any) => ({
       id: f.id,
       name: f.name,
-      tag: `${f.name.replace(/\s+/g, '')}#${f.id.slice(0, 4)}`,
+      tag: f.tag || `${f.name.replace(/\s+/g, '')}#${f.id.slice(0, 4)}`,
       avatar: f.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
       level: f.level || 'B1',
       isOnline: true
     }));
 
     return res.status(200).json(formatted);
+  } catch (error: any) {
+    next(error);
+  }
+});
+
+app.get('/api/messages/:friendId', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.id;
+    const friendId = String(req.params.friendId);
+
+    const messages = await prisma.directMessage.findMany({
+      where: {
+        OR: [
+          { senderId: userId, recipientId: friendId },
+          { senderId: friendId, recipientId: userId }
+        ]
+      },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    return res.status(200).json(messages);
+  } catch (error: any) {
+    next(error);
+  }
+});
+
+app.post('/api/messages/send', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const senderId = (req as any).user.id;
+    const recipientId = String(req.body.recipientId);
+    const text = String(req.body.text);
+
+    const message = await prisma.directMessage.create({
+      data: {
+        senderId,
+        recipientId,
+        text
+      }
+    });
+
+    io.to(`user_${recipientId}`).emit('direct_message', {
+      id: message.id,
+      senderId,
+      text,
+      timestamp: message.createdAt.getTime()
+    });
+
+    return res.status(201).json(message);
   } catch (error: any) {
     next(error);
   }
@@ -623,6 +719,7 @@ app.put('/api/user/profile', authenticateToken, async (req: Request, res: Respon
             password: '$2b$10$placeholder_hash_auto_created_on_profile_update',
             level: updateData.level || 'B1',
             reputation: 100,
+            tag: `${(updateData.name || 'Usuário').replace(/\s+/g, '')}#${tokenUser.id.slice(0, 4)}`,
             ...updateData
           }
         });

@@ -3,7 +3,7 @@ import { io, Socket } from 'socket.io-client';
 import { Friend } from './FriendsManagerModal';
 
 interface Message {
-  id: number;
+  id: string | number;
   text: string;
   sender: 'me' | 'them';
   time: string;
@@ -23,18 +23,48 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
   const [messages, setMessages] = useState<Message[]>([]);
   
   const socketRef = useRef<Socket | null>(null);
+  const activeContactRef = useRef<Friend | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    activeContactRef.current = activeContact;
+  }, [activeContact]);
+
+  useEffect(() => {
+    if (isOpen && activeContact) {
+      fetch(`http://localhost:3000/api/messages/${activeContact.id}`, { credentials: 'include' })
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            const formatted: Message[] = data.map((m: any) => {
+              const d = new Date(m.createdAt);
+              const timeString = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+              return {
+                id: m.id,
+                text: m.text,
+                sender: (m.senderId === activeContact.id ? 'them' : 'me') as 'me' | 'them',
+                time: timeString
+              };
+            });
+            setMessages(formatted);
+          }
+        })
+        .catch(console.error);
+    } else {
+      setMessages([]);
+    }
+  }, [isOpen, activeContact]);
 
   useEffect(() => {
     if (isOpen) {
       const newSocket = io('http://localhost:3000', { withCredentials: true });
       socketRef.current = newSocket;
 
-      newSocket.on('direct_message', (data: { senderId: string; text: string; timestamp: number }) => {
-        if (activeContact && data.senderId === activeContact.id) {
+      newSocket.on('direct_message', (data: { id: string; senderId: string; text: string; timestamp: number }) => {
+        if (activeContactRef.current && data.senderId === activeContactRef.current.id) {
           const d = new Date(data.timestamp);
           const timeString = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
-          setMessages((prev) => [...prev, { id: data.timestamp, text: data.text, sender: 'them', time: timeString }]);
+          setMessages((prev) => [...prev, { id: data.id || data.timestamp, text: data.text, sender: 'them', time: timeString }]);
         }
       });
 
@@ -42,12 +72,11 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
         newSocket.disconnect();
       };
     }
-  }, [isOpen, activeContact]);
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && selectedContact) {
       setActiveContact(selectedContact);
-      setMessages([]);
     }
   }, [isOpen, selectedContact]);
 
@@ -70,15 +99,19 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
     const now = new Date();
     const timeString = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 
-    if (socketRef.current) {
-      socketRef.current.emit('direct_message', {
-        recipientId: activeContact.id,
-        text: inputMessage
-      });
-    }
-
-    setMessages((prev) => [...prev, { id: Date.now(), text: inputMessage, sender: 'me', time: timeString }]);
+    const newMessage: Message = { id: Date.now(), text: inputMessage, sender: 'me', time: timeString };
+    setMessages((prev) => [...prev, newMessage]);
     setInputMessage('');
+
+    fetch('http://localhost:3000/api/messages/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        recipientId: activeContact.id,
+        text: newMessage.text
+      })
+    }).catch(console.error);
   };
 
   const hasFriends = friendsList && friendsList.length > 0;
@@ -156,7 +189,7 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
                   <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col gap-4 bg-[#FFFFFF]">
                     <div className="text-center my-2">
                       <span className="text-[9px] font-black uppercase tracking-widest text-[#A8A29E] bg-[#F5F5F4] px-2 py-1 rounded-md border border-[#E7E5E4]">
-                        Início da conversa em tempo real
+                        Início da conversa
                       </span>
                     </div>
 

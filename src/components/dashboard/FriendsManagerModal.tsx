@@ -95,14 +95,30 @@ export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = memo(({
     }
   }, [selectedUserProfile?.id, setFriendsList]);
 
-  const handleSearchFriend = (e: React.FormEvent) => {
+  const handleSearchFriend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchTag.includes('#')) {
       setSearchResult({ type: 'error', message: 'Formato inválido. Use Nome#Número (ex: Usuario#1234).' });
       return;
     }
-    setSearchResult({ type: 'success', message: `Solicitação enviada para ${searchTag} com sucesso!` });
-    setSearchTag('');
+    
+    try {
+      const response = await fetch('http://localhost:3000/api/friends/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ tag: searchTag }) 
+      });
+
+      if (response.ok) {
+        setSearchResult({ type: 'success', message: 'Solicitação enviada com sucesso!' });
+        setSearchTag('');
+      } else {
+        setSearchResult({ type: 'error', message: 'Usuário não encontrado ou erro no envio.' });
+      }
+    } catch (error) {
+      setSearchResult({ type: 'error', message: 'Falha na comunicação com o servidor.' });
+    }
   };
 
   if (!isOpen) return null;
