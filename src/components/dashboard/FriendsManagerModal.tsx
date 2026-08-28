@@ -42,10 +42,36 @@ export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = memo(({
   setFriendsList
 }) => {
   const [activeTab, setActiveTab] = useState<'friends' | 'requests' | 'add'>('friends');
-  const [selectedUserProfile, setSelectedUserProfile] = useState<FriendRequest | Friend | null>(null);
+  const [selectedUserProfile, setSelectedUserProfile] = useState<any | null>(null);
 
   const [searchTag, setSearchTag] = useState('');
   const [searchResult, setSearchResult] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+
+  const handleOpenProfile = async (contact: { id: string; name: string; tag: string; avatar: string; level: string }) => {
+    try {
+      const response = await fetch(`http://localhost:3000/api/user/${contact.id}`, { credentials: 'include' });
+      if (response.ok) {
+        const fullData = await response.json();
+        setSelectedUserProfile({ ...contact, ...fullData });
+      } else {
+        setSelectedUserProfile(contact);
+      }
+    } catch {
+      setSelectedUserProfile(contact);
+    }
+  };
+
+  const calculateAge = (dob: string) => {
+    if (!dob) return '';
+    const birthDateObj = new Date(dob);
+    const today = new Date();
+    let calculatedAge = today.getFullYear() - birthDateObj.getFullYear();
+    const m = today.getMonth() - birthDateObj.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDateObj.getDate())) {
+      calculatedAge--;
+    }
+    return calculatedAge;
+  };
 
   const handleAcceptRequest = useCallback(async (req: FriendRequest) => {
     try {
@@ -203,7 +229,7 @@ export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = memo(({
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
-                      onClick={() => setSelectedUserProfile(friend)}
+                      onClick={() => handleOpenProfile(friend)}
                       className="relative w-10 h-10 rounded-xl overflow-hidden border-2 border-[#1C1917] bg-[#E7E5E4] shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
                       title="Ver Perfil"
                     >
@@ -217,7 +243,7 @@ export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = memo(({
                     <div className="flex flex-col text-left">
                       <button
                         type="button"
-                        onClick={() => setSelectedUserProfile(friend)}
+                        onClick={() => handleOpenProfile(friend)}
                         className="text-xs font-black text-[#1C1917] hover:underline text-left"
                       >
                         {friend.name}
@@ -274,7 +300,7 @@ export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = memo(({
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
-                      onClick={() => setSelectedUserProfile(req)}
+                      onClick={() => handleOpenProfile({ id: req.senderId || req.id, name: req.name, tag: req.tag, avatar: req.avatar, level: req.level })}
                       className="w-10 h-10 rounded-xl overflow-hidden border-2 border-[#1C1917] bg-[#E7E5E4] shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
                       title="Ver Perfil"
                     >
@@ -287,7 +313,7 @@ export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = memo(({
                     <div className="flex flex-col text-left">
                       <button
                         type="button"
-                        onClick={() => setSelectedUserProfile(req)}
+                        onClick={() => handleOpenProfile({ id: req.senderId || req.id, name: req.name, tag: req.tag, avatar: req.avatar, level: req.level })}
                         className="text-xs font-black text-[#1C1917] hover:underline text-left"
                       >
                         {req.name}
@@ -361,45 +387,114 @@ export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = memo(({
 
       {selectedUserProfile && (
         <div className="fixed inset-0 bg-[#1C1917]/80 backdrop-blur-md z-[110] flex items-center justify-center p-4">
-          <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 max-w-sm w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-150 text-center">
-            <div className="flex justify-between items-center border-b-2 border-[#E7E5E4] pb-2">
-              <span className="text-[10px] font-black uppercase tracking-wider bg-[#1C1917] text-[#FAF9F6] px-2 py-0.5 rounded">
+          <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto text-center">
+            
+            <div className="flex items-center justify-between border-b-2 border-[#E7E5E4] pb-3">
+              <span className="text-[10px] font-black uppercase tracking-widest bg-[#FAF9F6] border border-[#1C1917] text-[#1C1917] px-2.5 py-1 rounded-lg">
                 PERFIL DO USUÁRIO
               </span>
               <button
                 type="button"
                 onClick={() => setSelectedUserProfile(null)}
-                className="text-xs font-black text-[#78716C] hover:text-[#1C1917]"
+                className="text-sm font-black text-[#78716C] hover:text-[#1C1917]"
               >
                 ✕
               </button>
             </div>
 
-            <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-[#1C1917] bg-[#E7E5E4] mx-auto">
-              <img
-                src={selectedUserProfile.avatar}
-                alt={selectedUserProfile.name}
-                className="w-full h-full object-cover"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center justify-center gap-2">
-                <h3 className="text-base font-black uppercase text-[#1C1917]">
-                  {selectedUserProfile.name}
-                </h3>
-                <span className="px-2 py-0.5 bg-[#1C1917] text-[#FAF9F6] font-black text-[10px] rounded uppercase">
-                  {selectedUserProfile.level}
-                </span>
+            <div className="flex flex-col items-center text-center gap-3">
+              <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-[#1C1917] bg-[#F5F5F4] shadow-sm shrink-0">
+                <img src={selectedUserProfile.avatar} alt={selectedUserProfile.name} className="w-full h-full object-cover" />
               </div>
-              <span className="text-[11px] font-bold text-[#78716C] uppercase">
-                {selectedUserProfile.tag}
-              </span>
-            </div>
 
-            <p className="text-xs text-[#57534E] font-medium italic bg-[#FAF9F6] p-3 rounded-xl border-2 border-[#E7E5E4] text-left">
-              "{'bio' in selectedUserProfile && selectedUserProfile.bio ? selectedUserProfile.bio : 'Estudante ativo praticando conversação P2P no SideBySide.'}"
-            </p>
+              <div className="flex flex-col items-center gap-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-black uppercase text-[#1C1917]">{selectedUserProfile.name}</h3>
+                  <span className="px-2 py-0.5 bg-[#1C1917] text-[#FAF9F6] font-black text-[10px] rounded uppercase">
+                    {selectedUserProfile.level}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 text-xs font-bold text-[#78716C]">
+                  {selectedUserProfile.showAgeInProfile !== false && selectedUserProfile.birthDate && (
+                    <span>{calculateAge(selectedUserProfile.birthDate)} anos</span>
+                  )}
+                  {selectedUserProfile.showAgeInProfile !== false && selectedUserProfile.birthDate && selectedUserProfile.gender && <span>•</span>}
+                  {selectedUserProfile.gender && <span>{selectedUserProfile.gender}</span>}
+                  {selectedUserProfile.pronouns && <span>•</span>}
+                  {selectedUserProfile.pronouns && <span className="italic">{selectedUserProfile.pronouns}</span>}
+                </div>
+                
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    Reputação: {selectedUserProfile.reputation ?? 100}/100
+                  </span>
+                  <span className="text-[11px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                    🔥 {selectedUserProfile.streak ?? 0} Dias de Ofensiva
+                  </span>
+                </div>
+              </div>
+
+              {selectedUserProfile.bio ? (
+                <p className="text-xs text-[#57534E] font-medium leading-relaxed italic bg-[#FAF9F6] p-3 rounded-2xl border-2 border-[#E7E5E4] w-full text-left">
+                  "{selectedUserProfile.bio}"
+                </p>
+              ) : (
+                <div className="rounded-2xl border-2 border-dashed border-[#E7E5E4] bg-[#FAF9F6] p-3 text-center text-[10px] font-black uppercase tracking-wider text-[#78716C] w-full">
+                  Usuário não informou biografia.
+                </div>
+              )}
+
+              <div className="flex flex-col gap-2 w-full pt-1 text-left border-t-2 border-[#E7E5E4] mt-1">
+                <span className="text-[10px] font-black uppercase text-[#78716C] tracking-wider">
+                  Avaliações e Comentários da Comunidade ({selectedUserProfile.sessionsHistory?.length || 0}):
+                </span>
+                {!selectedUserProfile.sessionsHistory || selectedUserProfile.sessionsHistory.length === 0 ? (
+                  <div className="rounded-2xl border-2 border-dashed border-[#E7E5E4] bg-[#FAF9F6] p-3 text-center text-[10px] font-black uppercase tracking-wider text-[#78716C]">
+                    Ainda não há avaliações registradas.
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2 max-h-40 overflow-y-auto">
+                    {selectedUserProfile.sessionsHistory.map((fb: any, idx: number) => (
+                      <div key={idx} className="bg-[#FAF9F6] p-3 rounded-2xl border-2 border-[#E7E5E4] flex flex-col gap-1.5">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[11px] font-black text-[#1C1917]">{fb.partnerName || 'Parceiro'}</span>
+                          <span className="text-[10px] font-black text-amber-600">{'★'.repeat(fb.rating || 5)}</span>
+                        </div>
+                        {fb.comment && <p className="text-xs text-[#57534E] font-medium italic">"{fb.comment}"</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1.5 w-full pt-1 text-left">
+                <span className="text-[10px] font-black uppercase text-[#78716C]">
+                  Conquistas Desbloqueadas:
+                </span>
+                <div className="rounded-2xl border-2 border-dashed border-[#E7E5E4] bg-[#FAF9F6] p-3 text-center text-[10px] font-black uppercase tracking-wider text-[#78716C]">
+                  Ainda não há conquistas desbloqueadas.
+                </div>
+              </div>
+
+              {selectedUserProfile.interests && selectedUserProfile.interests.length > 0 && (
+                <div className="flex flex-col gap-1.5 w-full pt-1 text-left">
+                  <span className="text-[10px] font-black uppercase text-[#78716C]">
+                    Interesses de Conversa:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedUserProfile.interests.map((interest: string) => (
+                      <span
+                        key={interest}
+                        className="text-[10px] font-black px-2.5 py-1 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] rounded-lg"
+                      >
+                        {interest}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {'senderId' in selectedUserProfile ? (
               <div className="flex gap-2 pt-2">
@@ -422,9 +517,9 @@ export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = memo(({
               <button
                 type="button"
                 onClick={() => setSelectedUserProfile(null)}
-                className="w-full py-2.5 bg-[#1C1917] text-[#FAF9F6] rounded-xl font-black text-xs uppercase mt-2 border-2 border-[#1C1917] hover:bg-[#292524]"
+                className="w-full py-3.5 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-black text-xs uppercase tracking-widest rounded-xl transition-all border-2 border-[#1C1917] shadow-sm"
               >
-                Fechar Perfil
+                Fechar Visualização
               </button>
             )}
           </div>

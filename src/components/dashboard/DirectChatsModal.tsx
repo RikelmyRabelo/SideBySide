@@ -307,7 +307,7 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
                   {viewingProfile.showAgeInProfile !== false && viewingProfile.birthDate && (
                     <span>{calculateAge(viewingProfile.birthDate)} anos</span>
                   )}
-                  {viewingProfile.showAgeInProfile !== false && viewingProfile.birthDate && viewingProfile.gender && <span>•</span>}
+                  {viewingProfile.showAgeInProfile !== false && viewingProfile.birthDate && <span>•</span>}
                   {viewingProfile.gender && <span>{viewingProfile.gender}</span>}
                   {viewingProfile.pronouns && <span>•</span>}
                   {viewingProfile.pronouns && <span className="italic">{viewingProfile.pronouns}</span>}
@@ -323,9 +323,15 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
                 </div>
               </div>
 
-              <p className="text-xs text-[#57534E] font-medium leading-relaxed italic bg-[#FAF9F6] p-3 rounded-2xl border-2 border-[#E7E5E4] w-full text-left">
-                "{viewingProfile.bio || 'Estudante ativo praticando conversação P2P no SideBySide.'}"
-              </p>
+              {viewingProfile.bio ? (
+                <p className="text-xs text-[#57534E] font-medium leading-relaxed italic bg-[#FAF9F6] p-3 rounded-2xl border-2 border-[#E7E5E4] w-full text-left">
+                  "{viewingProfile.bio}"
+                </p>
+              ) : (
+                <div className="rounded-2xl border-2 border-dashed border-[#E7E5E4] bg-[#FAF9F6] p-3 text-center text-[10px] font-black uppercase tracking-wider text-[#78716C] w-full">
+                  Usuário não informou biografia.
+                </div>
+              )}
 
               <div className="flex flex-col gap-2 w-full pt-1 text-left border-t-2 border-[#E7E5E4] mt-1">
                 <span className="text-[10px] font-black uppercase text-[#78716C] tracking-wider">
