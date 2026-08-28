@@ -30,6 +30,7 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
     activeContactRef.current = activeContact;
   }, [activeContact]);
 
+  // Busca o histórico salvo no banco de dados ao abrir o chat com um contato
   useEffect(() => {
     if (isOpen && activeContact) {
       fetch(`http://localhost:3000/api/messages/${activeContact.id}`, { credentials: 'include' })

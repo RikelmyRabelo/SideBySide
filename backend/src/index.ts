@@ -597,7 +597,6 @@ app.delete('/api/friends/:friendId', authenticateToken, async (req: Request, res
     const userId = (req as any).user.id;
     const targetId = String(req.params.friendId);
 
-    // Deleta absolutamente todas as combinações possíveis entre os dois usuários (seja por ID de registro ou ID de usuário cruzado)
     await prisma.friendRelation.deleteMany({
       where: {
         OR: [
@@ -636,6 +635,28 @@ app.post('/api/messages/send', authenticateToken, async (req: Request, res: Resp
     });
 
     return res.status(201).json(message);
+  } catch (error: any) {
+    next(error);
+  }
+});
+
+// Nova rota para resgatar o histórico de mensagens diretas
+app.get('/api/messages/:recipientId', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const senderId = (req as any).user.id;
+    const recipientId = String(req.params.recipientId);
+
+    const messages = await prisma.directMessage.findMany({
+      where: {
+        OR: [
+          { senderId, recipientId },
+          { senderId: recipientId, recipientId: senderId }
+        ]
+      },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    return res.status(200).json(messages);
   } catch (error: any) {
     next(error);
   }
