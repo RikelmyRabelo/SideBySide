@@ -88,10 +88,23 @@ export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = memo(({
     }
   }, [selectedUserProfile?.id, setRequestsList]);
 
-  const handleRemoveFriend = useCallback((id: string) => {
-    setFriendsList((prev) => prev.filter((f) => f.id !== id));
-    if (selectedUserProfile?.id === id) {
-      setSelectedUserProfile(null);
+  const handleRemoveFriend = useCallback(async (id: string) => {
+    try {
+      const response = await fetch(`http://localhost:3000/api/friends/${id}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        setFriendsList((prev) => prev.filter((f) => f.id !== id));
+        if (selectedUserProfile?.id === id) {
+          setSelectedUserProfile(null);
+        }
+      } else {
+        console.error('Erro ao remover amigo no servidor.');
+      }
+    } catch (e) {
+      console.error('Erro de rede ao remover amigo:', e);
     }
   }, [selectedUserProfile?.id, setFriendsList]);
 

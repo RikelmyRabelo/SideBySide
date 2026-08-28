@@ -530,28 +530,23 @@ app.post('/api/friends/accept', authenticateToken, async (req: Request, res: Res
     const userId = (req as any).user.id;
     const { requestId, senderId } = req.body;
     
-    await prisma.friendRelation.updateMany({
-      where: {
-        OR: [
-          { id: String(requestId) },
-          { userId: String(senderId), friendId: userId }
-        ]
-      },
-      data: { status: 'accepted' }
-    });
-
-    const reverseExists = await prisma.friendRelation.findFirst({
-      where: { userId: userId, friendId: String(senderId) }
-    });
-
-    if (!reverseExists && senderId) {
-      await prisma.friendRelation.create({
-        data: {
-          userId: userId,
-          friendId: String(senderId),
-          status: 'accepted'
-        }
+    if (requestId) {
+      await prisma.friendRelation.updateMany({
+        where: { id: String(requestId) },
+        data: { status: 'accepted' }
       }).catch(() => {});
+    }
+
+    if (senderId) {
+      await prisma.friendRelation.updateMany({
+        where: {
+          OR: [
+            { userId: String(senderId), friendId: userId },
+            { userId: userId, friendId: String(senderId) }
+          ]
+        },
+        data: { status: 'accepted' }
+      });
     }
 
     return res.status(200).json({ message: 'Amizade aceita com sucesso.' });
@@ -597,22 +592,23 @@ app.get('/api/friends/list', authenticateToken, async (req: Request, res: Respon
   }
 });
 
-app.get('/api/messages/:friendId', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+app.delete('/api/friends/:friendId', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user.id;
-    const friendId = String(req.params.friendId);
+    const targetId = String(req.params.friendId);
 
-    const messages = await prisma.directMessage.findMany({
+    // Deleta absolutamente todas as combinações possíveis entre os dois usuários (seja por ID de registro ou ID de usuário cruzado)
+    await prisma.friendRelation.deleteMany({
       where: {
         OR: [
-          { senderId: userId, recipientId: friendId },
-          { senderId: friendId, recipientId: userId }
+          { id: targetId },
+          { AND: { userId: userId, friendId: targetId } },
+          { AND: { userId: targetId, friendId: userId } }
         ]
-      },
-      orderBy: { createdAt: 'asc' }
+      }
     });
 
-    return res.status(200).json(messages);
+    return res.status(200).json({ message: 'Amizade removida com sucesso.' });
   } catch (error: any) {
     next(error);
   }
