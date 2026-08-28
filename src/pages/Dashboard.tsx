@@ -25,7 +25,7 @@ const DAILY_TOPICS: TopicItemType[] = [
   { id: 'hobbies', category: 'Estilo de Vida', title: 'Passatempos & Hábitos Diários', icebreaker: 'O que você mais gosta de fazer para relaxar no final de semana?', vocabPreview: ['Leisure', 'Unwind', 'Daily Routine'] },
 ];
 
-export const Dashboard: React.FC = memo(() => {
+export const Dashboard: React.FC = memo(() => { 
   const navigate = useNavigate();
   const { showToast } = useToast();
 
@@ -181,6 +181,8 @@ export const Dashboard: React.FC = memo(() => {
 
   useEffect(() => {
     fetchNotifications();
+    const interval = setInterval(fetchNotifications, 8000);
+    return () => clearInterval(interval);
   }, [fetchNotifications]);
 
   const handleOpenNotifications = () => {

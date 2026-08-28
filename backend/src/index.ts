@@ -443,15 +443,20 @@ app.post('/api/friends/request', authenticateToken, async (req: Request, res: Re
     const { targetUserId, tag } = req.body || {};
     
     let resolvedTargetId = targetUserId;
+    
     if (!resolvedTargetId && tag) {
       let targetUserByTag = await prisma.user.findFirst({ where: { tag } });
-      if (!targetUserByTag) {
+      
+      if (!targetUserByTag && tag.includes('#')) {
         const cleanName = tag.split('#')[0].trim();
         targetUserByTag = await prisma.user.findFirst({
-          where: { name: { contains: cleanName, mode: 'insensitive' } }
+          where: { name: { startsWith: cleanName, mode: 'insensitive' } }
         });
       }
-      if (targetUserByTag) resolvedTargetId = targetUserByTag.id;
+      
+      if (targetUserByTag) {
+        resolvedTargetId = targetUserByTag.id;
+      }
     }
 
     if (!resolvedTargetId || userId === resolvedTargetId) {
@@ -462,7 +467,7 @@ app.post('/api/friends/request', authenticateToken, async (req: Request, res: Re
     const targetUser = await prisma.user.findUnique({ where: { id: resolvedTargetId } });
     
     if (!targetUser || !sender) {
-      return res.status(404).json({ error: 'Usuário não encontrado.' });
+      return res.status(404).json({ error: 'Usuário não encontrado no banco de dados.' });
     }
 
     const existing = await prisma.friendRelation.findFirst({
@@ -484,15 +489,6 @@ app.post('/api/friends/request', authenticateToken, async (req: Request, res: Re
         friendId: String(resolvedTargetId),
         status: 'pending'
       }
-    });
-
-    await prisma.notification.create({
-      data: {
-        userId: String(resolvedTargetId),
-        title: 'Nova Solicitação de Amizade 🤝',
-        message: `${sender.name} enviou uma solicitação de amizade!`,
-        read: false,
-      },
     });
 
     return res.status(200).json({ message: 'Solicitação enviada com sucesso.' });
@@ -530,23 +526,53 @@ app.post('/api/friends/accept', authenticateToken, async (req: Request, res: Res
     const userId = (req as any).user.id;
     const { requestId, senderId } = req.body;
     
+    let targetRequesterId = senderId;
+
     if (requestId) {
+      const rel = await prisma.friendRelation.findUnique({ where: { id: String(requestId) } });
+      if (rel) {
+        targetRequesterId = targetRequesterId || rel.userId;
+      }
       await prisma.friendRelation.updateMany({
         where: { id: String(requestId) },
         data: { status: 'accepted' }
       }).catch(() => {});
     }
 
-    if (senderId) {
+    if (targetRequesterId) {
       await prisma.friendRelation.updateMany({
         where: {
           OR: [
-            { userId: String(senderId), friendId: userId },
-            { userId: userId, friendId: String(senderId) }
+            { userId: String(targetRequesterId), friendId: userId },
+            { userId: userId, friendId: String(targetRequesterId) }
           ]
         },
         data: { status: 'accepted' }
       });
+
+      const [acceptingUser, requesterUser] = await Promise.all([
+        prisma.user.findUnique({ where: { id: userId } }),
+        prisma.user.findUnique({ where: { id: String(targetRequesterId) } })
+      ]);
+
+      if (acceptingUser && requesterUser) {
+        await prisma.notification.createMany({
+          data: [
+            {
+              userId: userId,
+              title: 'Nova Amizade 🤝',
+              message: `Você e ${requesterUser.name} agora são amigos!`,
+              read: false,
+            },
+            {
+              userId: String(targetRequesterId),
+              title: 'Nova Amizade 🤝',
+              message: `Você e ${acceptingUser.name} agora são amigos!`,
+              read: false,
+            }
+          ]
+        });
+      }
     }
 
     return res.status(200).json({ message: 'Amizade aceita com sucesso.' });
@@ -562,7 +588,7 @@ app.get('/api/friends/list', authenticateToken, async (req: Request, res: Respon
     const relations = await prisma.friendRelation.findMany({
       where: {
         status: 'accepted',
-        OR: [{ userId }, { friendId: userId }]
+        OR: [{ userId: userId }, { friendId: userId }]
       }
     });
 
@@ -571,6 +597,10 @@ app.get('/api/friends/list', authenticateToken, async (req: Request, res: Respon
       if (rel.userId === userId) friendIds.add(rel.friendId);
       if (rel.friendId === userId) friendIds.add(rel.userId);
     });
+
+    if (friendIds.size === 0) {
+      return res.status(200).json([]);
+    }
 
     const friendsData = await prisma.user.findMany({
       where: { id: { in: Array.from(friendIds) } },
@@ -607,7 +637,16 @@ app.delete('/api/friends/:friendId', authenticateToken, async (req: Request, res
       }
     });
 
-    return res.status(200).json({ message: 'Amizade removida com sucesso.' });
+    await prisma.directMessage.deleteMany({
+      where: {
+        OR: [
+          { senderId: userId, recipientId: targetId },
+          { senderId: targetId, recipientId: userId }
+        ]
+      }
+    });
+
+    return res.status(200).json({ message: 'Amizade e histórico removidos com sucesso.' });
   } catch (error: any) {
     next(error);
   }
@@ -640,7 +679,6 @@ app.post('/api/messages/send', authenticateToken, async (req: Request, res: Resp
   }
 });
 
-// Nova rota para resgatar o histórico de mensagens diretas
 app.get('/api/messages/:recipientId', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const senderId = (req as any).user.id;
