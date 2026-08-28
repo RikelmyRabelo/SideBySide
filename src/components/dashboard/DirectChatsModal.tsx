@@ -54,7 +54,7 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
     } else {
       setMessages([]);
     }
-  }, [isOpen, activeContact]);
+  }, [isOpen, activeContact?.id]); // Modificado para disparar apenas se o ID do contato realmente mudar
 
   useEffect(() => {
     if (isOpen) {
@@ -149,7 +149,13 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
                   <button
                     key={friend.id}
                     type="button"
-                    onClick={() => { setActiveContact(friend); setMessages([]); }}
+                    onClick={() => {
+                      // Evita reiniciar as mensagens se já estiver conversando com o mesmo amigo
+                      if (activeContact?.id !== friend.id) {
+                        setActiveContact(friend);
+                        setMessages([]);
+                      }
+                    }}
                     className={`w-full p-3 rounded-2xl flex items-center gap-3 transition-all text-left border-2 ${activeContact?.id === friend.id ? 'bg-[#1C1917] border-[#1C1917] text-[#FAF9F6] shadow-md' : 'bg-[#FFFFFF] border-[#E7E5E4] hover:border-[#1C1917] text-[#1C1917]'}`}
                   >
                     <div className="relative w-10 h-10 rounded-xl overflow-hidden shrink-0 bg-[#E7E5E4] border-2 border-current">
