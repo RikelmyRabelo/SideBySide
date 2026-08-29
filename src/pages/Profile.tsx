@@ -59,9 +59,7 @@ export const Profile: React.FC = () => {
 
   const [showPublicPreview, setShowPublicPreview] = useState(false);
   const [friendRequestSent, setFriendRequestSent] = useState(false);
-  const [recentConversations, setRecentConversations] = useState<any[]>([]);
-  const [friendsList, setFriendsList] = useState<any[]>([]);
-  const [friendRequests, setFriendRequests] = useState<any[]>([]);
+  const [receivedFeedback, setReceivedFeedback] = useState<any[]>([]);
 
   const [showTopicsModal, setShowTopicsModal] = useState(false);
   const [topicSearch, setTopicSearch] = useState('');
@@ -115,6 +113,13 @@ export const Profile: React.FC = () => {
   const [notifyPush, setNotifyPush] = useState(true);
   const [notifyAdvance, setNotifyAdvance] = useState('15');
 
+  // Metas, Reputação e Evolução
+  const [weeklyGoalTarget, setWeeklyGoalTarget] = useState(5);
+  const [weeklyGoalCompleted, setWeeklyGoalCompleted] = useState(0);
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [reputationScore, setReputationScore] = useState('100/100');
+  const [badgesList, setBadgesList] = useState<any[]>([]);
+
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -137,6 +142,16 @@ export const Profile: React.FC = () => {
           if (data.notifyEmail !== undefined) setNotifyEmail(data.notifyEmail);
           if (data.notifyPush !== undefined) setNotifyPush(data.notifyPush);
           if (data.notifyAdvance !== undefined) setNotifyAdvance(data.notifyAdvance);
+          
+          if (data.feedbacks) setReceivedFeedback(data.feedbacks);
+          if (data.reputationScore) setReputationScore(data.reputationScore);
+          else if (data.reputation !== undefined) setReputationScore(`${data.reputation}/100`);
+          
+          if (data.currentStreak !== undefined) setCurrentStreak(data.currentStreak);
+          else if (data.streak !== undefined) setCurrentStreak(data.streak);
+
+          if (data.weeklyGoalTarget !== undefined) setWeeklyGoalTarget(data.weeklyGoalTarget);
+          if (data.weeklyGoalCompleted !== undefined) setWeeklyGoalCompleted(data.weeklyGoalCompleted);
         }
       } catch (err) {
         console.error('Erro ao carregar perfil', err);
@@ -144,8 +159,6 @@ export const Profile: React.FC = () => {
     };
     fetchProfile();
   }, []);
-
-  const [receivedFeedback, setReceivedFeedback] = useState<any[]>([]);
 
   const toggleInterest = (interest: string) => {
     if (selectedInterests.includes(interest)) {
@@ -169,16 +182,6 @@ export const Profile: React.FC = () => {
   const [deletePasswordConfirm, setDeletePasswordConfirm] = useState('');
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
   const [agreeDeleteTerms, setAgreeDeleteTerms] = useState(false);
-
-  const [weeklyGoalTarget, setWeeklyGoalTarget] = useState(5);
-  const [weeklyGoalCompleted] = useState(0);
-  const [currentStreak] = useState(0);
-
-  const [badgesList, setBadgesList] = useState<any[]>([]);
-
-  const evolutionStats = {
-    reputationScore: '98/100',
-  };
 
   const calculateAge = (dob: string) => {
     if (!dob) return '';
@@ -364,7 +367,7 @@ export const Profile: React.FC = () => {
     }
 
     try {
-      const response = await fetch('http://localhost:3000/api/user/account', {
+      const response = await fetch('http://localhost:3000/api/user/me', {
         method: 'DELETE',
         credentials: 'include',
         headers: {
@@ -469,7 +472,7 @@ export const Profile: React.FC = () => {
           </div>
         </section>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 bg-[#FFFFFF] border-2 border-[#1C1917] p-2 rounded-2xl text-xs font-black uppercase tracking-wider gap-2 shadow-[4px_4px_0px_0px_#1C1917]">
+        <div className="grid grid-cols-2 sm:grid-cols-3 bg-[#FFFFFF] border-2 border-[#1C1917] p-2 rounded-2xl text-xs font-black uppercase tracking-wider gap-2 shadow-[4px_4px_0px_0px_#1C1917]">
           <button
             type="button"
             onClick={() => setActiveTab('general')}
@@ -478,15 +481,6 @@ export const Profile: React.FC = () => {
             }`}
           >
             Geral & Bio
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('social')}
-            className={`py-3.5 px-3 rounded-xl transition-all text-center ${
-              activeTab === 'social' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C] hover:text-[#1C1917] hover:bg-[#FAF9F6]'
-            }`}
-          >
-            Agenda & Alertas
           </button>
           <button
             type="button"
@@ -699,173 +693,6 @@ export const Profile: React.FC = () => {
                     </button>
                   );
                 })}
-              </div>
-            </section>
-          </div>
-        )}
-
-        {activeTab === 'social' && (
-          <div className="flex flex-col gap-8 animate-in fade-in duration-150">
-            <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-6">
-              <div className="flex justify-between items-center border-b-2 border-[#E7E5E4] pb-4">
-                <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
-                  Agenda de Disponibilidade
-                </h2>
-                <span className="text-[10px] font-black uppercase bg-[#FAF9F6] text-[#1C1917] px-3 py-1.5 rounded-xl border-2 border-[#1C1917]">
-                  Pico: Noite (18h-22h)
-                </span>
-              </div>
-
-              <div className="overflow-x-auto pb-2">
-                <div className="min-w-[500px] flex flex-col gap-3">
-                  <div className="grid grid-cols-8 gap-2.5 text-center text-[11px] font-black uppercase text-[#1C1917] pb-2 border-b-2 border-[#E7E5E4]">
-                    <span>Turno</span>
-                    {weekDays.map((day) => <span key={day}>{day}</span>)}
-                  </div>
-
-                  {timeSlots.map((slot) => (
-                    <div key={slot} className="grid grid-cols-8 gap-2.5 items-center">
-                      <span className="text-[10px] font-black text-[#1C1917] uppercase">{slot.split(' ')[0]}</span>
-                      {weekDays.map((day) => {
-                        const slotKey = `${day}-${slot}`;
-                        const isSelected = selectedAvailability.includes(slotKey);
-                        return (
-                          <button
-                            key={slotKey}
-                            type="button"
-                            onClick={() => toggleAvailabilitySlot(slotKey)}
-                            className={`py-3 rounded-xl border-2 text-xs font-black uppercase transition-all ${
-                              isSelected ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917] shadow-xs' : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4] hover:border-[#1C1917]'
-                            }`}
-                          >
-                            {isSelected ? '✓' : '+'}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-6">
-              <div className="flex justify-between items-center border-b-2 border-[#E7E5E4] pb-4">
-                <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
-                  Lembretes de Prática
-                </h2>
-                <span className="text-[10px] font-black uppercase bg-emerald-50 text-emerald-800 border-2 border-emerald-200 px-3 py-1 rounded-xl">
-                  Ativo
-                </span>
-              </div>
-
-              <div className="flex flex-col gap-5">
-                <label className="flex items-center justify-between cursor-pointer">
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-xs font-black uppercase text-[#1C1917]">Notificações Push</span>
-                    <span className="text-[11px] font-bold text-[#78716C]">Receba alertas rápidos do sistema</span>
-                  </div>
-                  <div className={`w-12 h-7 rounded-full border-2 border-[#1C1917] flex items-center p-0.5 transition-all ${notifyPush ? 'bg-[#1C1917]' : 'bg-[#FAF9F6]'}`}>
-                    <div className={`w-5 h-5 rounded-full bg-[#FAF9F6] border-2 border-[#1C1917] transition-all ${notifyPush ? 'translate-x-5 border-[#FAF9F6]' : 'translate-x-0'}`} />
-                  </div>
-                  <input type="checkbox" className="hidden" checked={notifyPush} onChange={(e) => setNotifyPush(e.target.checked)} />
-                </label>
-
-                <label className="flex items-center justify-between cursor-pointer border-t-2 border-[#F5F5F4] pt-5">
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-xs font-black uppercase text-[#1C1917]">Alertas por E-mail</span>
-                    <span className="text-[11px] font-bold text-[#78716C]">Lembretes direto na sua caixa de entrada</span>
-                  </div>
-                  <div className={`w-12 h-7 rounded-full border-2 border-[#1C1917] flex items-center p-0.5 transition-all ${notifyEmail ? 'bg-[#1C1917]' : 'bg-[#FAF9F6]'}`}>
-                    <div className={`w-5 h-5 rounded-full bg-[#FAF9F6] border-2 border-[#1C1917] transition-all ${notifyEmail ? 'translate-x-5 border-[#FAF9F6]' : 'translate-x-0'}`} />
-                  </div>
-                  <input type="checkbox" className="hidden" checked={notifyEmail} onChange={(e) => setNotifyEmail(e.target.checked)} />
-                </label>
-
-                <div className="flex flex-col gap-2 border-t-2 border-[#F5F5F4] pt-5">
-                  <label className="text-xs font-black text-[#1C1917] uppercase tracking-wider">Avisar com antecedência de:</label>
-                  <select
-                    value={notifyAdvance}
-                    onChange={(e) => setNotifyAdvance(e.target.value)}
-                    className="px-4 py-3.5 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-2xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] transition-all"
-                  >
-                    <option value="5">5 minutos antes da sessão agendada</option>
-                    <option value="15">15 minutos antes da sessão agendada</option>
-                    <option value="30">30 minutos antes da sessão agendada</option>
-                    <option value="60">1 hora antes da sessão agendada</option>
-                  </select>
-                </div>
-              </div>
-            </section>
-
-            <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-6">
-              <div className="flex justify-between items-center border-b-2 border-[#E7E5E4] pb-4">
-                <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
-                  Conversas & Chats
-                </h2>
-                <span className="text-[10px] font-black uppercase bg-[#FAF9F6] text-[#1C1917] px-3 py-1 rounded-xl border-2 border-[#1C1917]">
-                  {recentConversations.length}
-                </span>
-              </div>
-
-              {recentConversations.length === 0 ? (
-                <div className="rounded-2xl border-2 border-dashed border-[#E7E5E4] bg-[#FAF9F6] p-6 text-center text-xs font-black uppercase tracking-wider text-[#78716C]">
-                  Nenhuma conversa registrada ainda.
-                </div>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  {recentConversations.map((conversation) => (
-                    <div key={conversation.id} className="p-4 rounded-2xl border-2 border-[#E7E5E4] bg-[#FAF9F6] flex justify-between items-center gap-4">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="block text-xs font-black text-[#1C1917] uppercase">{conversation.name}</span>
-                        <span className="block text-[11px] font-bold text-[#78716C]">{conversation.lastMessage}</span>
-                      </div>
-                      <span className="text-[10px] font-black text-[#78716C] uppercase shrink-0">{conversation.time}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-6">
-              <div className="flex justify-between items-center border-b-2 border-[#E7E5E4] pb-4">
-                <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
-                  Amigos & Solicitações
-                </h2>
-                <span className="text-[10px] font-black uppercase bg-[#FAF9F6] text-[#1C1917] px-3 py-1 rounded-xl border-2 border-[#1C1917]">
-                  {friendsList.length + friendRequests.length}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <div className="flex flex-col gap-3">
-                  <span className="text-[11px] font-black uppercase tracking-wider text-[#78716C]">Lista de amigos</span>
-                  {friendsList.length === 0 ? (
-                    <div className="rounded-2xl border-2 border-dashed border-[#E7E5E4] bg-[#FAF9F6] p-5 text-center text-[11px] font-black uppercase tracking-wider text-[#78716C]">
-                      Ainda sem amigos.
-                    </div>
-                  ) : (
-                    friendsList.map((friend) => (
-                      <div key={friend.id} className="p-3.5 rounded-2xl border-2 border-[#E7E5E4] bg-[#FAF9F6] text-xs font-black text-[#1C1917] uppercase">
-                        {friend.name}
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-3">
-                  <span className="text-[11px] font-black uppercase tracking-wider text-[#78716C]">Solicitações</span>
-                  {friendRequests.length === 0 ? (
-                    <div className="rounded-2xl border-2 border-dashed border-[#E7E5E4] bg-[#FAF9F6] p-5 text-center text-[11px] font-black uppercase tracking-wider text-[#78716C]">
-                      Nenhuma solicitação pendente.
-                    </div>
-                  ) : (
-                    friendRequests.map((request) => (
-                      <div key={request.id} className="p-3.5 rounded-2xl border-2 border-[#E7E5E4] bg-[#FAF9F6] text-xs font-black text-[#1C1917] uppercase">
-                        {request.name}
-                      </div>
-                    ))
-                  )}
-                </div>
               </div>
             </section>
           </div>
@@ -1257,7 +1084,7 @@ export const Profile: React.FC = () => {
                 
                 <div className="flex flex-wrap justify-center gap-2 mt-1">
                   <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-xl border-2 border-emerald-200">
-                    Reputação: {evolutionStats.reputationScore}
+                    Reputação: {reputationScore}
                   </span>
                   <span className="text-[11px] font-bold text-amber-800 bg-amber-50 px-3 py-1 rounded-xl border-2 border-amber-200">
                     🔥 {currentStreak} Dias de Ofensiva
