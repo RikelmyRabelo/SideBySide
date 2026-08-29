@@ -10,7 +10,6 @@ export const Profile: React.FC = () => {
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
   const [cursorOpacity, setCursorOpacity] = useState(1);
 
-  // Estado para expandir a foto do perfil na visualização pública
   const [isAvatarExpanded, setIsAvatarExpanded] = useState(false);
 
   useEffect(() => {
@@ -67,6 +66,7 @@ export const Profile: React.FC = () => {
   const [topicSearch, setTopicSearch] = useState('');
 
   const [name, setName] = useState('');
+  const [tag, setTag] = useState('');
   const [email, setEmail] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [showAgeInProfile, setShowAgeInProfile] = useState(true);
@@ -110,7 +110,6 @@ export const Profile: React.FC = () => {
   const [bio, setBio] = useState('');
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
 
-  // Estados de Notificação
   const [notifyEmail, setNotifyEmail] = useState(true);
   const [notifyPush, setNotifyPush] = useState(true);
   const [notifyAdvance, setNotifyAdvance] = useState('15');
@@ -119,11 +118,12 @@ export const Profile: React.FC = () => {
     const fetchProfile = async () => {
       try {
         const response = await fetch('http://localhost:3000/api/user/me', {
-          credentials: 'include' // Correção: uso do cookie de sessão em vez de localStorage
+          credentials: 'include'
         });
         if (response.ok) {
           const data = await response.json();
           setName(data.name || '');
+          if (data.tag) setTag(data.tag);
           setEmail(data.email || '');
           setCefrLevel(data.level || 'B1');
           if (data.avatar) setAvatarUrl(data.avatar);
@@ -246,7 +246,7 @@ export const Profile: React.FC = () => {
     try {
       const response = await fetch('http://localhost:3000/api/user/profile', {
         method: 'PUT',
-        credentials: 'include', // Correção: uso do cookie
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json'
         },
@@ -380,7 +380,7 @@ export const Profile: React.FC = () => {
     try {
       const response = await fetch('http://localhost:3000/api/user/account', {
         method: 'DELETE',
-        credentials: 'include', // Correção: uso do cookie
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json'
         },
@@ -431,11 +431,11 @@ export const Profile: React.FC = () => {
         </button>
       </header>
 
-      <main className="flex-1 max-w-4xl w-full mx-auto p-6 lg:p-8 flex flex-col gap-6">
+      <main className="flex-1 max-w-4xl w-full mx-auto p-6 lg:p-8 flex flex-col gap-8">
         
         <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-          <div className="flex items-center gap-4">
-            <div className="relative group w-16 h-16 rounded-2xl overflow-hidden border-2 border-[#1C1917] bg-[#F5F5F4] shrink-0 shadow-sm">
+          <div className="flex items-center gap-5">
+            <div className="relative group w-20 h-20 rounded-2xl overflow-hidden border-2 border-[#1C1917] bg-[#F5F5F4] shrink-0 shadow-sm">
               <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
               <label className="absolute inset-0 bg-[#1C1917]/80 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
                 <svg className="w-5 h-5 stroke-[#FAF9F6] fill-none stroke-2" viewBox="0 0 24 24">
@@ -445,22 +445,26 @@ export const Profile: React.FC = () => {
               </label>
             </div>
 
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl font-black uppercase text-[#1C1917]">{name}</h1>
-                <span className="px-2 py-0.5 bg-[#1C1917] text-[#FAF9F6] font-black text-[10px] rounded uppercase">
+            <div className="flex flex-col gap-1.5">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h1 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-[#1C1917]">{name}</h1>
+                {tag && (
+                  <span className="px-2.5 py-1 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] font-black text-xs rounded-xl shadow-xs">
+                    #{tag}
+                  </span>
+                )}
+                <span className="px-2.5 py-1 bg-[#1C1917] text-[#FAF9F6] font-black text-xs rounded-xl uppercase tracking-wider shadow-xs">
                   {cefrLevel}
                 </span>
               </div>
-              <span className="text-xs font-bold text-[#78716C]">{email}</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
             <button
               type="button"
               onClick={() => setShowPublicPreview(true)}
-              className="py-2.5 px-4 bg-[#FAF9F6] hover:bg-[#F5F5F4] border-2 border-[#1C1917] text-[#1C1917] font-black text-xs uppercase tracking-wider rounded-xl transition-all flex items-center gap-2"
+              className="py-3 px-4 bg-[#FAF9F6] hover:bg-[#F5F5F4] border-2 border-[#1C1917] text-[#1C1917] font-black text-xs uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm flex-1 sm:flex-initial"
             >
               <svg className="w-4 h-4 stroke-current fill-none stroke-2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
@@ -472,19 +476,19 @@ export const Profile: React.FC = () => {
             <Button
               variant="primary"
               onClick={handleSubmit}
-              className="py-2.5 px-5 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-black text-xs uppercase tracking-wider rounded-xl transition-all border-2 border-[#1C1917] shadow-sm"
+              className="py-3 px-6 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-black text-xs uppercase tracking-wider rounded-xl transition-all border-2 border-[#1C1917] shadow-[2px_2px_0px_0px_#78716C] flex-1 sm:flex-initial"
             >
-              Salvar Perfil
+              Salvar
             </Button>
           </div>
         </section>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 bg-[#FFFFFF] border-2 border-[#1C1917] p-1.5 rounded-2xl text-xs font-black uppercase tracking-wider shadow-[4px_4px_0px_0px_#1C1917]">
+        <div className="grid grid-cols-2 sm:grid-cols-4 bg-[#FFFFFF] border-2 border-[#1C1917] p-2 rounded-2xl text-xs font-black uppercase tracking-wider gap-2 shadow-[4px_4px_0px_0px_#1C1917]">
           <button
             type="button"
             onClick={() => setActiveTab('general')}
-            className={`py-3 rounded-xl transition-all ${
-              activeTab === 'general' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C] hover:text-[#1C1917]'
+            className={`py-3.5 px-3 rounded-xl transition-all text-center ${
+              activeTab === 'general' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C] hover:text-[#1C1917] hover:bg-[#FAF9F6]'
             }`}
           >
             Geral & Bio
@@ -492,8 +496,8 @@ export const Profile: React.FC = () => {
           <button
             type="button"
             onClick={() => setActiveTab('social')}
-            className={`py-3 rounded-xl transition-all ${
-              activeTab === 'social' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C] hover:text-[#1C1917]'
+            className={`py-3.5 px-3 rounded-xl transition-all text-center ${
+              activeTab === 'social' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C] hover:text-[#1C1917] hover:bg-[#FAF9F6]'
             }`}
           >
             Agenda & Alertas
@@ -501,8 +505,8 @@ export const Profile: React.FC = () => {
           <button
             type="button"
             onClick={() => setActiveTab('stats')}
-            className={`py-3 rounded-xl transition-all ${
-              activeTab === 'stats' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C] hover:text-[#1C1917]'
+            className={`py-3.5 px-3 rounded-xl transition-all text-center ${
+              activeTab === 'stats' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C] hover:text-[#1C1917] hover:bg-[#FAF9F6]'
             }`}
           >
             Metas & Evolução
@@ -510,8 +514,8 @@ export const Profile: React.FC = () => {
           <button
             type="button"
             onClick={() => setActiveTab('security')}
-            className={`py-3 rounded-xl transition-all ${
-              activeTab === 'security' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C] hover:text-[#1C1917]'
+            className={`py-3.5 px-3 rounded-xl transition-all text-center ${
+              activeTab === 'security' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C] hover:text-[#1C1917] hover:bg-[#FAF9F6]'
             }`}
           >
             Segurança
@@ -519,8 +523,8 @@ export const Profile: React.FC = () => {
         </div>
 
         {saveSuccess && (
-          <div className="p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-600 text-emerald-800 text-xs font-black flex items-center gap-2.5 animate-in fade-in duration-150 shadow-sm">
-            <svg className="w-4 h-4 shrink-0 fill-current text-emerald-600" viewBox="0 0 20 20">
+          <div className="p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-600 text-emerald-800 text-xs font-black flex items-center gap-3 animate-in fade-in duration-150 shadow-sm">
+            <svg className="w-5 h-5 shrink-0 fill-current text-emerald-600" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
             </svg>
             <span>Alterações salvas com sucesso!</span>
@@ -528,40 +532,40 @@ export const Profile: React.FC = () => {
         )}
 
         {activeTab === 'general' && (
-          <div className="flex flex-col gap-6 animate-in fade-in duration-150">
+          <div className="flex flex-col gap-8 animate-in fade-in duration-150">
             <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-6">
-              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917] border-b-2 border-[#E7E5E4] pb-3">
+              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917] border-b-2 border-[#E7E5E4] pb-4">
                 Informações Pessoais
               </h2>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="flex flex-col gap-2">
                   <label className="text-xs font-black text-[#1C1917] uppercase tracking-wider">Nome Completo</label>
                   <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+                    className="px-4 py-3.5 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-2xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] transition-all"
                   />
                 </div>
 
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-2">
                   <label className="text-xs font-black text-[#1C1917] uppercase tracking-wider">E-mail</label>
                   <input
                     type="email"
                     value={email}
                     disabled
-                    className="px-4 py-3 bg-[#F5F5F4] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#78716C] cursor-not-allowed outline-none select-none"
+                    className="px-4 py-3.5 bg-[#F5F5F4] border-2 border-[#E7E5E4] rounded-2xl text-xs font-bold text-[#78716C] cursor-not-allowed outline-none select-none"
                   />
                 </div>
 
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-2">
                   <div className="flex justify-between items-center">
                     <label className="text-xs font-black text-[#1C1917] uppercase tracking-wider">Data de Nascimento</label>
                     <button
                       type="button"
                       onClick={() => setShowAgeInProfile(!showAgeInProfile)}
-                      className="text-[10px] font-black uppercase text-[#1C1917] hover:underline flex items-center gap-1.5 bg-[#FAF9F6] px-2 py-0.5 rounded border border-[#E7E5E4]"
+                      className="text-[10px] font-black uppercase text-[#1C1917] hover:bg-[#F5F5F4] flex items-center gap-1.5 bg-[#FAF9F6] px-2.5 py-1 rounded-xl border-2 border-[#E7E5E4] transition-all"
                     >
                       {showAgeInProfile ? (
                         <>
@@ -585,16 +589,16 @@ export const Profile: React.FC = () => {
                     type="date"
                     value={birthDate}
                     onChange={(e) => setBirthDate(e.target.value)}
-                    className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+                    className="px-4 py-3.5 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-2xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] transition-all"
                   />
                 </div>
 
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-2">
                   <label className="text-xs font-black text-[#1C1917] uppercase tracking-wider">Gênero</label>
                   <select
                     value={gender}
                     onChange={(e) => setGender(e.target.value)}
-                    className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+                    className="px-4 py-3.5 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-2xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] transition-all"
                   >
                     <option value="Masculino">Masculino</option>
                     <option value="Feminino">Feminino</option>
@@ -603,12 +607,12 @@ export const Profile: React.FC = () => {
                   </select>
                 </div>
 
-                <div className="flex flex-col gap-1.5 sm:col-span-2">
+                <div className="flex flex-col gap-2 sm:col-span-2">
                   <label className="text-xs font-black text-[#1C1917] uppercase tracking-wider">Pronomes</label>
                   <select
                     value={pronouns}
                     onChange={(e) => setPronouns(e.target.value)}
-                    className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+                    className="px-4 py-3.5 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-2xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] transition-all"
                   >
                     <option value="ele/dele (he/him)">ele/dele (he/him)</option>
                     <option value="ela/dela (she/her)">ela/dela (she/her)</option>
@@ -618,23 +622,23 @@ export const Profile: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-1.5 pt-2">
+              <div className="flex flex-col gap-2 pt-2">
                 <label className="text-xs font-black text-[#1C1917] uppercase tracking-wider">Mini Biografia</label>
                 <textarea
                   rows={3}
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
-                  className="w-full p-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] resize-none"
+                  className="w-full p-4 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-2xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] resize-none transition-all"
                 />
               </div>
 
-              <div className="flex flex-col gap-3 pt-2 border-t-2 border-[#E7E5E4]">
+              <div className="flex flex-col gap-4 pt-4 border-t-2 border-[#E7E5E4]">
                 <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2.5">
                     <label className="text-xs font-black text-[#1C1917] uppercase tracking-wider">
                       Tópicos de Interesse
                     </label>
-                    <span className="text-[10px] font-black uppercase bg-[#1C1917] text-[#FAF9F6] px-2 py-0.5 rounded">
+                    <span className="text-[10px] font-black uppercase bg-[#1C1917] text-[#FAF9F6] px-2.5 py-1 rounded-xl">
                       {selectedInterests.length}/5
                     </span>
                   </div>
@@ -642,19 +646,19 @@ export const Profile: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setShowTopicsModal(true)}
-                    className="text-xs font-black uppercase text-[#1C1917] hover:underline flex items-center gap-1"
+                    className="text-xs font-black uppercase text-[#1C1917] hover:underline flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FAF9F6] border-2 border-[#E7E5E4] transition-all"
                   >
                     <span>+</span> Explorar Tópicos
                   </button>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2.5">
                   {selectedInterests.map((interest) => (
                     <button
                       key={interest}
                       type="button"
                       onClick={() => toggleInterest(interest)}
-                      className="px-3 py-1.5 rounded-xl border-2 text-xs font-black transition-all bg-[#1C1917] text-[#FAF9F6] border-[#1C1917] flex items-center gap-1.5 shadow-xs"
+                      className="px-3.5 py-2 rounded-xl border-2 text-xs font-black transition-all bg-[#1C1917] text-[#FAF9F6] border-[#1C1917] flex items-center gap-2 shadow-xs"
                     >
                       <span>✓ {interest}</span>
                       <span className="text-[10px] opacity-70">✕</span>
@@ -665,7 +669,7 @@ export const Profile: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setShowTopicsModal(true)}
-                      className="px-3 py-1.5 rounded-xl border-2 border-dashed border-[#1C1917] text-xs font-black text-[#1C1917] hover:bg-[#F5F5F4] transition-all"
+                      className="px-3.5 py-2 rounded-xl border-2 border-dashed border-[#1C1917] text-xs font-black text-[#1C1917] hover:bg-[#F5F5F4] transition-all"
                     >
                       + Adicionar Tópicos
                     </button>
@@ -674,12 +678,12 @@ export const Profile: React.FC = () => {
               </div>
             </section>
 
-            <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-4">
-              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917] border-b-2 border-[#E7E5E4] pb-3">
+            <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-5">
+              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917] border-b-2 border-[#E7E5E4] pb-4">
                 Nível de Fluência (CEFR)
               </h2>
 
-              <div className="grid grid-cols-1 gap-2.5">
+              <div className="grid grid-cols-1 gap-3">
                 {cefrLevelsInfo.map((item) => {
                   const isSelected = cefrLevel === item.code;
                   return (
@@ -687,21 +691,21 @@ export const Profile: React.FC = () => {
                       key={item.code}
                       type="button"
                       onClick={() => setCefrLevel(item.code)}
-                      className={`p-3.5 rounded-2xl border-2 text-left flex items-center justify-between gap-4 transition-all ${
+                      className={`p-4 rounded-2xl border-2 text-left flex items-center justify-between gap-4 transition-all ${
                         isSelected
                           ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917] shadow-[2px_2px_0px_0px_#78716C]'
                           : 'bg-[#FAF9F6] text-[#1C1917] border-[#E7E5E4] hover:border-[#1C1917]'
                       }`}
                     >
-                      <div className="flex items-center gap-3">
-                        <span className={`w-8 h-8 rounded-xl font-black text-xs flex items-center justify-center border-2 ${
+                      <div className="flex items-center gap-4">
+                        <span className={`w-9 h-9 rounded-xl font-black text-xs flex items-center justify-center border-2 ${
                           isSelected ? 'bg-[#FAF9F6] text-[#1C1917] border-[#FAF9F6]' : 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]'
                         }`}>
                           {item.code}
                         </span>
-                        <div className="flex flex-col">
+                        <div className="flex flex-col gap-0.5">
                           <span className="text-xs font-black uppercase">{item.label}</span>
-                          <span className={`text-[11px] font-medium ${isSelected ? 'text-[#D6D3D1]' : 'text-[#78716C]'}`}>
+                          <span className={`text-[11px] font-medium leading-relaxed ${isSelected ? 'text-[#D6D3D1]' : 'text-[#78716C]'}`}>
                             {item.desc}
                           </span>
                         </div>
@@ -715,26 +719,26 @@ export const Profile: React.FC = () => {
         )}
 
         {activeTab === 'social' && (
-          <div className="flex flex-col gap-6 animate-in fade-in duration-150">
+          <div className="flex flex-col gap-8 animate-in fade-in duration-150">
             <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-6">
-              <div className="flex justify-between items-center border-b-2 border-[#E7E5E4] pb-3">
+              <div className="flex justify-between items-center border-b-2 border-[#E7E5E4] pb-4">
                 <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
                   Agenda de Disponibilidade
                 </h2>
-                <span className="text-[10px] font-black uppercase bg-[#FAF9F6] text-[#1C1917] px-2.5 py-1 rounded-lg border-2 border-[#1C1917]">
+                <span className="text-[10px] font-black uppercase bg-[#FAF9F6] text-[#1C1917] px-3 py-1.5 rounded-xl border-2 border-[#1C1917]">
                   Pico: Noite (18h-22h)
                 </span>
               </div>
 
-              <div className="overflow-x-auto">
-                <div className="min-w-[480px] flex flex-col gap-2">
-                  <div className="grid grid-cols-8 gap-2 text-center text-[10px] font-black uppercase text-[#1C1917] pb-1 border-b-2 border-[#E7E5E4]">
+              <div className="overflow-x-auto pb-2">
+                <div className="min-w-[500px] flex flex-col gap-3">
+                  <div className="grid grid-cols-8 gap-2.5 text-center text-[11px] font-black uppercase text-[#1C1917] pb-2 border-b-2 border-[#E7E5E4]">
                     <span>Turno</span>
                     {weekDays.map((day) => <span key={day}>{day}</span>)}
                   </div>
 
                   {timeSlots.map((slot) => (
-                    <div key={slot} className="grid grid-cols-8 gap-2 items-center">
+                    <div key={slot} className="grid grid-cols-8 gap-2.5 items-center">
                       <span className="text-[10px] font-black text-[#1C1917] uppercase">{slot.split(' ')[0]}</span>
                       {weekDays.map((day) => {
                         const slotKey = `${day}-${slot}`;
@@ -744,8 +748,8 @@ export const Profile: React.FC = () => {
                             key={slotKey}
                             type="button"
                             onClick={() => toggleAvailabilitySlot(slotKey)}
-                            className={`py-2 rounded-xl border-2 text-[10px] font-black uppercase transition-all ${
-                              isSelected ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4]'
+                            className={`py-3 rounded-xl border-2 text-xs font-black uppercase transition-all ${
+                              isSelected ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917] shadow-xs' : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4] hover:border-[#1C1917]'
                             }`}
                           >
                             {isSelected ? '✓' : '+'}
@@ -758,46 +762,45 @@ export const Profile: React.FC = () => {
               </div>
             </section>
 
-            {/* Nova Seção de Lembretes de Prática */}
-            <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-5">
-              <div className="flex justify-between items-center border-b-2 border-[#E7E5E4] pb-3">
+            <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-6">
+              <div className="flex justify-between items-center border-b-2 border-[#E7E5E4] pb-4">
                 <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
                   Lembretes de Prática
                 </h2>
-                <span className="text-[10px] font-black uppercase bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded-lg">
+                <span className="text-[10px] font-black uppercase bg-emerald-50 text-emerald-800 border-2 border-emerald-200 px-3 py-1 rounded-xl">
                   Ativo
                 </span>
               </div>
 
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-5">
                 <label className="flex items-center justify-between cursor-pointer">
-                  <div className="flex flex-col">
+                  <div className="flex flex-col gap-0.5">
                     <span className="text-xs font-black uppercase text-[#1C1917]">Notificações Push</span>
-                    <span className="text-[10px] font-bold text-[#78716C]">Receba alertas rápidos do sistema</span>
+                    <span className="text-[11px] font-bold text-[#78716C]">Receba alertas rápidos do sistema</span>
                   </div>
-                  <div className={`w-11 h-6 rounded-full border-2 border-[#1C1917] flex items-center p-0.5 transition-all ${notifyPush ? 'bg-[#1C1917]' : 'bg-[#FAF9F6]'}`}>
-                    <div className={`w-4 h-4 rounded-full bg-[#FAF9F6] border-2 border-[#1C1917] transition-all ${notifyPush ? 'translate-x-5 border-[#FAF9F6]' : 'translate-x-0'}`} />
+                  <div className={`w-12 h-7 rounded-full border-2 border-[#1C1917] flex items-center p-0.5 transition-all ${notifyPush ? 'bg-[#1C1917]' : 'bg-[#FAF9F6]'}`}>
+                    <div className={`w-5 h-5 rounded-full bg-[#FAF9F6] border-2 border-[#1C1917] transition-all ${notifyPush ? 'translate-x-5 border-[#FAF9F6]' : 'translate-x-0'}`} />
                   </div>
                   <input type="checkbox" className="hidden" checked={notifyPush} onChange={(e) => setNotifyPush(e.target.checked)} />
                 </label>
 
-                <label className="flex items-center justify-between cursor-pointer border-t-2 border-[#F5F5F4] pt-4">
-                  <div className="flex flex-col">
+                <label className="flex items-center justify-between cursor-pointer border-t-2 border-[#F5F5F4] pt-5">
+                  <div className="flex flex-col gap-0.5">
                     <span className="text-xs font-black uppercase text-[#1C1917]">Alertas por E-mail</span>
-                    <span className="text-[10px] font-bold text-[#78716C]">Lembretes direto na sua caixa de entrada</span>
+                    <span className="text-[11px] font-bold text-[#78716C]">Lembretes direto na sua caixa de entrada</span>
                   </div>
-                  <div className={`w-11 h-6 rounded-full border-2 border-[#1C1917] flex items-center p-0.5 transition-all ${notifyEmail ? 'bg-[#1C1917]' : 'bg-[#FAF9F6]'}`}>
-                    <div className={`w-4 h-4 rounded-full bg-[#FAF9F6] border-2 border-[#1C1917] transition-all ${notifyEmail ? 'translate-x-5 border-[#FAF9F6]' : 'translate-x-0'}`} />
+                  <div className={`w-12 h-7 rounded-full border-2 border-[#1C1917] flex items-center p-0.5 transition-all ${notifyEmail ? 'bg-[#1C1917]' : 'bg-[#FAF9F6]'}`}>
+                    <div className={`w-5 h-5 rounded-full bg-[#FAF9F6] border-2 border-[#1C1917] transition-all ${notifyEmail ? 'translate-x-5 border-[#FAF9F6]' : 'translate-x-0'}`} />
                   </div>
                   <input type="checkbox" className="hidden" checked={notifyEmail} onChange={(e) => setNotifyEmail(e.target.checked)} />
                 </label>
 
-                <div className="flex flex-col gap-1.5 border-t-2 border-[#F5F5F4] pt-4">
+                <div className="flex flex-col gap-2 border-t-2 border-[#F5F5F4] pt-5">
                   <label className="text-xs font-black text-[#1C1917] uppercase tracking-wider">Avisar com antecedência de:</label>
                   <select
                     value={notifyAdvance}
                     onChange={(e) => setNotifyAdvance(e.target.value)}
-                    className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+                    className="px-4 py-3.5 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-2xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] transition-all"
                   >
                     <option value="5">5 minutos antes da sessão agendada</option>
                     <option value="15">15 minutos antes da sessão agendada</option>
@@ -808,70 +811,70 @@ export const Profile: React.FC = () => {
               </div>
             </section>
 
-            <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-5">
-              <div className="flex justify-between items-center border-b-2 border-[#E7E5E4] pb-3">
+            <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-6">
+              <div className="flex justify-between items-center border-b-2 border-[#E7E5E4] pb-4">
                 <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
                   Conversas & Chats
                 </h2>
-                <span className="text-[10px] font-black uppercase bg-[#FAF9F6] text-[#1C1917] px-2.5 py-1 rounded-lg border border-[#1C1917]">
+                <span className="text-[10px] font-black uppercase bg-[#FAF9F6] text-[#1C1917] px-3 py-1 rounded-xl border-2 border-[#1C1917]">
                   {recentConversations.length}
                 </span>
               </div>
 
               {recentConversations.length === 0 ? (
-                <div className="rounded-2xl border-2 border-dashed border-[#E7E5E4] bg-[#FAF9F6] p-5 text-center text-xs font-black uppercase tracking-wider text-[#78716C]">
+                <div className="rounded-2xl border-2 border-dashed border-[#E7E5E4] bg-[#FAF9F6] p-6 text-center text-xs font-black uppercase tracking-wider text-[#78716C]">
                   Nenhuma conversa registrada ainda.
                 </div>
               ) : (
                 <div className="flex flex-col gap-3">
                   {recentConversations.map((conversation) => (
-                    <div key={conversation.id} className="p-3 rounded-2xl border-2 border-[#E7E5E4] bg-[#FAF9F6] flex justify-between items-center gap-3">
-                      <div>
+                    <div key={conversation.id} className="p-4 rounded-2xl border-2 border-[#E7E5E4] bg-[#FAF9F6] flex justify-between items-center gap-4">
+                      <div className="flex flex-col gap-0.5">
                         <span className="block text-xs font-black text-[#1C1917] uppercase">{conversation.name}</span>
-                        <span className="block text-[10px] font-bold text-[#78716C]">{conversation.lastMessage}</span>
+                        <span className="block text-[11px] font-bold text-[#78716C]">{conversation.lastMessage}</span>
                       </div>
-                      <span className="text-[10px] font-black text-[#78716C] uppercase">{conversation.time}</span>
+                      <span className="text-[10px] font-black text-[#78716C] uppercase shrink-0">{conversation.time}</span>
                     </div>
                   ))}
                 </div>
               )}
             </section>
 
-            <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-5">
-              <div className="flex justify-between items-center border-b-2 border-[#E7E5E4] pb-3">
+            <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-6">
+              <div className="flex justify-between items-center border-b-2 border-[#E7E5E4] pb-4">
                 <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
                   Amigos & Solicitações
                 </h2>
-                <span className="text-[10px] font-black uppercase bg-[#FAF9F6] text-[#1C1917] px-2.5 py-1 rounded-lg border border-[#1C1917]">
+                <span className="text-[10px] font-black uppercase bg-[#FAF9F6] text-[#1C1917] px-3 py-1 rounded-xl border-2 border-[#1C1917]">
                   {friendsList.length + friendRequests.length}
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="flex flex-col gap-2">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-[#78716C]">Lista de amigos</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="flex flex-col gap-3">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-[#78716C]">Lista de amigos</span>
                   {friendsList.length === 0 ? (
-                    <div className="rounded-2xl border-2 border-dashed border-[#E7E5E4] bg-[#FAF9F6] p-4 text-center text-[10px] font-black uppercase tracking-wider text-[#78716C]">
+                    <div className="rounded-2xl border-2 border-dashed border-[#E7E5E4] bg-[#FAF9F6] p-5 text-center text-[11px] font-black uppercase tracking-wider text-[#78716C]">
                       Ainda sem amigos.
                     </div>
                   ) : (
                     friendsList.map((friend) => (
-                      <div key={friend.id} className="p-3 rounded-2xl border-2 border-[#E7E5E4] bg-[#FAF9F6] text-xs font-black text-[#1C1917] uppercase">
+                      <div key={friend.id} className="p-3.5 rounded-2xl border-2 border-[#E7E5E4] bg-[#FAF9F6] text-xs font-black text-[#1C1917] uppercase">
                         {friend.name}
                       </div>
                     ))
                   )}
                 </div>
 
-                <div className="flex flex-col gap-2">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-[#78716C]">Solicitações</span>
+                <div className="flex flex-col gap-3">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-[#78716C]">Solicitações</span>
                   {friendRequests.length === 0 ? (
-                    <div className="rounded-2xl border-2 border-dashed border-[#E7E5E4] bg-[#FAF9F6] p-4 text-center text-[10px] font-black uppercase tracking-wider text-[#78716C]">
+                    <div className="rounded-2xl border-2 border-dashed border-[#E7E5E4] bg-[#FAF9F6] p-5 text-center text-[11px] font-black uppercase tracking-wider text-[#78716C]">
                       Nenhuma solicitação pendente.
                     </div>
                   ) : (
                     friendRequests.map((request) => (
-                      <div key={request.id} className="p-3 rounded-2xl border-2 border-[#E7E5E4] bg-[#FAF9F6] text-xs font-black text-[#1C1917] uppercase">
+                      <div key={request.id} className="p-3.5 rounded-2xl border-2 border-[#E7E5E4] bg-[#FAF9F6] text-xs font-black text-[#1C1917] uppercase">
                         {request.name}
                       </div>
                     ))
@@ -883,13 +886,13 @@ export const Profile: React.FC = () => {
         )}
 
         {activeTab === 'stats' && (
-          <div className="flex flex-col gap-6 animate-in fade-in duration-150">
+          <div className="flex flex-col gap-8 animate-in fade-in duration-150">
             <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-6">
-              <div className="flex justify-between items-center border-b-2 border-[#E7E5E4] pb-3">
+              <div className="flex justify-between items-center border-b-2 border-[#E7E5E4] pb-4">
                 <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
                   Meta Semanal de Prática
                 </h2>
-                <span className="text-xs font-black text-[#1C1917]">{weeklyGoalCompleted}/{weeklyGoalTarget} Concluídas</span>
+                <span className="text-xs font-black text-[#1C1917] bg-[#FAF9F6] px-3 py-1 rounded-xl border-2 border-[#1C1917]">{weeklyGoalCompleted}/{weeklyGoalTarget} Concluídas</span>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
@@ -898,8 +901,8 @@ export const Profile: React.FC = () => {
                     key={num}
                     type="button"
                     onClick={() => setWeeklyGoalTarget(num)}
-                    className={`py-3 rounded-xl border-2 font-black text-xs uppercase ${
-                      weeklyGoalTarget === num ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] border-[#E7E5E4]'
+                    className={`py-3.5 rounded-xl border-2 font-black text-xs uppercase transition-all ${
+                      weeklyGoalTarget === num ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917] shadow-xs' : 'bg-[#FAF9F6] border-[#E7E5E4] text-[#1C1917] hover:border-[#1C1917]'
                     }`}
                   >
                     {num} Sessões
@@ -907,23 +910,23 @@ export const Profile: React.FC = () => {
                 ))}
               </div>
 
-              <div className="w-full h-4 bg-[#F5F5F4] rounded-full overflow-hidden p-0.5 border-2 border-[#1C1917]">
+              <div className="w-full h-5 bg-[#F5F5F4] rounded-full overflow-hidden p-0.5 border-2 border-[#1C1917]">
                 <div className="h-full bg-[#1C1917] rounded-full transition-all" style={{ width: `${goalProgressPercentage}%` }} />
               </div>
             </section>
 
-            <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-4">
-              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917] border-b-2 border-[#E7E5E4] pb-3">
+            <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-6">
+              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917] border-b-2 border-[#E7E5E4] pb-4">
                 Conquistas & Badges
               </h2>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {badgesList.map((badge) => (
-                  <div key={badge.id} className="p-3.5 rounded-2xl border-2 bg-[#FAF9F6] border-[#E7E5E4] flex items-center gap-3">
-                    <span className="text-2xl">{badge.icon}</span>
-                    <div className="flex flex-col">
+                  <div key={badge.id} className="p-4 rounded-2xl border-2 bg-[#FAF9F6] border-[#E7E5E4] flex items-center gap-4">
+                    <span className="text-3xl shrink-0">{badge.icon}</span>
+                    <div className="flex flex-col gap-0.5">
                       <span className="text-xs font-black text-[#1C1917] uppercase">{badge.title}</span>
-                      <span className="text-[11px] text-[#78716C] font-bold">{badge.desc}</span>
+                      <span className="text-[11px] text-[#78716C] font-bold leading-relaxed">{badge.desc}</span>
                     </div>
                   </div>
                 ))}
@@ -933,43 +936,43 @@ export const Profile: React.FC = () => {
         )}
 
         {activeTab === 'security' && (
-          <div className="flex flex-col gap-6 animate-in fade-in duration-150">
-            <form onSubmit={handlePasswordChange} className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-5">
-              <div className="flex flex-col gap-1 border-b-2 border-[#E7E5E4] pb-3">
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#FAF9F6] bg-[#1C1917] px-2.5 py-0.5 rounded w-fit">
+          <div className="flex flex-col gap-8 animate-in fade-in duration-150">
+            <form onSubmit={handlePasswordChange} className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-6">
+              <div className="flex flex-col gap-2 border-b-2 border-[#E7E5E4] pb-4">
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#FAF9F6] bg-[#1C1917] px-3 py-1 rounded-xl w-fit">
                   VERIFICAÇÃO VIA E-MAIL
                 </span>
-                <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917] mt-1">
+                <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
                   Alterar Senha de Acesso
                 </h2>
               </div>
 
-              {passwordError && <div className="p-3 rounded-xl bg-red-50 border-2 border-red-600 text-red-700 text-xs font-black">{passwordError}</div>}
-              {passwordSuccess && <div className="p-3 rounded-xl bg-emerald-50 border-2 border-emerald-600 text-emerald-800 text-xs font-black">{passwordSuccess}</div>}
+              {passwordError && <div className="p-4 rounded-2xl bg-red-50 border-2 border-red-600 text-red-700 text-xs font-black">{passwordError}</div>}
+              {passwordSuccess && <div className="p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-600 text-emerald-800 text-xs font-black">{passwordSuccess}</div>}
 
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-black text-[#1C1917] uppercase tracking-wider flex items-center gap-2">
-                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${isEmailCodeVerified ? 'bg-emerald-600 text-white' : 'bg-[#1C1917] text-[#FAF9F6]'}`}>
+              <div className="flex flex-col gap-3">
+                <label className="text-xs font-black text-[#1C1917] uppercase tracking-wider flex items-center gap-2.5">
+                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black shrink-0 ${isEmailCodeVerified ? 'bg-emerald-600 text-white' : 'bg-[#1C1917] text-[#FAF9F6]'}`}>
                     {isEmailCodeVerified ? '✓' : '1'}
                   </span>
-                  1. Solicitar Código para: <span className="text-[#78716C]">{email}</span>
+                  <span>1. Solicitar Código para: <span className="text-[#78716C]">{email}</span></span>
                 </label>
 
                 {!emailCodeSent ? (
                   <button
                     type="button"
                     onClick={handleSendEmailCode}
-                    className="py-3 px-5 bg-[#1C1917] text-[#FAF9F6] font-black text-xs uppercase rounded-xl border-2 border-[#1C1917] hover:bg-[#292524] transition-all w-fit"
+                    className="py-3.5 px-6 bg-[#1C1917] text-[#FAF9F6] font-black text-xs uppercase rounded-xl border-2 border-[#1C1917] hover:bg-[#292524] transition-all w-fit shadow-xs"
                   >
                     Enviar Código de Confirmação por E-mail
                   </button>
                 ) : (
-                  <div className="flex flex-col gap-2 pt-1">
-                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 p-2.5 rounded-xl border border-emerald-200">
+                  <div className="flex flex-col gap-3 pt-1">
+                    <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 p-3 rounded-xl border-2 border-emerald-200">
                       ✉️ Código enviado! Verifique sua caixa de entrada.
                     </span>
 
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-3">
                       <input
                         type="text"
                         maxLength={6}
@@ -977,13 +980,13 @@ export const Profile: React.FC = () => {
                         placeholder="Digite o código de 6 dígitos..."
                         value={verificationCode}
                         onChange={(e) => setVerificationCode(e.target.value)}
-                        className="flex-1 px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold outline-none focus:border-[#1C1917] disabled:opacity-75"
+                        className="flex-1 px-4 py-3.5 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-2xl text-xs font-bold outline-none focus:border-[#1C1917] disabled:opacity-75 transition-all"
                       />
                       {!isEmailCodeVerified ? (
                         <button
                           type="button"
                           onClick={handleVerifyEmailCode}
-                          className="px-5 py-3 bg-[#1C1917] text-[#FAF9F6] font-black text-xs uppercase rounded-xl border-2 border-[#1C1917] hover:bg-[#292524] transition-all"
+                          className="px-6 py-3.5 bg-[#1C1917] text-[#FAF9F6] font-black text-xs uppercase rounded-xl border-2 border-[#1C1917] hover:bg-[#292524] transition-all shadow-xs"
                         >
                           Validar Código
                         </button>
@@ -994,7 +997,7 @@ export const Profile: React.FC = () => {
                             setIsEmailCodeVerified(false);
                             setVerificationCode('');
                           }}
-                          className="px-4 py-3 bg-[#FAF9F6] text-[#78716C] hover:text-[#1C1917] font-black text-xs uppercase rounded-xl border-2 border-[#E7E5E4]"
+                          className="px-6 py-3.5 bg-[#FAF9F6] text-[#78716C] hover:text-[#1C1917] font-black text-xs uppercase rounded-xl border-2 border-[#E7E5E4]"
                         >
                           Alterar
                         </button>
@@ -1005,32 +1008,32 @@ export const Profile: React.FC = () => {
               </div>
 
               {isEmailCodeVerified && (
-                <div className="flex flex-col gap-3 pt-2 animate-in fade-in slide-in-from-top-4 duration-300 border-t-2 border-[#E7E5E4]">
-                  <label className="text-xs font-black text-[#1C1917] uppercase tracking-wider flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-[#1C1917] text-[#FAF9F6] flex items-center justify-center text-[10px] font-black">
+                <div className="flex flex-col gap-4 pt-4 animate-in fade-in slide-in-from-top-4 duration-300 border-t-2 border-[#E7E5E4]">
+                  <label className="text-xs font-black text-[#1C1917] uppercase tracking-wider flex items-center gap-2.5">
+                    <span className="w-6 h-6 rounded-full bg-[#1C1917] text-[#FAF9F6] flex items-center justify-center text-[11px] font-black shrink-0">
                       2
                     </span>
-                    2. Digite e Confirme a Nova Senha
+                    <span>2. Digite e Confirme a Nova Senha</span>
                   </label>
                   <input
                     type="password"
                     placeholder="Nova Senha (Mínimo 6 caracteres)"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold outline-none focus:border-[#1C1917]"
+                    className="px-4 py-3.5 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-2xl text-xs font-bold outline-none focus:border-[#1C1917] transition-all"
                   />
                   <input
                     type="password"
                     placeholder="Confirmar Nova Senha"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold outline-none focus:border-[#1C1917]"
+                    className="px-4 py-3.5 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-2xl text-xs font-bold outline-none focus:border-[#1C1917] transition-all"
                   />
 
                   <Button
                     type="submit"
                     variant="primary"
-                    className="py-3.5 text-xs font-black uppercase tracking-wider bg-[#1C1917] text-[#FAF9F6] rounded-xl border-2 border-[#1C1917] mt-2 shadow-md"
+                    className="py-4 text-xs font-black uppercase tracking-wider bg-[#1C1917] text-[#FAF9F6] rounded-2xl border-2 border-[#1C1917] mt-2 shadow-[2px_2px_0px_0px_#78716C]"
                   >
                     Salvar Nova Senha
                   </Button>
@@ -1038,16 +1041,16 @@ export const Profile: React.FC = () => {
               )}
             </form>
 
-            <section className="bg-[#FFFFFF] border-2 border-red-600 rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#DC2626] flex flex-col gap-3">
-              <span className="text-[10px] font-black uppercase tracking-widest text-red-600 bg-red-50 px-2.5 py-0.5 rounded border border-red-200 w-fit">
+            <section className="bg-[#FFFFFF] border-2 border-red-600 rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#DC2626] flex flex-col gap-4">
+              <span className="text-[10px] font-black uppercase tracking-widest text-red-600 bg-red-50 px-3 py-1 rounded-xl border-2 border-red-200 w-fit">
                 ZONA CRÍTICA
               </span>
               <h2 className="text-base font-black uppercase text-red-600">Exclusão Definitiva da Conta</h2>
-              <p className="text-xs text-[#57534E] font-medium">Ação irreversível de remoção permanente de todos os seus dados cadastrais, histórico e conquistas.</p>
+              <p className="text-xs text-[#57534E] font-medium leading-relaxed">Ação irreversível de remoção permanente de todos os seus dados cadastrais, histórico e conquistas.</p>
               <button
                 type="button"
                 onClick={() => setShowDeleteModal(true)}
-                className="w-fit px-5 py-2.5 bg-red-50 text-red-600 border-2 border-red-600 font-black text-xs uppercase rounded-xl hover:bg-red-600 hover:text-white transition-all mt-1"
+                className="w-fit px-6 py-3 bg-red-50 text-red-600 border-2 border-red-600 font-black text-xs uppercase rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-xs"
               >
                 Iniciar Processo de Exclusão
               </button>
@@ -1058,8 +1061,8 @@ export const Profile: React.FC = () => {
 
       {showDeleteModal && (
         <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-[#FFFFFF] border-2 border-red-600 rounded-3xl p-6 sm:p-8 max-w-md w-full flex flex-col gap-5 shadow-[8px_8px_0px_0px_#DC2626] animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b-2 border-red-200 pb-3">
+          <div className="bg-[#FFFFFF] border-2 border-red-600 rounded-3xl p-6 sm:p-8 max-w-md w-full flex flex-col gap-6 shadow-[8px_8px_0px_0px_#DC2626] animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b-2 border-red-200 pb-4">
               <h3 className="text-base font-black uppercase text-red-600 flex items-center gap-2">
                 <span>⚠️</span> Confirmar Exclusão
               </h3>
@@ -1076,31 +1079,31 @@ export const Profile: React.FC = () => {
               Esta ação removerá permanentemente seu histórico de conversas, badges, amizades e estatísticas.
             </p>
 
-            <div className="flex flex-col gap-3 border-t-2 border-[#E7E5E4] pt-4">
-              <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-4 border-t-2 border-[#E7E5E4] pt-5">
+              <div className="flex flex-col gap-2">
                 <label className="text-[11px] font-black text-[#1C1917] uppercase">1. Digite sua Senha do Perfil *</label>
                 <input
                   type="password"
                   value={deletePasswordConfirm}
                   onChange={(e) => setDeletePasswordConfirm(e.target.value)}
                   placeholder="Sua senha atual..."
-                  className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-red-600"
+                  className="px-4 py-3.5 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-2xl text-xs font-bold text-[#1C1917] outline-none focus:border-red-600 transition-all"
                 />
               </div>
 
-              <label className="flex items-start gap-2.5 cursor-pointer bg-[#FAF9F6] p-3 rounded-xl border-2 border-[#E7E5E4]">
+              <label className="flex items-start gap-3 cursor-pointer bg-[#FAF9F6] p-4 rounded-2xl border-2 border-[#E7E5E4]">
                 <input
                   type="checkbox"
                   checked={agreeDeleteTerms}
                   onChange={(e) => setAgreeDeleteTerms(e.target.checked)}
-                  className="mt-0.5 rounded border-2 border-[#1C1917] text-red-600 focus:ring-red-600"
+                  className="mt-0.5 rounded border-2 border-[#1C1917] text-red-600 focus:ring-red-600 w-4 h-4 shrink-0"
                 />
                 <span className="text-[11px] font-bold text-[#1C1917] leading-snug">
                   Estou ciente de que a remoção é irreversível e não poderei recuperar este perfil.
                 </span>
               </label>
 
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-2">
                 <label className="text-[11px] font-black text-[#1C1917] uppercase">
                   2. Digite "EXCLUIR PERMANENTEMENTE" *
                 </label>
@@ -1109,16 +1112,16 @@ export const Profile: React.FC = () => {
                   value={deleteConfirmationText}
                   onChange={(e) => setDeleteConfirmationText(e.target.value)}
                   placeholder="EXCLUIR PERMANENTEMENTE"
-                  className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-red-600"
+                  className="px-4 py-3.5 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-2xl text-xs font-bold text-[#1C1917] outline-none focus:border-red-600 transition-all"
                 />
               </div>
             </div>
 
-            <div className="flex gap-2 pt-2">
+            <div className="flex gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setShowDeleteModal(false)}
-                className="flex-1 py-3 bg-[#FAF9F6] border-2 border-[#1C1917] text-xs font-black uppercase rounded-xl"
+                className="flex-1 py-3.5 bg-[#FAF9F6] hover:bg-[#F5F5F4] border-2 border-[#1C1917] text-xs font-black uppercase rounded-2xl transition-all"
               >
                 Cancelar
               </button>
@@ -1130,7 +1133,7 @@ export const Profile: React.FC = () => {
                   deleteConfirmationText !== 'EXCLUIR PERMANENTEMENTE'
                 }
                 onClick={handleDeleteAccount}
-                className="flex-1 py-3 bg-red-600 text-white text-xs font-black uppercase rounded-xl border-2 border-red-600 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                className="flex-1 py-3.5 bg-red-600 text-white text-xs font-black uppercase rounded-2xl border-2 border-red-600 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm transition-all hover:bg-red-700"
               >
                 Apagar Conta
               </button>
@@ -1142,12 +1145,12 @@ export const Profile: React.FC = () => {
       {showTopicsModal && (
         <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150 max-h-[85vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b-2 border-[#E7E5E4] pb-3">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between border-b-2 border-[#E7E5E4] pb-4">
+              <div className="flex items-center gap-2.5">
                 <h3 className="text-base font-black uppercase text-[#1C1917]">
                   Explorar Tópicos
                 </h3>
-                <span className="text-[10px] font-black uppercase bg-[#1C1917] text-[#FAF9F6] px-2 py-0.5 rounded">
+                <span className="text-[10px] font-black uppercase bg-[#1C1917] text-[#FAF9F6] px-2.5 py-1 rounded-xl">
                   {selectedInterests.length}/5
                 </span>
               </div>
@@ -1165,10 +1168,10 @@ export const Profile: React.FC = () => {
               placeholder="Buscar tópico..."
               value={topicSearch}
               onChange={(e) => setTopicSearch(e.target.value)}
-              className="px-4 py-3 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+              className="px-4 py-3.5 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-2xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] transition-all"
             />
 
-            <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-6">
               {topicsLibrary.map((cat) => {
                 const filteredItems = cat.items.filter((item) =>
                   item.toLowerCase().includes(topicSearch.toLowerCase())
@@ -1176,11 +1179,11 @@ export const Profile: React.FC = () => {
                 if (filteredItems.length === 0) return null;
 
                 return (
-                  <div key={cat.category} className="flex flex-col gap-2">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-[#78716C]">
+                  <div key={cat.category} className="flex flex-col gap-2.5">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-[#78716C]">
                       {cat.category}
                     </span>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-2">
                       {filteredItems.map((item) => {
                         const isSelected = selectedInterests.includes(item);
                         return (
@@ -1188,7 +1191,7 @@ export const Profile: React.FC = () => {
                             key={item}
                             type="button"
                             onClick={() => toggleInterest(item)}
-                            className={`px-3.5 py-2 rounded-xl border-2 text-xs font-black transition-all ${
+                            className={`px-3.5 py-2.5 rounded-xl border-2 text-xs font-black transition-all ${
                               isSelected
                                 ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]'
                                 : 'bg-[#FAF9F6] text-[#78716C] border-[#E7E5E4] hover:border-[#1C1917]'
@@ -1207,7 +1210,7 @@ export const Profile: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowTopicsModal(false)}
-              className="w-full py-3.5 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-black text-xs uppercase tracking-widest rounded-xl transition-all border-2 border-[#1C1917]"
+              className="w-full py-4 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-black text-xs uppercase tracking-widest rounded-2xl transition-all border-2 border-[#1C1917] shadow-sm"
             >
               Concluir Seleção ({selectedInterests.length}/5)
             </button>
@@ -1218,8 +1221,8 @@ export const Profile: React.FC = () => {
       {showPublicPreview && (
         <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b-2 border-[#E7E5E4] pb-3">
-              <span className="text-[10px] font-black uppercase tracking-widest bg-[#FAF9F6] border border-[#1C1917] text-[#1C1917] px-2.5 py-1 rounded-lg">
+            <div className="flex items-center justify-between border-b-2 border-[#E7E5E4] pb-4">
+              <span className="text-[10px] font-black uppercase tracking-widest bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] px-3 py-1 rounded-xl">
                 COMO OS OUTROS TE VEEM
               </span>
               <button
@@ -1231,11 +1234,10 @@ export const Profile: React.FC = () => {
               </button>
             </div>
 
-            <div className="flex flex-col items-center text-center gap-3">
-              {/* Foto do perfil clicável para expandir */}
+            <div className="flex flex-col items-center text-center gap-4">
               <div 
                 onClick={() => setIsAvatarExpanded(true)}
-                className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-[#1C1917] bg-[#F5F5F4] shadow-sm cursor-pointer relative group transition-transform hover:scale-105"
+                className="w-24 h-24 rounded-2xl overflow-hidden border-2 border-[#1C1917] bg-[#F5F5F4] shadow-sm cursor-pointer relative group transition-transform hover:scale-105"
                 title="Clique para expandir a foto"
               >
                 <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
@@ -1246,15 +1248,20 @@ export const Profile: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex flex-col items-center gap-1">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-col items-center gap-2">
+                <div className="flex flex-wrap items-center justify-center gap-2">
                   <h3 className="text-lg font-black uppercase text-[#1C1917]">{name}</h3>
-                  <span className="px-2 py-0.5 bg-[#1C1917] text-[#FAF9F6] font-black text-[10px] rounded uppercase">
+                  {tag && (
+                    <span className="px-2.5 py-0.5 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] font-black text-xs rounded-xl">
+                      #{tag}
+                    </span>
+                  )}
+                  <span className="px-2.5 py-0.5 bg-[#1C1917] text-[#FAF9F6] font-black text-xs rounded-xl uppercase">
                     {cefrLevel}
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2 text-xs font-bold text-[#78716C]">
+                <div className="flex flex-wrap items-center justify-center gap-2 text-xs font-bold text-[#78716C]">
                   {showAgeInProfile && birthDate && <span>{calculateAge(birthDate)} anos</span>}
                   {showAgeInProfile && birthDate && <span>•</span>}
                   <span>{gender}</span>
@@ -1262,21 +1269,20 @@ export const Profile: React.FC = () => {
                   <span className="italic">{pronouns}</span>
                 </div>
                 
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                <div className="flex flex-wrap justify-center gap-2 mt-1">
+                  <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-xl border-2 border-emerald-200">
                     Reputação: {evolutionStats.reputationScore}
                   </span>
-                  <span className="text-[11px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                  <span className="text-[11px] font-bold text-amber-800 bg-amber-50 px-3 py-1 rounded-xl border-2 border-amber-200">
                     🔥 {currentStreak} Dias de Ofensiva
                   </span>
                 </div>
               </div>
 
-              {/* Botão de Enviar Solicitação com Ícone e sem Emoji */}
               <button
                 type="button"
                 onClick={() => setFriendRequestSent(!friendRequestSent)}
-                className={`w-full py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all border-2 border-[#1C1917] flex items-center justify-center gap-2 ${
+                className={`w-full py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider transition-all border-2 border-[#1C1917] flex items-center justify-center gap-2 shadow-xs ${
                   friendRequestSent
                     ? 'bg-emerald-50 text-emerald-800 border-emerald-600'
                     : 'bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6]'
@@ -1299,32 +1305,32 @@ export const Profile: React.FC = () => {
                 )}
               </button>
 
-              <p className="text-xs text-[#57534E] font-medium leading-relaxed italic bg-[#FAF9F6] p-3 rounded-2xl border-2 border-[#E7E5E4] w-full text-left">
+              <p className="text-xs text-[#57534E] font-medium leading-relaxed italic bg-[#FAF9F6] p-4 rounded-2xl border-2 border-[#E7E5E4] w-full text-left">
                 "{bio || 'Sem biografia informada.'}"
               </p>
 
-              <div className="flex flex-col gap-2 w-full pt-1 text-left border-t-2 border-[#E7E5E4] mt-1">
-                <span className="text-[10px] font-black uppercase text-[#78716C] tracking-wider">
+              <div className="flex flex-col gap-3 w-full pt-2 text-left border-t-2 border-[#E7E5E4]">
+                <span className="text-[11px] font-black uppercase text-[#78716C] tracking-wider">
                   Avaliações e Comentários da Comunidade ({receivedFeedback.length}):
                 </span>
                 {receivedFeedback.length === 0 ? (
-                  <div className="rounded-2xl border-2 border-dashed border-[#E7E5E4] bg-[#FAF9F6] p-3 text-center text-[10px] font-black uppercase tracking-wider text-[#78716C]">
+                  <div className="rounded-2xl border-2 border-dashed border-[#E7E5E4] bg-[#FAF9F6] p-4 text-center text-[11px] font-black uppercase tracking-wider text-[#78716C]">
                     Ainda não há avaliações registradas.
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2.5">
                     {receivedFeedback.map((fb) => (
                       <div
                         key={fb.id}
-                        className="bg-[#FAF9F6] p-3 rounded-2xl border-2 border-[#E7E5E4] flex flex-col gap-1.5"
+                        className="bg-[#FAF9F6] p-4 rounded-2xl border-2 border-[#E7E5E4] flex flex-col gap-2"
                       >
                         <div className="flex justify-between items-center">
-                          <span className="text-[11px] font-black text-[#1C1917]">{fb.author}</span>
+                          <span className="text-xs font-black text-[#1C1917] uppercase">{fb.author}</span>
                           <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-black text-amber-600">
+                            <span className="text-xs font-black text-amber-600">
                               {'★'.repeat(fb.rating)}
                             </span>
-                            <span className="text-[9px] font-bold text-[#A8A29E] uppercase">{fb.date}</span>
+                            <span className="text-[10px] font-bold text-[#A8A29E] uppercase">{fb.date}</span>
                           </div>
                         </div>
                         <p className="text-xs text-[#57534E] font-medium italic leading-relaxed">
@@ -1336,20 +1342,20 @@ export const Profile: React.FC = () => {
                 )}
               </div>
 
-              <div className="flex flex-col gap-1.5 w-full pt-1 text-left">
-                <span className="text-[10px] font-black uppercase text-[#78716C]">
+              <div className="flex flex-col gap-2.5 w-full pt-2 text-left">
+                <span className="text-[11px] font-black uppercase text-[#78716C] tracking-wider">
                   Conquistas Desbloqueadas:
                 </span>
                 {badgesList.filter((b) => b.unlocked).length === 0 ? (
-                  <div className="rounded-2xl border-2 border-dashed border-[#E7E5E4] bg-[#FAF9F6] p-3 text-center text-[10px] font-black uppercase tracking-wider text-[#78716C]">
+                  <div className="rounded-2xl border-2 border-dashed border-[#E7E5E4] bg-[#FAF9F6] p-4 text-center text-[11px] font-black uppercase tracking-wider text-[#78716C]">
                     Ainda não há conquistas desbloqueadas.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-2.5">
                     {badgesList.filter((b) => b.unlocked).map((badge) => (
-                      <div key={badge.id} className="p-2 rounded-xl bg-[#FAF9F6] border-2 border-[#E7E5E4] flex items-center gap-2">
-                        <span className="text-base">{badge.icon}</span>
-                        <span className="text-[10px] font-black text-[#1C1917] uppercase truncate">{badge.title}</span>
+                      <div key={badge.id} className="p-3 rounded-xl bg-[#FAF9F6] border-2 border-[#E7E5E4] flex items-center gap-2.5">
+                        <span className="text-xl">{badge.icon}</span>
+                        <span className="text-[11px] font-black text-[#1C1917] uppercase truncate">{badge.title}</span>
                       </div>
                     ))}
                   </div>
@@ -1357,15 +1363,15 @@ export const Profile: React.FC = () => {
               </div>
 
               {selectedInterests.length > 0 && (
-                <div className="flex flex-col gap-1.5 w-full pt-1 text-left">
-                  <span className="text-[10px] font-black uppercase text-[#78716C]">
+                <div className="flex flex-col gap-2.5 w-full pt-2 text-left">
+                  <span className="text-[11px] font-black uppercase text-[#78716C] tracking-wider">
                     Interesses de Conversa:
                   </span>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-2">
                     {selectedInterests.map((interest) => (
                       <span
                         key={interest}
-                        className="text-[10px] font-black px-2.5 py-1 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] rounded-lg"
+                        className="text-[11px] font-black px-3 py-1.5 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] rounded-xl"
                       >
                         {interest}
                       </span>
@@ -1378,7 +1384,7 @@ export const Profile: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowPublicPreview(false)}
-              className="w-full py-3 bg-[#FAF9F6] hover:bg-[#F5F5F4] border-2 border-[#1C1917] text-[#1C1917] font-black text-xs uppercase tracking-widest rounded-xl transition-all"
+              className="w-full py-3.5 bg-[#FAF9F6] hover:bg-[#F5F5F4] border-2 border-[#1C1917] text-[#1C1917] font-black text-xs uppercase tracking-widest rounded-2xl transition-all"
             >
               Fechar Visualização
             </button>
@@ -1386,7 +1392,6 @@ export const Profile: React.FC = () => {
         </div>
       )}
 
-      {/* Modal de Zoom/Expansão da Foto do Perfil */}
       {isAvatarExpanded && (
         <div 
           onClick={() => setIsAvatarExpanded(false)}
@@ -1401,7 +1406,7 @@ export const Profile: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsAvatarExpanded(false)}
-              className="px-6 py-2.5 bg-[#FFFFFF] text-[#1C1917] font-black text-xs uppercase tracking-widest rounded-xl border-2 border-[#1C1917] hover:bg-[#F5F5F4] transition-all shadow-md"
+              className="px-6 py-3 bg-[#FFFFFF] text-[#1C1917] font-black text-xs uppercase tracking-widest rounded-2xl border-2 border-[#1C1917] hover:bg-[#F5F5F4] transition-all shadow-md"
             >
               Fechar Imagem
             </button>
