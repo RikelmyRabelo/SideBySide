@@ -183,7 +183,7 @@ export const INTERESTS_LIBRARY = [
   },
 ];
 
-export const CEFR_LEVELS_INFO = [
+export const CEFR_LEVELS_INFO = [ 
   { code: 'A1', label: 'Iniciante', desc: 'Compreende frases simples e expressões cotidianas.' },
   { code: 'A2', label: 'Básico', desc: 'Comunica-se em tarefas rotineiras e diretas.' },
   { code: 'B1', label: 'Intermediário', desc: 'Mantém conversas sobre temas familiares de interesse.' },

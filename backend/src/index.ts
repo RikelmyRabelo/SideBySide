@@ -270,7 +270,7 @@ app.post('/api/auth/verify-code', authLimiter, validateRequest(verifyCodeSchema)
       data: { name: pending.name, email: pending.email, password: pending.passwordHash, level: pending.level, reputation: 100 },
     });
 
-    const generatedTag = `${pending.name.replace(/\s+/g, '')}#${tempUser.id.slice(0, 4)}`;
+    const generatedTag = `${pending.name.replace(/\s+/g, '').toLowerCase()}#${tempUser.id.slice(0, 4)}`;
     const newUser = await prisma.user.update({
       where: { id: tempUser.id },
       data: { tag: generatedTag }
@@ -396,19 +396,44 @@ app.post('/api/room/report', authenticateToken, async (req: Request, res: Respon
 app.post('/api/room/rate', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user.id;
-    const { partnerRating, platformRating, comment } = req.body || {};
+    const { partnerRating, platformRating, comment, partnerName, partnerAvatar, duration, topic, vocabLearned } = req.body || {};
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
+    
     const rawAverage = Number(partnerRating ?? platformRating ?? 0);
     const safeAverage = Number.isFinite(rawAverage) ? Math.max(1, Math.min(5, rawAverage)) : 3;
     const ratingDelta = Math.round((safeAverage - 3) * 10);
     const updatedReputation = Math.max(0, Math.min(100, (user.reputation || 0) + ratingDelta));
     const totalSessions = (user.totalSessions || 0) + 1;
     const totalMinutes = (user.totalMinutes || 0) + 15;
-    const historyEntry = { rating: safeAverage, partnerRating: Number(partnerRating ?? 3), platformRating: Number(platformRating ?? 3), comment: comment || '', createdAt: new Date().toISOString() };
+    
+    const historyEntry = { 
+      id: Date.now().toString(),
+      rating: safeAverage, 
+      partnerRating: Number(partnerRating ?? 3), 
+      platformRating: Number(platformRating ?? 3), 
+      comment: comment || '', 
+      partnerName: partnerName || 'Estudante',
+      partnerAvatar: partnerAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+      duration: duration || '15 min',
+      topic: topic || 'Bate-Papo Livre',
+      vocabLearned: vocabLearned || ['Vocabulary', 'Practice', 'Fluency'],
+      date: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+      createdAt: new Date().toISOString() 
+    };
+
     const previousHistory = Array.isArray(user.sessionsHistory) ? user.sessionsHistory.filter((entry): entry is any => entry !== null && entry !== undefined) : [];
-    const updatedUser = await prisma.user.update({ where: { id: userId }, data: { reputation: updatedReputation, totalSessions, totalMinutes, lastSession: historyEntry as any, sessionsHistory: [...previousHistory, historyEntry] as any } });
-    sessionFeedback.set(userId, { averageRating: safeAverage, count: (sessionFeedback.get(userId)?.count || 0) + 1, lastUpdated: new Date() });
+    const updatedUser = await prisma.user.update({ 
+      where: { id: userId }, 
+      data: { 
+        reputation: updatedReputation, 
+        totalSessions, 
+        totalMinutes, 
+        lastSession: historyEntry as any, 
+        sessionsHistory: [...previousHistory, historyEntry] as any 
+      } 
+    });
+
     return res.status(200).json({ message: 'Avaliação salva.', reputation: updatedUser.reputation, averageRating: safeAverage });
   } catch (error: any) { next(error); }
 });
@@ -705,8 +730,57 @@ app.get('/api/user/me', authenticateToken, async (req: Request, res: Response, n
     const userId = (req as any).user.id;
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
-    return res.status(200).json(user);
+    
+    const feedbacks = Array.isArray(user.sessionsHistory) 
+      ? (user.sessionsHistory as any[]).filter(s => s && s.comment).map((s, idx) => ({
+          id: idx + 1,
+          author: 'Parceiro de Conversa',
+          rating: s.rating || 5,
+          date: new Date(s.createdAt).toLocaleDateString() || 'Recentemente',
+          comment: s.comment
+        }))
+      : [];
+
+    return res.status(200).json({
+      ...user,
+      reputationScore: `${user.reputation ?? 100}/100`,
+      feedbacks,
+    });
   } catch (error: any) { next(error); }
+});
+
+app.delete('/api/user/me', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.id;
+    const { password } = req.body;
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
+
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
+      return res.status(400).json({ error: 'Senha incorreta.' });
+    }
+
+    await prisma.friendRelation.deleteMany({
+      where: { OR: [{ userId }, { friendId: userId }] }
+    }).catch(() => {});
+
+    await prisma.directMessage.deleteMany({
+      where: { OR: [{ senderId: userId }, { recipientId: userId }] }
+    }).catch(() => {});
+
+    await prisma.notification.deleteMany({
+      where: { userId }
+    }).catch(() => {});
+
+    await prisma.user.delete({ where: { id: userId } });
+
+    res.clearCookie('token');
+    return res.status(200).json({ message: 'Conta excluída com sucesso.' });
+  } catch (error: any) {
+    next(error);
+  }
 });
 
 app.get('/api/user/:id', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
@@ -804,11 +878,15 @@ app.put('/api/user/profile', authenticateToken, async (req: Request, res: Respon
             password: '$2b$10$placeholder_hash_auto_created_on_profile_update',
             level: updateData.level || 'B1',
             reputation: 100,
-            tag: `${(updateData.name || 'Usuário').replace(/\s+/g, '')}#${tokenUser.id.slice(0, 4)}`,
+            tag: `${(updateData.name || 'Usuário').replace(/\s+/g, '').toLowerCase()}#${tokenUser.id.slice(0, 4)}`,
             ...updateData
           }
         });
       }
+    }
+
+    if (updateData.name && updateData.name !== user.name) {
+      updateData.tag = `${updateData.name.replace(/\s+/g, '').toLowerCase()}#${user.id.slice(0, 4)}`;
     }
 
     const updatedUser = await prisma.user.update({ 

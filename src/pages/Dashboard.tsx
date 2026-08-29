@@ -30,9 +30,15 @@ export const Dashboard: React.FC = memo(() => {
   const navigate = useNavigate();
   const { showToast } = useToast();
 
-  const { data: userData } = useFetchCache<any>('http://localhost:3000/api/user/me', {
+  const { data: userData, refetch } = useFetchCache<any>('http://localhost:3000/api/user/me', {
     credentials: 'include'
   });
+
+  useEffect(() => {
+    if (refetch) {
+      refetch();
+    }
+  }, [refetch]);
 
   const [mediaMode, setMediaMode] = useState<'video' | 'audio'>('video');
   const [expandedMatching, setExpandedMatching] = useState(true);
@@ -762,7 +768,7 @@ export const Dashboard: React.FC = memo(() => {
                 </div>
                 <div className="flex flex-col gap-3 max-h-60 overflow-y-auto">
                   {mockSessionsHistory.length > 0 ? (
-                    mockSessionsHistory.map((session: { id: string; partner: string; date: string; duration: number; topic: string; rating: number }) => (
+                    mockSessionsHistory.map((session: { id: string; partner: string; date: string; duration: number; topic: string; rating: number; comment?: string }) => (
                       <div key={session.id} className="bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl p-4 flex flex-col gap-3 hover:border-[#1C1917] transition-colors">
                         <div className="flex justify-between items-start">
                           <div className="flex flex-col gap-0.5">
@@ -773,6 +779,11 @@ export const Dashboard: React.FC = memo(() => {
                             <span className="text-[10px] font-black text-amber-500">{'★'.repeat(session.rating)}</span>
                           </div>
                         </div>
+                        {session.comment && (
+                          <p className="text-xs text-[#57534E] italic bg-[#FFFFFF] p-2.5 rounded-lg border border-[#E7E5E4]">
+                            "{session.comment}"
+                          </p>
+                        )}
                         <div className="flex items-center gap-3 pt-2 border-t border-[#E7E5E4]">
                           <div className="flex items-center gap-1">
                             <span className="text-[10px] font-bold text-[#A8A29E] uppercase">Duração:</span>

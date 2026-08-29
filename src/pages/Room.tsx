@@ -550,31 +550,20 @@ export const Room: React.FC = memo(() => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(data)
+        body: JSON.stringify({
+          ...data,
+          partnerName,
+          partnerAvatar: partnerAvatarUrl,
+          duration: `${Math.floor(sessionElapsedSeconds / 60)} min`,
+          topic: currentTopic.title,
+          vocabLearned: currentTopic.vocabPreview || ['Vocabulary', 'Conversation', 'Fluency']
+        })
       });
-      
-      if (partnerId && !partnerDisconnected && !isSearchingNextPair && data.partnerRating) {
-        const averageRating = (data.partnerRating + data.platformRating) / 2;
-        await fetch('http://localhost:3000/api/room/quality', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ partnerId, duration: sessionElapsedSeconds, messages: chatMessages.length, rating: Math.round(averageRating) })
-        });
-        if (averageRating >= 4) {
-          await fetch('http://localhost:3000/api/room/want-to-talk-again', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ partnerId })
-          });
-        }
-      }
     } catch (err) {}
     
     if (pendingAction === 'exit') navigate('/dashboard');
     else triggerSearchNextPair();
-  }, [partnerId, partnerDisconnected, sessionElapsedSeconds, chatMessages.length, pendingAction, navigate, triggerSearchNextPair, isSearchingNextPair]);
+  }, [partnerName, partnerAvatarUrl, sessionElapsedSeconds, currentTopic, pendingAction, navigate, triggerSearchNextPair]);
 
   const handleRatingClose = useCallback(() => {
     setIsRatingOpen(false);
