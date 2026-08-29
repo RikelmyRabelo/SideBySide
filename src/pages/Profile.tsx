@@ -64,10 +64,7 @@ export const Profile: React.FC = () => {
   const [showTopicsModal, setShowTopicsModal] = useState(false);
   const [topicSearch, setTopicSearch] = useState('');
   
-  // Estado para o Modal de aviso de limite de tópicos
   const [showMaxTopicsModal, setShowMaxTopicsModal] = useState(false);
-  
-  // Estado para o Modal de sucesso de exclusão de conta
   const [showDeleteSuccessModal, setShowDeleteSuccessModal] = useState(false);
 
   const [name, setName] = useState('');
@@ -115,7 +112,6 @@ export const Profile: React.FC = () => {
   const [bio, setBio] = useState('');
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
 
-  // Metas, Reputação e Evolução
   const [weeklyGoalTarget, setWeeklyGoalTarget] = useState(5);
   const [weeklyGoalCompleted, setWeeklyGoalCompleted] = useState(0);
   const [currentStreak, setCurrentStreak] = useState(0);
@@ -131,7 +127,7 @@ export const Profile: React.FC = () => {
         if (response.ok) {
           const data = await response.json();
           setName(data.name || '');
-          if (data.tag) setTag(data.tag);
+          if (data.tag) setTag(data.tag.replace(/^#/, '')); // Remove qualquer # residual do estado
           setEmail(data.email || '');
           setCefrLevel(data.level || 'B1');
           if (data.avatar) setAvatarUrl(data.avatar);
@@ -422,7 +418,7 @@ export const Profile: React.FC = () => {
                 </span>
               </div>
               {tag && (
-                <span className="px-2.5 py-1 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] font-black text-xs rounded-xl shadow-xs w-fit">
+                <span className="text-[#78716C] font-bold text-xs tracking-wider">
                   #{tag}
                 </span>
               )}
@@ -498,7 +494,6 @@ export const Profile: React.FC = () => {
                 Informações Pessoais
               </h2>
 
-              {/* Grid corrigido com items-end para alinhar o campo de Gênero perfeitamente com a Data de Nascimento */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 items-end">
                 <div className="flex flex-col gap-2">
                   <label className="text-xs font-black text-[#1C1917] uppercase tracking-wider">Nome Completo</label>
