@@ -6,7 +6,7 @@ import { Input } from '../components/ui/Input';
 export const ResetPassword: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const emailFromState = location.state?.email || 'seu e-mail';
+  const emailFromState = location.state?.email || localStorage.getItem('sidebyside_pending_email') || '';
 
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [isCodeConfirmed, setIsCodeConfirmed] = useState(false);
@@ -18,10 +18,15 @@ export const ResetPassword: React.FC = () => {
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // Efeito de Cursor Sólido Neutro
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
   const [cursorOpacity, setCursorOpacity] = useState(1);
+
+  useEffect(() => {
+    if (!emailFromState) {
+      navigate('/forgot-password');
+    }
+  }, [emailFromState, navigate]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -36,7 +41,6 @@ export const ResetPassword: React.FC = () => {
     };
 
     const handleMouseLeave = () => setCursorOpacity(0);
-
     window.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseleave', handleMouseLeave);
 
@@ -87,7 +91,7 @@ export const ResetPassword: React.FC = () => {
       return;
     }
 
-    if (!location.state?.email) {
+    if (!emailFromState) {
       setErrorMessage('E-mail não encontrado. Por favor, volte e tente novamente.');
       return;
     }
@@ -99,7 +103,7 @@ export const ResetPassword: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          email: location.state.email, 
+          email: emailFromState, 
           code: fullCode 
         }),
       });
@@ -132,7 +136,7 @@ export const ResetPassword: React.FC = () => {
       return;
     }
 
-    if (!location.state?.email) {
+    if (!emailFromState) {
       setErrorMessage('E-mail não encontrado. Por favor, reinicie o processo.');
       return;
     }
@@ -145,7 +149,7 @@ export const ResetPassword: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          email: location.state.email, 
+          email: emailFromState, 
           code: fullCode,
           newPassword: password 
         }),
@@ -157,6 +161,7 @@ export const ResetPassword: React.FC = () => {
         throw new Error(data.error || 'Erro ao redefinir a senha.');
       }
 
+      localStorage.removeItem('sidebyside_pending_email');
       alert('Senha alterada com sucesso!');
       navigate('/');
     } catch (err: any) {
@@ -209,7 +214,6 @@ export const ResetPassword: React.FC = () => {
             </div>
           )}
 
-          {/* DIGITAÇÃO E VALIDAÇÃO DO CÓDIGO */}
           {!isCodeConfirmed && (
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
@@ -244,7 +248,6 @@ export const ResetPassword: React.FC = () => {
             </div>
           )}
 
-          {/* CRIAÇÃO DA NOVA SENHA */}
           {isCodeConfirmed && (
             <form className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-4 duration-500 ease-out" onSubmit={handleSubmit}>
               <div className="relative w-full">

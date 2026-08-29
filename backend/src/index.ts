@@ -22,7 +22,7 @@ const app = express();
 const corsOptions = {
   origin: process.env.NODE_ENV === 'production' 
     ? ['https://seusiteoficial.com'] 
-    : ['http://localhost:5173', 'http://localhost:4173'], 
+    : ['http://localhost:5173', 'https://localhost:5173', 'http://localhost:4173'], 
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true
 };
@@ -54,8 +54,8 @@ Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
 
 const cookieOptions = {
   httpOnly: true, 
-  secure: process.env.NODE_ENV === 'production', 
-  sameSite: 'lax' as const, 
+  secure: true, 
+  sameSite: 'none' as const, 
   maxAge: 7 * 24 * 60 * 60 * 1000 
 };
 
