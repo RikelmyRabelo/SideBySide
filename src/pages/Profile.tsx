@@ -448,15 +448,15 @@ export const Profile: React.FC = () => {
             <div className="flex flex-col gap-1.5">
               <div className="flex flex-wrap items-center gap-2.5">
                 <h1 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-[#1C1917]">{name}</h1>
-                {tag && (
-                  <span className="px-2.5 py-1 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] font-black text-xs rounded-xl shadow-xs">
-                    #{tag}
-                  </span>
-                )}
                 <span className="px-2.5 py-1 bg-[#1C1917] text-[#FAF9F6] font-black text-xs rounded-xl uppercase tracking-wider shadow-xs">
                   {cefrLevel}
                 </span>
               </div>
+              {tag && (
+                <span className="px-2.5 py-1 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] font-black text-xs rounded-xl shadow-xs w-fit">
+                  #{tag}
+                </span>
+              )}
             </div>
           </div>
 
@@ -1251,15 +1251,15 @@ export const Profile: React.FC = () => {
               <div className="flex flex-col items-center gap-2">
                 <div className="flex flex-wrap items-center justify-center gap-2">
                   <h3 className="text-lg font-black uppercase text-[#1C1917]">{name}</h3>
-                  {tag && (
-                    <span className="px-2.5 py-0.5 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] font-black text-xs rounded-xl">
-                      #{tag}
-                    </span>
-                  )}
                   <span className="px-2.5 py-0.5 bg-[#1C1917] text-[#FAF9F6] font-black text-xs rounded-xl uppercase">
                     {cefrLevel}
                   </span>
                 </div>
+                {tag && (
+                  <span className="px-2.5 py-0.5 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] font-black text-xs rounded-xl">
+                    #{tag}
+                  </span>
+                )}
 
                 <div className="flex flex-wrap items-center justify-center gap-2 text-xs font-bold text-[#78716C]">
                   {showAgeInProfile && birthDate && <span>{calculateAge(birthDate)} anos</span>}
