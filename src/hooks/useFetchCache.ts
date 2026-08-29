@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface CacheItem<T> {
   data: T;
@@ -12,6 +12,10 @@ export function useFetchCache<T>(url: string, options?: RequestInit, ttl: number
   const [data, setData] = useState<T | null>(globalCache[url]?.data || null);
   const [isLoading, setIsLoading] = useState<boolean>(!globalCache[url]);
   const [error, setError] = useState<Error | null>(null);
+
+  // Armazena as opções em ref para evitar recriação de loops no useEffect
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
 
   const fetchData = useCallback(async (force = false) => {
     const cached = globalCache[url];
@@ -27,11 +31,11 @@ export function useFetchCache<T>(url: string, options?: RequestInit, ttl: number
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(url, {
-        ...options,
+        ...optionsRef.current,
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
-          ...(options?.headers || {}),
+          ...(optionsRef.current?.headers || {}),
         },
       });
 
@@ -51,7 +55,7 @@ export function useFetchCache<T>(url: string, options?: RequestInit, ttl: number
     } finally {
       setIsLoading(false);
     }
-  }, [url, options, ttl]);
+  }, [url, ttl]);
 
   useEffect(() => {
     fetchData();

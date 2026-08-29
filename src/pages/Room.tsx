@@ -59,6 +59,8 @@ const Room: React.FC = memo(() => {
   const [userAudioLevel, setUserAudioLevel] = useState(0);
   const [partnerAudioLevel, setPartnerAudioLevel] = useState(0);
 
+  const [remoteCamActiveState, setRemoteCamActiveState] = useState(true);
+
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameAudioRef = useRef<number | null>(null);
@@ -108,6 +110,9 @@ const Room: React.FC = memo(() => {
   const pendingCandidates = useRef<RTCIceCandidateInit[]>([]);
   const pendingOfferRef = useRef<RTCSessionDescriptionInit | null>(null);
   const [mediaError, setMediaError] = useState<string | null>(null);
+
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
 
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
@@ -172,6 +177,9 @@ const Room: React.FC = memo(() => {
       });
       streamRef.current = null;
     }
+
+    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+    if (localVideoRef.current) localVideoRef.current.srcObject = null;
 
     setLocalStream(null);
     setRemoteStream(null);
@@ -331,10 +339,17 @@ const Room: React.FC = memo(() => {
 
       pc.ontrack = (event) => {
         if (event.streams && event.streams[0]) {
-          setRemoteStream(event.streams[0]);
+          const incomingStream = event.streams[0];
+          setRemoteStream(incomingStream);
           setConnectionStatus('connected');
 
-          const incomingStream = event.streams[0];
+          const videoTrack = incomingStream.getVideoTracks()[0];
+          if (videoTrack) {
+            setRemoteCamActiveState(!videoTrack.muted && videoTrack.enabled);
+            videoTrack.onmute = () => setRemoteCamActiveState(false);
+            videoTrack.onunmute = () => setRemoteCamActiveState(true);
+          }
+
           try {
             const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
             const remoteAudioCtx = new AudioCtx();
@@ -420,6 +435,10 @@ const Room: React.FC = memo(() => {
       stopMediaStream();
     });
 
+    newSocket.on('camera_status', (data: { camActive: boolean }) => {
+      setRemoteCamActiveState(data.camActive);
+    });
+
     newSocket.on('webrtc_offer', async (data: { sdp: RTCSessionDescriptionInit }) => {
       const pc = peerConnectionRef.current;
       if (!pc) {
@@ -452,13 +471,15 @@ const Room: React.FC = memo(() => {
 
     newSocket.on('webrtc_ice_candidate', async (data: { candidate: RTCIceCandidateInit }) => {
       const pc = peerConnectionRef.current;
-      if (!pc) return;
       
-      if (pc.remoteDescription && pc.remoteDescription.type) {
-        await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-      } else {
+      if (!pc || !pc.remoteDescription || !pc.remoteDescription.type) {
         pendingCandidates.current.push(data.candidate);
+        return;
       }
+      
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+      } catch (err) {}
     });
 
     newSocket.on('chat_message', (data: { text: string; id: number }) => {
@@ -498,10 +519,17 @@ const Room: React.FC = memo(() => {
   }, [micActive]);
 
   const toggleCamera = useCallback(() => {
+    const nextCamState = !camActive;
     if (streamRef.current) {
-      streamRef.current.getVideoTracks().forEach((track) => { track.enabled = !camActive; });
+      streamRef.current.getVideoTracks().forEach((track) => { 
+        track.enabled = nextCamState; 
+      });
     }
-    setCamActive(!camActive);
+    setCamActive(nextCamState);
+
+    if (socketRef.current && roomIdRef.current) {
+      socketRef.current.emit('camera_status', { roomId: roomIdRef.current, camActive: nextCamState });
+    }
   }, [camActive]);
 
   const handleConfirmReport = useCallback(async (reason: string) => {
@@ -605,10 +633,36 @@ const Room: React.FC = memo(() => {
   const formattedTimer = useMemo(() => formatSessionTimer(sessionElapsedSeconds), [sessionElapsedSeconds]);
 
   const isRemoteVideoActive = useMemo(() => {
-    if (!remoteStream) return false;
+    if (!remoteStream || !remoteCamActiveState) return false;
     const videoTracks = remoteStream.getVideoTracks();
     return videoTracks.length > 0 && videoTracks.some(track => track.enabled && track.readyState === 'live');
-  }, [remoteStream]);
+  }, [remoteStream, remoteCamActiveState]);
+
+  const isLocalVideoActive = useMemo(() => {
+    if (!localStream || !camActive) return false;
+    const videoTracks = localStream.getVideoTracks();
+    return videoTracks.length > 0 && videoTracks.some(track => track.enabled && track.readyState === 'live');
+  }, [localStream, camActive]);
+
+  useEffect(() => {
+    if (remoteVideoRef.current) {
+      if (isRemoteVideoActive && remoteStream) {
+        remoteVideoRef.current.srcObject = remoteStream;
+      } else {
+        remoteVideoRef.current.srcObject = null;
+      }
+    }
+  }, [isRemoteVideoActive, remoteStream]);
+
+  useEffect(() => {
+    if (localVideoRef.current) {
+      if (isLocalVideoActive && localStream) {
+        localVideoRef.current.srcObject = localStream;
+      } else {
+        localVideoRef.current.srcObject = null;
+      }
+    }
+  }, [isLocalVideoActive, localStream]);
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col font-sans h-screen overflow-hidden relative selection:bg-[#1C1917] selection:text-[#FAF9F6]">
@@ -749,13 +803,13 @@ const Room: React.FC = memo(() => {
           ) : (
             <div className="absolute inset-0 bg-[#F5F5F4] flex items-center justify-center">
               <video 
-                ref={(el) => { if (el && remoteStream && el.srcObject !== remoteStream) el.srcObject = remoteStream; }} 
+                ref={remoteVideoRef} 
                 autoPlay 
                 playsInline 
                 className={`w-full h-full object-cover transition-opacity duration-300 ${connectionStatus === 'reconnecting' ? 'opacity-40 grayscale-[50%]' : 'opacity-100'} ${!isRemoteVideoActive ? 'hidden' : 'block'}`} 
               />
               
-              {!isRemoteVideoActive && connectionStatus === 'connected' && (
+              {!isRemoteVideoActive && (
                 <div className="absolute inset-0 bg-[#1C1917] flex flex-col items-center justify-center z-0">
                   <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#292524] shadow-2xl mb-6">
                     <img src={partnerAvatarUrl} alt="Foto do Parceiro" className="w-full h-full object-cover" />
@@ -775,14 +829,14 @@ const Room: React.FC = memo(() => {
 
           <div className={`absolute bottom-5 right-6 left-auto top-auto z-40 w-48 h-32 rounded-2xl overflow-hidden border-2 shadow-2xl transition-all duration-300 ${isUserSpeaking ? 'border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'border-[#FFFFFF]'}`}>
             <video 
-              ref={(el) => { if (el && localStream && el.srcObject !== localStream) el.srcObject = localStream; }} 
+              ref={localVideoRef} 
               autoPlay 
               playsInline 
               muted 
-              className={`w-full h-full object-cover transform -scale-x-100 ${camActive ? 'block' : 'hidden'}`} 
+              className={`w-full h-full object-cover transform -scale-x-100 ${isLocalVideoActive ? 'block' : 'hidden'}`} 
             />
             
-            {!camActive && (
+            {!isLocalVideoActive && (
               <div className="absolute inset-0 bg-[#1C1917] flex flex-col items-center justify-center z-0">
                 <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-[#57534E] shadow-xl mb-1">
                   <img src={userAvatarUrl} alt="Sua Foto" className="w-full h-full object-cover" />

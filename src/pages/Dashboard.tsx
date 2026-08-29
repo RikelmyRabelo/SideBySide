@@ -30,15 +30,9 @@ export const Dashboard: React.FC = memo(() => {
   const navigate = useNavigate();
   const { showToast } = useToast();
 
-  const { data: userData, refetch } = useFetchCache<any>('http://localhost:3000/api/user/me', {
+  const { data: userData } = useFetchCache<any>('http://localhost:3000/api/user/me', {
     credentials: 'include'
   });
-
-  useEffect(() => {
-    if (refetch) {
-      refetch();
-    }
-  }, [refetch]);
 
   const [mediaMode, setMediaMode] = useState<'video' | 'audio'>('video');
   const [expandedMatching, setExpandedMatching] = useState(true);
@@ -812,3 +806,4 @@ export const Dashboard: React.FC = memo(() => {
 });
 
 Dashboard.displayName = 'Dashboard';
+export default Dashboard;

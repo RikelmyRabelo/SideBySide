@@ -26,6 +26,7 @@ const findMatchSchema = z.object({
 
 const webrtcSdpSchema = z.object({ roomId: z.string(), sdp: z.any() });
 const webrtcIceSchema = z.object({ roomId: z.string(), candidate: z.any() });
+const cameraStatusSchema = z.object({ roomId: z.string(), camActive: z.boolean() });
 const chatSchema = z.object({ roomId: z.string(), text: z.string().min(1) });
 const directMessageSchema = z.object({ recipientId: z.string(), text: z.string().min(1) });
 
@@ -191,6 +192,12 @@ export const setupMatchmaking = (io: Server) => {
       socketRateLimits.delete(socket.id);
     });
 
+    socket.on('camera_status', (data: unknown) => {
+      safeParseEvent(cameraStatusSchema, data, (parsedData) => {
+        socket.to(parsedData.roomId).emit('camera_status', { camActive: parsedData.camActive });
+      });
+    });
+
     socket.on('webrtc_offer', (data: unknown) => {
       safeParseEvent(webrtcSdpSchema, data, (parsedData) => {
         socket.to(parsedData.roomId).emit('webrtc_offer', { sdp: parsedData.sdp });
@@ -225,4 +232,4 @@ export const setupMatchmaking = (io: Server) => {
       });
     });
   });
-};  
+};
