@@ -74,6 +74,15 @@ const Room: React.FC = memo(() => {
   const [partnerAvatarUrl, setPartnerAvatarUrl] = useState<string>(getAvatarFallback('Estudante'));
   const [roomId, setRoomId] = useState<string | null>(null);
 
+  // Referências congeladas para o modal de avaliação não perder o contexto ao buscar novo par
+  const completedSessionRef = useRef<{ roomId: string | null; partnerId: string | null; partnerName: string; partnerAvatarUrl: string; duration: number }>({
+    roomId: null,
+    partnerId: null,
+    partnerName: 'Estudante',
+    partnerAvatarUrl: getAvatarFallback('Estudante'),
+    duration: 0,
+  });
+
   const roomIdRef = useRef<string | null>(null);
   const micActiveRef = useRef(micActive);
 
@@ -287,6 +296,7 @@ const Room: React.FC = memo(() => {
   }, [isSearchingNextPair]);
 
   useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | undefined;
     if (connectionStatus === 'connected' && !partnerDisconnected && !isSearchingNextPair) {
       if (!sessionStartedAtRef.current) sessionStartedAtRef.current = Date.now();
       const timer = window.setInterval(() => {
@@ -548,9 +558,19 @@ const Room: React.FC = memo(() => {
         })
       });
     } catch (err) {}
+    
+    // Congela o contexto atual da sessão antes de abrir o modal
+    completedSessionRef.current = {
+      roomId,
+      partnerId,
+      partnerName,
+      partnerAvatarUrl,
+      duration: sessionElapsedSeconds,
+    };
+
     setPendingAction('nextPair');
     setIsRatingOpen(true);
-  }, [partnerId, sessionElapsedSeconds, chatMessages.length, roomId, showToast]);
+  }, [partnerId, sessionElapsedSeconds, chatMessages.length, roomId, partnerName, partnerAvatarUrl]);
 
   const handleEndCall = useCallback(() => {
     if (isSearchingNextPair) {
@@ -559,9 +579,17 @@ const Room: React.FC = memo(() => {
       setPendingAction('exit');
       setIsRatingOpen(true);
     } else {
+      // Congela o contexto atual da sessão antes de parar o stream e abrir o modal
+      completedSessionRef.current = {
+        roomId,
+        partnerId,
+        partnerName,
+        partnerAvatarUrl,
+        duration: sessionElapsedSeconds,
+      };
       setIsConfirmExitOpen(true);
     }
-  }, [isSearchingNextPair, stopMediaStream]);
+  }, [isSearchingNextPair, stopMediaStream, roomId, partnerId, partnerName, partnerAvatarUrl, sessionElapsedSeconds]);
 
   const handleConfirmExit = useCallback(() => {
     stopMediaStream();
@@ -571,9 +599,17 @@ const Room: React.FC = memo(() => {
   }, [stopMediaStream]);
 
   const handleNextPair = useCallback(() => {
+    // Congela o contexto atual da sessão antes de abrir o modal
+    completedSessionRef.current = {
+      roomId,
+      partnerId,
+      partnerName,
+      partnerAvatarUrl,
+      duration: sessionElapsedSeconds,
+    };
     setPendingAction('nextPair');
     setIsRatingOpen(true);
-  }, []);
+  }, [roomId, partnerId, partnerName, partnerAvatarUrl, sessionElapsedSeconds]);
 
   const triggerSearchNextPair = useCallback(() => {
     stopMediaStream();
@@ -591,6 +627,15 @@ const Room: React.FC = memo(() => {
 
   const handleRatingSubmit = useCallback(async (data: { partnerRating?: number; platformRating: number; comment: string }) => {
     setIsRatingOpen(false);
+
+    // Usa os dados congelados da sessão que acabou de encerrar
+    const sessionContext = completedSessionRef.current;
+    const targetRoomId = sessionContext.roomId || roomId || `session_${Date.now()}`;
+    const targetPartnerId = sessionContext.partnerId || partnerId;
+    const targetPartnerName = sessionContext.partnerName || partnerName;
+    const targetPartnerAvatar = sessionContext.partnerAvatarUrl || partnerAvatarUrl;
+    const targetDurationSec = sessionContext.duration || sessionElapsedSeconds;
+
     try {
       await fetch('http://localhost:3000/api/room/rate', {
         method: 'POST',
@@ -598,18 +643,23 @@ const Room: React.FC = memo(() => {
         credentials: 'include',
         body: JSON.stringify({
           ...data,
-          partnerName,
-          partnerAvatar: partnerAvatarUrl,
-          duration: `${Math.floor(sessionElapsedSeconds / 60)} min`,
+          sessionId: targetRoomId,
+          partnerId: targetPartnerId,
+          partnerName: targetPartnerName,
+          partnerAvatar: targetPartnerAvatar,
+          duration: `${Math.floor(targetDurationSec / 60)} min`,
           topic: currentTopic.title,
           vocabLearned: currentTopic.vocabPreview || ['Vocabulary', 'Conversation', 'Fluency']
         })
       });
+
+      // Invalida o cache do usuário para refletir as novas sessões e comentários no Dashboard e Perfil
+      localStorage.removeItem('cache_http://localhost:3000/api/user/me');
     } catch (err) {}
     
     if (pendingAction === 'exit') navigate('/dashboard');
     else triggerSearchNextPair();
-  }, [partnerName, partnerAvatarUrl, sessionElapsedSeconds, currentTopic, pendingAction, navigate, triggerSearchNextPair]);
+  }, [roomId, partnerId, partnerName, partnerAvatarUrl, sessionElapsedSeconds, currentTopic, pendingAction, navigate, triggerSearchNextPair]);
 
   const handleRatingClose = useCallback(() => {
     setIsRatingOpen(false);

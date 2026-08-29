@@ -410,7 +410,19 @@ app.post('/api/room/report', authenticateToken, async (req: Request, res: Respon
 app.post('/api/room/rate', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user.id;
-    const { partnerRating, platformRating, comment, partnerName, partnerAvatar, duration, topic, vocabLearned } = req.body || {};
+    const { 
+      sessionId, 
+      partnerId, 
+      partnerRating, 
+      platformRating, 
+      comment, 
+      partnerName, 
+      partnerAvatar, 
+      duration, 
+      topic, 
+      vocabLearned 
+    } = req.body || {};
+
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
     
@@ -418,11 +430,11 @@ app.post('/api/room/rate', authenticateToken, async (req: Request, res: Response
     const safeAverage = Number.isFinite(rawAverage) ? Math.max(1, Math.min(5, rawAverage)) : 3;
     const ratingDelta = Math.round((safeAverage - 3) * 10);
     const updatedReputation = Math.max(0, Math.min(100, (user.reputation || 0) + ratingDelta));
-    const totalSessions = (user.totalSessions || 0) + 1;
-    const totalMinutes = (user.totalMinutes || 0) + 15;
     
     const historyEntry = { 
-      id: Date.now().toString(),
+      id: sessionId || Date.now().toString(),
+      sessionId: sessionId || Date.now().toString(),
+      partnerId: partnerId || null,
       rating: safeAverage, 
       partnerRating: Number(partnerRating ?? 3), 
       platformRating: Number(platformRating ?? 3), 
@@ -436,7 +448,13 @@ app.post('/api/room/rate', authenticateToken, async (req: Request, res: Response
       createdAt: new Date().toISOString() 
     };
 
-    const previousHistory = Array.isArray(user.sessionsHistory) ? user.sessionsHistory.filter((entry: any) => entry !== null && entry !== undefined) : [];
+    const previousHistory = Array.isArray(user.sessionsHistory) ? (user.sessionsHistory as any[]) : [];
+    const filteredHistory = previousHistory.filter((entry: any) => entry && entry.sessionId !== sessionId);
+    
+    const isNewSession = !previousHistory.some((entry: any) => entry && entry.sessionId === sessionId);
+    const totalSessions = isNewSession ? (user.totalSessions || 0) + 1 : (user.totalSessions || 0);
+    const totalMinutes = isNewSession ? (user.totalMinutes || 0) + 15 : (user.totalMinutes || 0);
+
     const updatedUser = await prisma.user.update({ 
       where: { id: userId }, 
       data: { 
@@ -444,36 +462,14 @@ app.post('/api/room/rate', authenticateToken, async (req: Request, res: Response
         totalSessions, 
         totalMinutes, 
         lastSession: historyEntry as any, 
-        sessionsHistory: [...previousHistory, historyEntry] as any 
+        sessionsHistory: [...filteredHistory, historyEntry] as any 
       } 
     });
 
-    return res.status(200).json({ message: 'Avaliação salva.', reputation: updatedUser.reputation, averageRating: safeAverage });
-  } catch (error: any) { next(error); }
-});
-
-app.post('/api/room/quality', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const userId = (req as any).user.id;
-    const { partnerId, duration, messages, rating } = req.body || {};
-    if (!partnerId || !duration) return res.status(400).json({ error: 'Dados obrigatórios ausentes.' });
-    const userQuality = conversationQuality.get(userId) || new Map();
-    userQuality.set(partnerId, { duration: Number(duration), messages: Number(messages) || 0, rating: Math.max(1, Math.min(5, Number(rating) || 3)), timestamp: new Date() });
-    conversationQuality.set(userId, userQuality);
-    return res.status(200).json({ message: 'Qualidade registrada.' });
-  } catch (error: any) { next(error); }
-});
-
-app.post('/api/room/want-to-talk-again', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const userId = (req as any).user.id;
-    const { partnerId } = req.body || {};
-    if (!partnerId) return res.status(400).json({ error: 'partnerId é obrigatório.' });
-    const userPreferences = repeatMatchPreferences.get(userId) || new Set();
-    userPreferences.add(partnerId);
-    repeatMatchPreferences.set(userId, userPreferences);
-    return res.status(200).json({ message: 'Preferência salva.' });
-  } catch (error: any) { next(error); }
+    return res.status(200).json({ message: 'Avaliação salva com sucesso.', reputation: updatedUser.reputation, averageRating: safeAverage });
+  } catch (error: any) { 
+    next(error); 
+  }
 });
 
 app.post('/api/friends/request', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
