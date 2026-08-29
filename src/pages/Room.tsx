@@ -74,7 +74,6 @@ const Room: React.FC = memo(() => {
   const [partnerAvatarUrl, setPartnerAvatarUrl] = useState<string>(getAvatarFallback('Estudante'));
   const [roomId, setRoomId] = useState<string | null>(null);
 
-  // Referências congeladas para o modal de avaliação não perder o contexto ao buscar novo par
   const completedSessionRef = useRef<{ roomId: string | null; partnerId: string | null; partnerName: string; partnerAvatarUrl: string; duration: number }>({
     roomId: null,
     partnerId: null,
@@ -82,6 +81,27 @@ const Room: React.FC = memo(() => {
     partnerAvatarUrl: getAvatarFallback('Estudante'),
     duration: 0,
   });
+
+  const hasRatedCurrentSessionRef = useRef<boolean>(false);
+
+  // Referência atualizada em tempo real para evitar Stale Closures no Socket
+  const sessionStateRef = useRef({
+    isSearching: true,
+    partnerId: null as string | null,
+    partnerName: 'Estudante',
+    partnerAvatarUrl: getAvatarFallback('Estudante'),
+    duration: 0
+  });
+
+  useEffect(() => {
+    sessionStateRef.current = {
+      isSearching: isSearchingNextPair,
+      partnerId,
+      partnerName,
+      partnerAvatarUrl,
+      duration: sessionElapsedSeconds
+    };
+  }, [isSearchingNextPair, partnerId, partnerName, partnerAvatarUrl, sessionElapsedSeconds]);
 
   const roomIdRef = useRef<string | null>(null);
   const micActiveRef = useRef(micActive);
@@ -425,9 +445,9 @@ const Room: React.FC = memo(() => {
     });
 
     newSocket.on('match_found', async (data: { roomId: string; partnerId: string; partnerName?: string; partnerAvatar?: string; initiator: boolean }) => {
+      hasRatedCurrentSessionRef.current = false;
       setRoomId(data.roomId);
       roomIdRef.current = data.roomId;
-      
       setPartnerId(data.partnerId);
       
       const resolvedPartnerName = data.partnerName || 'Estudante';
@@ -441,8 +461,26 @@ const Room: React.FC = memo(() => {
     });
 
     newSocket.on('partner_left', () => {
-      setPartnerDisconnected(true);
+      const state = sessionStateRef.current;
+      
+      // Bloqueia a abertura do modal se o usuário atual já está na fila
+      if (state.isSearching || !roomIdRef.current || hasRatedCurrentSessionRef.current) return;
+      
+      hasRatedCurrentSessionRef.current = true;
+      setIsConfirmExitOpen(false); 
+
+      completedSessionRef.current = {
+        roomId: roomIdRef.current || roomId,
+        partnerId: state.partnerId,
+        partnerName: state.partnerName,
+        partnerAvatarUrl: state.partnerAvatarUrl,
+        duration: state.duration,
+      };
+
       stopMediaStream();
+      setPendingAction('nextPair');
+      showToast('O seu parceiro encerrou a chamada.', 'info');
+      setIsRatingOpen(true);
     });
 
     newSocket.on('camera_status', (data: { camActive: boolean }) => {
@@ -455,14 +493,11 @@ const Room: React.FC = memo(() => {
         pendingOfferRef.current = data.sdp;
         return;
       }
-      
       await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-      
       while (pendingCandidates.current.length > 0) {
         const candidate = pendingCandidates.current.shift();
         if (candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
       }
-
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       newSocket.emit('webrtc_answer', { roomId: roomIdRef.current, sdp: pc.localDescription });
@@ -472,7 +507,6 @@ const Room: React.FC = memo(() => {
       const pc = peerConnectionRef.current;
       if (!pc) return;
       await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-      
       while (pendingCandidates.current.length > 0) {
         const candidate = pendingCandidates.current.shift();
         if (candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
@@ -481,12 +515,10 @@ const Room: React.FC = memo(() => {
 
     newSocket.on('webrtc_ice_candidate', async (data: { candidate: RTCIceCandidateInit }) => {
       const pc = peerConnectionRef.current;
-      
       if (!pc || !pc.remoteDescription || !pc.remoteDescription.type) {
         pendingCandidates.current.push(data.candidate);
         return;
       }
-      
       try {
         await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
       } catch (err) {}
@@ -500,7 +532,7 @@ const Room: React.FC = memo(() => {
       stopMediaStream();
       newSocket.disconnect();
     };
-  }, [topicId, initializeWebRTC, stopMediaStream]);
+  }, [topicId, initializeWebRTC, stopMediaStream, showToast]);
 
   const handleSendFriendRequest = useCallback(async () => {
     if (!partnerId || friendRequestSent) return;
@@ -559,27 +591,13 @@ const Room: React.FC = memo(() => {
       });
     } catch (err) {}
     
-    // Congela o contexto atual da sessão antes de abrir o modal
-    completedSessionRef.current = {
-      roomId,
-      partnerId,
-      partnerName,
-      partnerAvatarUrl,
-      duration: sessionElapsedSeconds,
-    };
+    if (socketRef.current && roomIdRef.current) {
+      socketRef.current.emit('leave_room', { roomId: roomIdRef.current });
+      roomIdRef.current = null;
+    }
 
-    setPendingAction('nextPair');
-    setIsRatingOpen(true);
-  }, [partnerId, sessionElapsedSeconds, chatMessages.length, roomId, partnerName, partnerAvatarUrl]);
-
-  const handleEndCall = useCallback(() => {
-    if (isSearchingNextPair) {
-      if (socketRef.current) socketRef.current.emit('cancel_match');
-      stopMediaStream();
-      setPendingAction('exit');
-      setIsRatingOpen(true);
-    } else {
-      // Congela o contexto atual da sessão antes de parar o stream e abrir o modal
+    if (!hasRatedCurrentSessionRef.current) {
+      hasRatedCurrentSessionRef.current = true;
       completedSessionRef.current = {
         roomId,
         partnerId,
@@ -587,28 +605,68 @@ const Room: React.FC = memo(() => {
         partnerAvatarUrl,
         duration: sessionElapsedSeconds,
       };
+
+      setPendingAction('nextPair');
+      setIsRatingOpen(true);
+    }
+  }, [partnerId, sessionElapsedSeconds, chatMessages.length, roomId, partnerName, partnerAvatarUrl]);
+
+  const handleEndCall = useCallback(() => {
+    if (isSearchingNextPair) {
+      if (socketRef.current) socketRef.current.emit('cancel_match');
+      stopMediaStream();
+      setPendingAction('exit');
+      
+      completedSessionRef.current = { roomId: null, partnerId: null, partnerName: 'Estudante', partnerAvatarUrl: getAvatarFallback('Estudante'), duration: 0 };
+      navigate('/dashboard');
+    } else {
+      // Abre o modal de confirmação primeiro. O evento de sair real ocorre em handleConfirmExit
       setIsConfirmExitOpen(true);
     }
-  }, [isSearchingNextPair, stopMediaStream, roomId, partnerId, partnerName, partnerAvatarUrl, sessionElapsedSeconds]);
+  }, [isSearchingNextPair, stopMediaStream, navigate]);
 
   const handleConfirmExit = useCallback(() => {
+    // Desconecta a sala apenas agora, após o usuário confirmar que quer sair
+    if (socketRef.current && roomIdRef.current) {
+      socketRef.current.emit('leave_room', { roomId: roomIdRef.current });
+      roomIdRef.current = null;
+    }
+    
+    if (!hasRatedCurrentSessionRef.current) {
+      hasRatedCurrentSessionRef.current = true;
+      completedSessionRef.current = {
+        roomId,
+        partnerId,
+        partnerName,
+        partnerAvatarUrl,
+        duration: sessionElapsedSeconds,
+      };
+    }
+    
     stopMediaStream();
     setIsConfirmExitOpen(false);
     setPendingAction('exit');
     setIsRatingOpen(true);
-  }, [stopMediaStream]);
+  }, [roomId, partnerId, partnerName, partnerAvatarUrl, sessionElapsedSeconds, stopMediaStream]);
 
   const handleNextPair = useCallback(() => {
-    // Congela o contexto atual da sessão antes de abrir o modal
-    completedSessionRef.current = {
-      roomId,
-      partnerId,
-      partnerName,
-      partnerAvatarUrl,
-      duration: sessionElapsedSeconds,
-    };
-    setPendingAction('nextPair');
-    setIsRatingOpen(true);
+    if (socketRef.current && roomIdRef.current) {
+      socketRef.current.emit('leave_room', { roomId: roomIdRef.current });
+      roomIdRef.current = null;
+    }
+
+    if (!hasRatedCurrentSessionRef.current) {
+      hasRatedCurrentSessionRef.current = true;
+      completedSessionRef.current = {
+        roomId,
+        partnerId,
+        partnerName,
+        partnerAvatarUrl,
+        duration: sessionElapsedSeconds,
+      };
+      setPendingAction('nextPair');
+      setIsRatingOpen(true);
+    }
   }, [roomId, partnerId, partnerName, partnerAvatarUrl, sessionElapsedSeconds]);
 
   const triggerSearchNextPair = useCallback(() => {
@@ -628,7 +686,6 @@ const Room: React.FC = memo(() => {
   const handleRatingSubmit = useCallback(async (data: { partnerRating?: number; platformRating: number; comment: string }) => {
     setIsRatingOpen(false);
 
-    // Usa os dados congelados da sessão que acabou de encerrar
     const sessionContext = completedSessionRef.current;
     const targetRoomId = sessionContext.roomId || roomId || `session_${Date.now()}`;
     const targetPartnerId = sessionContext.partnerId || partnerId;
@@ -653,9 +710,10 @@ const Room: React.FC = memo(() => {
         })
       });
 
-      // Invalida o cache do usuário para refletir as novas sessões e comentários no Dashboard e Perfil
       localStorage.removeItem('cache_http://localhost:3000/api/user/me');
     } catch (err) {}
+
+    completedSessionRef.current = { roomId: null, partnerId: null, partnerName: 'Estudante', partnerAvatarUrl: getAvatarFallback('Estudante'), duration: 0 };
     
     if (pendingAction === 'exit') navigate('/dashboard');
     else triggerSearchNextPair();
@@ -663,6 +721,7 @@ const Room: React.FC = memo(() => {
 
   const handleRatingClose = useCallback(() => {
     setIsRatingOpen(false);
+    completedSessionRef.current = { roomId: null, partnerId: null, partnerName: 'Estudante', partnerAvatarUrl: getAvatarFallback('Estudante'), duration: 0 };
     if (pendingAction === 'exit') navigate('/dashboard');
     else triggerSearchNextPair();
   }, [pendingAction, navigate, triggerSearchNextPair]);
@@ -754,45 +813,6 @@ const Room: React.FC = memo(() => {
           <div className="flex items-center gap-3">
             <button type="button" onClick={() => {}} className="px-3 py-1 bg-[#1C1917] text-[#FAF9F6] rounded-lg text-[10px] font-black uppercase">Usar Apenas Áudio</button>
             <button type="button" onClick={() => {}} className="underline uppercase tracking-wider text-[10px] text-amber-900">Tentar Novamente</button>
-          </div>
-        </div>
-      )}
-
-      {partnerDisconnected && (
-        <div className="fixed inset-0 bg-[#1C1917]/80 backdrop-blur-md z-[120] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-8 max-w-md w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-6 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-amber-50 border-2 border-amber-200 text-amber-600 flex items-center justify-center mx-auto shadow-sm">
-              <svg className="w-8 h-8 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3" />
-              </svg>
-            </div>
-            <div className="flex flex-col gap-2">
-              <span className="text-[10px] font-black uppercase tracking-widest text-[#FAF9F6] bg-[#1C1917] px-2.5 py-0.5 rounded w-fit mx-auto">
-                PARCEIRO DESCONECTADO
-              </span>
-              <h3 className="text-lg font-black uppercase text-[#1C1917]">
-                Seu par saiu da chamada
-              </h3>
-              <p className="text-xs text-[#57534E] font-medium leading-relaxed">
-                A conexão foi encerrada porque o outro participante fechou a aba ou perdeu a conexão. Deseja procurar um novo par ou retornar ao painel?
-              </p>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => navigate('/dashboard')}
-                className="flex-1 py-3 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] text-xs font-black uppercase rounded-xl hover:bg-[#F5F5F4] transition-all"
-              >
-                Voltar ao Painel
-              </button>
-              <button
-                type="button"
-                onClick={triggerSearchNextPair}
-                className="flex-1 py-3 bg-[#1C1917] text-[#FAF9F6] text-xs font-black uppercase rounded-xl border-2 border-[#1C1917] hover:bg-[#292524] transition-all shadow-sm"
-              >
-                Procurar Novo Par
-              </button>
-            </div>
           </div>
         </div>
       )}
@@ -960,12 +980,14 @@ const Room: React.FC = memo(() => {
 
           <ReportModal isOpen={isReportOpen} onClose={() => setIsReportOpen(false)} onConfirm={handleConfirmReport} />
           
-          <RatingModal 
-            isOpen={isRatingOpen} 
-            onClose={handleRatingClose} 
-            onSubmit={handleRatingSubmit} 
-            partnerName={isSearchingNextPair ? "" : partnerName} 
-          />
+          {isRatingOpen && (
+            <RatingModal 
+              isOpen={isRatingOpen} 
+              onClose={handleRatingClose} 
+              onSubmit={handleRatingSubmit} 
+              partnerName={completedSessionRef.current.partnerName} 
+            />
+          )}
 
           {isConfirmExitOpen && (
             <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-[110] flex items-center justify-center p-4">

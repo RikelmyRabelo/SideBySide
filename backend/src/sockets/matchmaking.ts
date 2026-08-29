@@ -29,6 +29,7 @@ const webrtcIceSchema = z.object({ roomId: z.string(), candidate: z.any() });
 const cameraStatusSchema = z.object({ roomId: z.string(), camActive: z.boolean() });
 const chatSchema = z.object({ roomId: z.string(), text: z.string().min(1) });
 const directMessageSchema = z.object({ recipientId: z.string(), text: z.string().min(1) });
+const leaveRoomSchema = z.object({ roomId: z.string().optional() }).optional();
 
 const safeParseEvent = <T>(schema: z.ZodType<T>, data: unknown, callback: (parsedData: T) => void) => {
   const result = schema.safeParse(data);
@@ -166,18 +167,21 @@ export const setupMatchmaking = (io: Server) => {
       }
     });
 
-    const handlePartnerLeave = () => {
-      const roomId = socketRoomMap.get(socket.id);
-      if (roomId) {
-        socket.to(roomId).emit('partner_left');
-        const room = activeRooms.get(roomId);
-        if (room) {
-          room.delete(socket.id);
-          if (room.size === 0) activeRooms.delete(roomId);
+    const handlePartnerLeave = (data?: unknown) => {
+      safeParseEvent(leaveRoomSchema, data, (parsedData) => {
+        const targetRoomId = parsedData?.roomId || socketRoomMap.get(socket.id);
+        
+        if (targetRoomId) {
+          socket.to(targetRoomId).emit('partner_left');
+          const room = activeRooms.get(targetRoomId);
+          if (room) {
+            room.delete(socket.id);
+            if (room.size === 0) activeRooms.delete(targetRoomId);
+          }
+          socket.leave(targetRoomId);
         }
         socketRoomMap.delete(socket.id);
-        socket.leave(roomId);
-      }
+      });
     };
 
     socket.on('leave_room', handlePartnerLeave);
