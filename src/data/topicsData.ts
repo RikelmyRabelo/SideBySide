@@ -159,3 +159,34 @@ export const TOPICS_CATALOG: Record<string, TopicItem> = {
     ],
   },
 };
+
+export const INTERESTS_LIBRARY = [
+  { 
+    category: 'Tecnologia & Inovação', 
+    items: ['Tecnologia', 'Programação', 'Inteligência Artificial', 'Desenvolvimento Web', 'Cybersecurity', 'Cloud Computing', 'Banco de Dados', 'DevOps', 'Mobile & Apps'] 
+  },
+  { 
+    category: 'Carreira & Negócios', 
+    items: ['Carreira & Negócios', 'Startups', 'Empreendedorismo', 'Marketing Digital', 'Finanças & Investimentos', 'Gestão de Projetos'] 
+  },
+  { 
+    category: 'Cultura & Entretenimento', 
+    items: ['Cinema & Séries', 'Música', 'Leitura & Literatura', 'Jogos & eSports', 'Arte & Design', 'Fotografia', 'Animes & Mangás', 'Pop Culture'] 
+  },
+  { 
+    category: 'Estilo de Vida & Hobbies', 
+    items: ['Viagens', 'Esportes', 'Culinária', 'Saúde & Fitness', 'Gastronomia', 'Idiomas', 'Automobilismo', 'Espiritualidade', 'Jogos de Mesa e Tabuleiro'] 
+  },
+  { 
+    category: 'Sociedade & Atualidades', 
+    items: ['Economia', 'Meio Ambiente', 'Psicologia', 'História', 'Filosofia', 'Moda', 'Ciência & Espaço', 'Política & Direito'] 
+  },
+];
+
+export const CEFR_LEVELS_INFO = [
+  { code: 'A1', label: 'Iniciante', desc: 'Compreende frases simples e expressões cotidianas.' },
+  { code: 'A2', label: 'Básico', desc: 'Comunica-se em tarefas rotineiras e diretas.' },
+  { code: 'B1', label: 'Intermediário', desc: 'Mantém conversas sobre temas familiares de interesse.' },
+  { code: 'B2', label: 'Intermediário Avançado', desc: 'Fala com fluência e espontaneidade sem esforço.' },
+  { code: 'C1', label: 'Avançado', desc: 'Expressa-se de forma fluida, natural e estruturada.' },
+];

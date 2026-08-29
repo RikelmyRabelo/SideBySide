@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
+import { INTERESTS_LIBRARY, CEFR_LEVELS_INFO } from '../data/topicsData';
 
 export const Profile: React.FC = () => {
   const navigate = useNavigate();
@@ -146,13 +147,6 @@ export const Profile: React.FC = () => {
 
   const [receivedFeedback, setReceivedFeedback] = useState<any[]>([]);
 
-  const topicsLibrary = [
-    { category: 'Tecnologia & Carreira', items: ['Tecnologia', 'Carreira & Negócios', 'Inteligência Artificial', 'Startups', 'Programação', 'Marketing Digital'] },
-    { category: 'Cultura & Entretenimento', items: ['Cinema & Séries', 'Música', 'Leitura', 'Jogos & eSports', 'Arte & Design', 'Fotografia'] },
-    { category: 'Estilo de Vida & Hobbies', items: ['Viagens', 'Esportes', 'Culinária', 'Saúde & Fitness', 'Gastronomia', 'Idiomas'] },
-    { category: 'Sociedade & Atualidades', items: ['Economia', 'Meio Ambiente', 'Psicologia', 'História', 'Filosofia', 'Moda'] },
-  ];
-
   const toggleInterest = (interest: string) => {
     if (selectedInterests.includes(interest)) {
       setSelectedInterests(selectedInterests.filter((i) => i !== interest));
@@ -217,14 +211,6 @@ export const Profile: React.FC = () => {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
-
-  const cefrLevelsInfo = [
-    { code: 'A1', label: 'Iniciante', desc: 'Compreende frases simples do dia a dia.' },
-    { code: 'A2', label: 'Básico', desc: 'Comunica-se em tarefas rotineiras.' },
-    { code: 'B1', label: 'Intermediário', desc: 'Mantém conversas sobre temas familiares.' },
-    { code: 'B2', label: 'Intermediário Avançado', desc: 'Fala com fluência e espontaneidade.' },
-    { code: 'C1', label: 'Avançado', desc: 'Expressa-se de forma fluida e bem estruturada.' },
-  ];
 
   const goalProgressPercentage = Math.min(100, Math.round((weeklyGoalCompleted / weeklyGoalTarget) * 100));
 
@@ -684,7 +670,7 @@ export const Profile: React.FC = () => {
               </h2>
 
               <div className="grid grid-cols-1 gap-3">
-                {cefrLevelsInfo.map((item) => {
+                {CEFR_LEVELS_INFO.map((item) => {
                   const isSelected = cefrLevel === item.code;
                   return (
                     <button
@@ -1172,7 +1158,7 @@ export const Profile: React.FC = () => {
             />
 
             <div className="flex flex-col gap-6">
-              {topicsLibrary.map((cat) => {
+              {INTERESTS_LIBRARY.map((cat) => {
                 const filteredItems = cat.items.filter((item) =>
                   item.toLowerCase().includes(topicSearch.toLowerCase())
                 );
