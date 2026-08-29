@@ -1,5 +1,9 @@
 import { Server, Socket } from 'socket.io';
 import { prisma } from '../lib/prisma';
+import jwt from 'jsonwebtoken';
+import cookie from 'cookie';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'seu-segredo-super-seguro';
 
 const queues: Record<string, Socket[]> = {};
 const activeRooms: Map<string, Set<string>> = new Map();
@@ -7,6 +11,27 @@ const socketRoomMap: Map<string, string> = new Map();
 const socketTopicMap: Map<string, string> = new Map();
 
 export const setupMatchmaking = (io: Server) => {
+  io.use((socket, next) => {
+    try {
+      const cookies = cookie.parse(socket.request.headers.cookie || '');
+      const token = cookies.token;
+
+      if (!token) {
+        return next(new Error('Autenticação não encontrada no handshake.'));
+      }
+
+      jwt.verify(token, JWT_SECRET, (err, decoded) => {
+        if (err) {
+          return next(new Error('Sessão JWT inválida ou expirada.'));
+        }
+        (socket as any).user = decoded;
+        next();
+      });
+    } catch (error) {
+      next(new Error('Erro interno de autenticação WebSocket.'));
+    }
+  });
+
   io.on('connection', (socket: Socket) => {
     const user = (socket as any).user;
     console.log(`🔌 Novo usuário conectado: ${user?.email || socket.id}`);
@@ -120,7 +145,6 @@ export const setupMatchmaking = (io: Server) => {
       socket.to(data.roomId).emit('chat_message', { text: data.text, id: Date.now() });
     });
 
-    // Roteamento de mensagens de chat direto entre amigos
     socket.on('direct_message', (data: { recipientId: string; text: string }) => {
       io.to(`user_${data.recipientId}`).emit('direct_message', {
         senderId: user?.id,
