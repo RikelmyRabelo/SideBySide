@@ -5,7 +5,7 @@ import { INTERESTS_LIBRARY, CEFR_LEVELS_INFO } from '../data/topicsData';
 
 export const Profile: React.FC = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'general' | 'social' | 'stats' | 'security'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'stats' | 'security'>('general');
 
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
@@ -63,6 +63,12 @@ export const Profile: React.FC = () => {
 
   const [showTopicsModal, setShowTopicsModal] = useState(false);
   const [topicSearch, setTopicSearch] = useState('');
+  
+  // Estado para o Modal de aviso de limite de tópicos
+  const [showMaxTopicsModal, setShowMaxTopicsModal] = useState(false);
+  
+  // Estado para o Modal de sucesso de exclusão de conta
+  const [showDeleteSuccessModal, setShowDeleteSuccessModal] = useState(false);
 
   const [name, setName] = useState('');
   const [tag, setTag] = useState('');
@@ -109,10 +115,6 @@ export const Profile: React.FC = () => {
   const [bio, setBio] = useState('');
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
 
-  const [notifyEmail, setNotifyEmail] = useState(true);
-  const [notifyPush, setNotifyPush] = useState(true);
-  const [notifyAdvance, setNotifyAdvance] = useState('15');
-
   // Metas, Reputação e Evolução
   const [weeklyGoalTarget, setWeeklyGoalTarget] = useState(5);
   const [weeklyGoalCompleted, setWeeklyGoalCompleted] = useState(0);
@@ -139,9 +141,6 @@ export const Profile: React.FC = () => {
           if (data.pronouns) setPronouns(data.pronouns);
           if (data.interests) setSelectedInterests(data.interests);
           if (data.showAgeInProfile !== undefined) setShowAgeInProfile(data.showAgeInProfile);
-          if (data.notifyEmail !== undefined) setNotifyEmail(data.notifyEmail);
-          if (data.notifyPush !== undefined) setNotifyPush(data.notifyPush);
-          if (data.notifyAdvance !== undefined) setNotifyAdvance(data.notifyAdvance);
           
           if (data.feedbacks) setReceivedFeedback(data.feedbacks);
           if (data.reputationScore) setReputationScore(data.reputationScore);
@@ -165,7 +164,7 @@ export const Profile: React.FC = () => {
       setSelectedInterests(selectedInterests.filter((i) => i !== interest));
     } else {
       if (selectedInterests.length >= 5) {
-        alert('Você só pode selecionar até 5 tópicos de interesse.');
+        setShowMaxTopicsModal(true);
         return;
       }
       setSelectedInterests([...selectedInterests, interest]);
@@ -193,22 +192,6 @@ export const Profile: React.FC = () => {
       calculatedAge--;
     }
     return calculatedAge;
-  };
-
-  const timeSlots = ['Manhã (08h - 12h)', 'Tarde (12h - 18h)', 'Noite (18h - 22h)'];
-  const weekDays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
-  const [selectedAvailability, setSelectedAvailability] = useState<string[]>([
-    'Seg-Noite (18h - 22h)',
-    'Qua-Noite (18h - 22h)',
-    'Sex-Noite (18h - 22h)',
-  ]);
-
-  const toggleAvailabilitySlot = (slotKey: string) => {
-    if (selectedAvailability.includes(slotKey)) {
-      setSelectedAvailability(selectedAvailability.filter((item) => item !== slotKey));
-    } else {
-      setSelectedAvailability([...selectedAvailability, slotKey]);
-    }
   };
 
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -248,10 +231,7 @@ export const Profile: React.FC = () => {
           cefrLevel,
           bio,
           interests: selectedInterests,
-          avatar: avatarUrl,
-          notifyEmail,
-          notifyPush,
-          notifyAdvance
+          avatar: avatarUrl
         })
       });
       if (response.ok) {
@@ -377,8 +357,8 @@ export const Profile: React.FC = () => {
       });
 
       if (response.ok) {
-        alert('Sua conta e dados foram removidos permanentemente.');
-        navigate('/');
+        setShowDeleteModal(false);
+        setShowDeleteSuccessModal(true);
       } else {
         const data = await response.json();
         alert(data.error || 'Erro ao excluir a conta.');
@@ -518,7 +498,8 @@ export const Profile: React.FC = () => {
                 Informações Pessoais
               </h2>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              {/* Grid corrigido com items-end para alinhar o campo de Gênero perfeitamente com a Data de Nascimento */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 items-end">
                 <div className="flex flex-col gap-2">
                   <label className="text-xs font-black text-[#1C1917] uppercase tracking-wider">Nome Completo</label>
                   <input
@@ -871,6 +852,54 @@ export const Profile: React.FC = () => {
           </div>
         )}
       </main>
+
+      {/* Modal de Exceder Máximo de Tópicos (Aviso 1) - Z-index elevado para sobrepor os demais */}
+      {showMaxTopicsModal && (
+        <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-[150] flex items-center justify-center p-4">
+          <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 max-w-sm w-full flex flex-col gap-5 shadow-[8px_8px_0px_0px_#1C1917] animate-in fade-in zoom-in-95 duration-200 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-amber-50 border-2 border-amber-300 text-amber-700 flex items-center justify-center mx-auto text-lg font-black">
+              ⚠️
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <h3 className="text-base font-black uppercase text-[#1C1917]">Limite Atingido</h3>
+              <p className="text-xs text-[#57534E] font-medium leading-relaxed">
+                Você só pode selecionar até 5 tópicos de interesse. Remova um tópico existente para adicionar um novo.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowMaxTopicsModal(false)}
+              className="w-full py-3 bg-[#1C1917] text-[#FAF9F6] text-xs font-black uppercase rounded-xl border-2 border-[#1C1917] hover:bg-[#292524] transition-all shadow-sm"
+            >
+              Entendi
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Sucesso na Exclusão da Conta (Aviso 2) - Z-index elevado para sobrepor os demais */}
+      {showDeleteSuccessModal && (
+        <div className="fixed inset-0 bg-[#1C1917]/80 backdrop-blur-md z-[150] flex items-center justify-center p-4">
+          <div className="bg-[#FFFFFF] border-2 border-emerald-600 rounded-3xl p-6 sm:p-8 max-w-sm w-full flex flex-col gap-5 shadow-[8px_8px_0px_0px_#059669] animate-in fade-in zoom-in-95 duration-200 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 border-2 border-emerald-600 text-emerald-600 flex items-center justify-center mx-auto text-lg font-black">
+              ✓
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <h3 className="text-base font-black uppercase text-emerald-800">Conta Excluída com Sucesso</h3>
+              <p className="text-xs text-[#57534E] font-medium leading-relaxed">
+                Sua conta e todos os dados associados foram removidos permanentemente do sistema. Esperamos ver você novamente em breve!
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              className="w-full py-3 bg-emerald-600 text-white text-xs font-black uppercase rounded-xl border-2 border-emerald-600 hover:bg-emerald-700 transition-all shadow-sm"
+            >
+              Voltar ao Início
+            </button>
+          </div>
+        </div>
+      )}
 
       {showDeleteModal && (
         <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
