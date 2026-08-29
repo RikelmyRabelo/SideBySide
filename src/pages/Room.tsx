@@ -4,6 +4,7 @@ import { io, Socket } from 'socket.io-client';
 import { ReportModal } from '../components/room/ReportModal';
 import { RatingModal } from '../components/room/RatingModal';
 import { TOPICS_CATALOG, FREE_TALK_TOPIC, TopicItem } from '../data/topicsData';
+import { useToast } from '../components/ui/ToastContext';
 
 const formatSessionTimer = (seconds: number) => {
   const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -27,6 +28,7 @@ const getAvatarFallback = (name: string) => {
 export const Room: React.FC = memo(() => {
   const navigate = useNavigate();
   const { topicId } = useParams<{ topicId?: string }>();
+  const { showToast } = useToast();
   
   const [currentTopic, setCurrentTopic] = useState<TopicItem>(() => {
     if (topicId && TOPICS_CATALOG[topicId]) return TOPICS_CATALOG[topicId];
@@ -502,7 +504,7 @@ export const Room: React.FC = memo(() => {
     } catch (err) {}
     setPendingAction('nextPair');
     setIsRatingOpen(true);
-  }, [partnerId, sessionElapsedSeconds, chatMessages.length, roomId]);
+  }, [partnerId, sessionElapsedSeconds, chatMessages.length, roomId, showToast]);
 
   const handleEndCall = useCallback(() => {
     if (isSearchingNextPair) {
