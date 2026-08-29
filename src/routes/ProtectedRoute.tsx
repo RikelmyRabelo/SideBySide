@@ -12,40 +12,45 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
+
     const verifySessionAndSyncUser = async () => {
       try {
-        // Busca o usuário atualizado do backend usando os cookies seguros
         const response = await fetch('http://localhost:3000/api/user/me', {
           credentials: 'include', 
         });
 
         if (response.ok) {
           const userData = await response.json();
+          const currentLocalUser = localStorage.getItem('user');
+          const newLocalUser = JSON.stringify(userData);
+
+          // Só atualiza o localStorage se houver mudanças reais para evitar loops de re-renderização
+          if (currentLocalUser !== newLocalUser) {
+            localStorage.setItem('user', newLocalUser);
+          }
           
-          // A MÁGICA ACONTECE AQUI: Atualiza o cache local com os dados mais recentes!
-          // Isso garante que o Dashboard, Header e Profile leiam a foto e o nome corretos.
-          localStorage.setItem('user', JSON.stringify(userData));
-          
-          setIsAuthenticated(true);
+          if (isMounted) setIsAuthenticated(true);
         } else {
-          // Se a sessão for inválida/expirada, limpa os resquícios locais
           localStorage.removeItem('token');
           localStorage.removeItem('user');
-          setIsAuthenticated(false);
+          if (isMounted) setIsAuthenticated(false);
         }
       } catch (error) {
         console.error('Erro ao verificar sessão:', error);
-        // Em caso de instabilidade de rede rápida, tenta confiar no token local como fallback
-        setIsAuthenticated(!!localStorage.getItem('token'));
+        if (isMounted) setIsAuthenticated(!!localStorage.getItem('token'));
       } finally {
-        setIsVerifying(false);
+        if (isMounted) setIsVerifying(false);
       }
     };
 
     verifySessionAndSyncUser();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  // Tela de loading estilizada enquanto sincroniza as informações
   if (isVerifying) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-[#FAF9F6] text-[#1C1917]">
@@ -57,11 +62,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     );
   }
 
-  // Se não estiver logado de fato, bloqueia o acesso e joga pro login
   if (!isAuthenticated) {
     return <Navigate to={redirectPath} replace />;
   }
 
-  // Libera a renderização da rota protegida (Dashboard, Profile, Room, etc)
   return <Outlet />;
 };

@@ -25,7 +25,7 @@ const getAvatarFallback = (name: string) => {
   return `https://ui-avatars.com/api/?name=${initial}&background=292524&color=FAF9F6&bold=true`;
 };
 
-export const Room: React.FC = memo(() => {
+const Room: React.FC = memo(() => {
   const navigate = useNavigate();
   const { topicId } = useParams<{ topicId?: string }>();
   const { showToast } = useToast();
@@ -930,3 +930,4 @@ export const Room: React.FC = memo(() => {
 });
 
 Room.displayName = 'Room';
+export default Room;
