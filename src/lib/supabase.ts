@@ -1,30 +1,22 @@
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error('As variáveis de ambiente do Supabase estão ausentes.');
-}
-
-export const supabase = createClient(supabaseUrl, supabaseKey);
-
 export async function uploadAvatar(file: File, userId: string): Promise<string> {
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${userId}-${Math.random()}.${fileExt}`;
-  const filePath = `public/${fileName}`;
+  const formData = new FormData();
+  formData.append('avatar', file);
+  formData.append('userId', userId);
 
-  const { error: uploadError } = await supabase.storage
-    .from('avatars')
-    .upload(filePath, file, { upsert: true });
+  const response = await fetch('http://localhost:3000/api/user/avatar', {
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+  });
 
-  if (uploadError) {
-    throw new Error(`Erro ao fazer upload da imagem: ${uploadError.message}`);
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Erro ao processar a imagem no servidor.');
   }
 
-  const { data } = supabase.storage
-    .from('avatars')
-    .getPublicUrl(filePath);
-
+  const data = await response.json();
+  
+  // O backend agora é responsável por lidar com o Supabase Storage ou disco local
+  // e deve retornar a URL final da imagem nesta propriedade.
   return data.publicUrl;
 }
