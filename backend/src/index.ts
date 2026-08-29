@@ -9,11 +9,11 @@ import { z, ZodError } from 'zod';
 import rateLimit from 'express-rate-limit';
 import winston from 'winston';
 import cookieParser from 'cookie-parser';
-import { prisma } from './lib/prisma';
+import { prisma } from './lib/prisma.js';
 import http from 'http';
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import cookie from 'cookie';
-import { setupMatchmaking } from './sockets/matchmaking';
+import { setupMatchmaking } from './sockets/matchmaking.js';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { createClient } from 'redis';
 
