@@ -153,4 +153,4 @@ export const setupMatchmaking = (io: Server) => {
       });
     });
   });
-};
+}

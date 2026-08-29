@@ -11,7 +11,7 @@ import winston from 'winston';
 import cookieParser from 'cookie-parser';
 import { prisma } from './lib/prisma';
 import http from 'http';
-import { Server as SocketIOServer } from 'socket.io';
+import { Server as SocketIOServer, Socket } from 'socket.io';
 import cookie from 'cookie';
 import { setupMatchmaking } from './sockets/matchmaking';
 import { createAdapter } from '@socket.io/redis-adapter';
@@ -145,7 +145,7 @@ const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
   });
 };
 
-io.use((socket, next) => {
+io.use((socket: Socket, next: (err?: Error) => void) => {
   try {
     const cookies = cookie.parse(socket.request.headers.cookie || '');
     const token = cookies.token;
@@ -436,7 +436,7 @@ app.post('/api/room/rate', authenticateToken, async (req: Request, res: Response
       createdAt: new Date().toISOString() 
     };
 
-    const previousHistory = Array.isArray(user.sessionsHistory) ? user.sessionsHistory.filter((entry): entry is any => entry !== null && entry !== undefined) : [];
+    const previousHistory = Array.isArray(user.sessionsHistory) ? user.sessionsHistory.filter((entry: any) => entry !== null && entry !== undefined) : [];
     const updatedUser = await prisma.user.update({ 
       where: { id: userId }, 
       data: { 
@@ -847,7 +847,7 @@ app.get('/api/matches/candidates', authenticateToken, async (req: Request, res: 
     if (!me) return res.status(404).json({ error: 'Usuário não encontrado.' });
     
     const allUsers = await prisma.user.findMany({ where: { id: { not: userId }, isBanned: false }, take: 1 });
-    const candidates = allUsers.map(candidate => ({
+    const candidates = allUsers.map((candidate: any) => ({
       id: candidate.id, name: candidate.name, level: candidate.level, avatar: candidate.avatar,
       interests: candidate.interests || [], sharedInterests: [], score: 85, reputation: candidate.reputation,
       totalSessions: candidate.totalSessions || 0, totalMinutes: candidate.totalMinutes || 0, history: null, flagStatus: candidate.flagStatus
