@@ -14,6 +14,8 @@ import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import cookie from 'cookie';
 import { setupMatchmaking } from './sockets/matchmaking';
+import { createAdapter } from '@socket.io/redis-adapter';
+import { createClient } from 'redis';
 
 const app = express();
 
@@ -34,8 +36,20 @@ const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'seu-segredo-super-seguro';
 
 const server = http.createServer(app);
+
 const io = new SocketIOServer(server, {
   cors: corsOptions
+});
+
+const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+const pubClient = createClient({ url: redisUrl });
+const subClient = pubClient.duplicate();
+
+Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
+  io.adapter(createAdapter(pubClient, subClient));
+  console.log(`📡 Redis Adapter conectado com sucesso em ${redisUrl}`);
+}).catch(err => {
+  console.error('❌ Erro ao conectar o Redis Adapter:', err);
 });
 
 const cookieOptions = {
@@ -136,15 +150,15 @@ io.use((socket, next) => {
     const cookies = cookie.parse(socket.request.headers.cookie || '');
     const token = cookies.token;
 
-    if (!token) return next(new Error('Autenticação não encontrada'));
+    if (!token) return next(new Error('Autenticação não encontrada no handshake.'));
 
     jwt.verify(token, JWT_SECRET, (err, decoded) => {
-      if (err) return next(new Error('Sessão inválida'));
+      if (err) return next(new Error('Sessão JWT inválida ou expirada.'));
       (socket as any).user = decoded;
       next();
     });
   } catch (error) {
-    next(new Error('Erro interno de autenticação'));
+    next(new Error('Erro interno de autenticação WebSocket.'));
   }
 });
 
