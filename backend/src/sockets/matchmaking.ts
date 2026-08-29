@@ -11,17 +11,19 @@ const activeRooms: Map<string, Set<string>> = new Map();
 const socketRoomMap: Map<string, string> = new Map();
 const socketTopicMap: Map<string, string> = new Map();
 
-// Estrutura para controle de Rate Limiting por Socket (Janela Deslizante)
 interface RateLimitTracker {
   count: number;
   lastReset: number;
 }
 const socketRateLimits = new Map<string, RateLimitTracker>();
 
-const RATE_LIMIT_WINDOW_MS = 1000; // Janela de 1 segundo
-const MAX_EVENTS_PER_WINDOW = 10;   // Máximo de 10 mensagens/eventos por segundo por cliente
+const RATE_LIMIT_WINDOW_MS = 1000;
+const MAX_EVENTS_PER_WINDOW = 10;
 
-const findMatchSchema = z.object({ topicId: z.string().optional() }).optional();
+const findMatchSchema = z.object({ 
+  topicId: z.string().nullable().optional() 
+}).optional();
+
 const webrtcSdpSchema = z.object({ roomId: z.string(), sdp: z.any() });
 const webrtcIceSchema = z.object({ roomId: z.string(), candidate: z.any() });
 const chatSchema = z.object({ roomId: z.string(), text: z.string().min(1) });
@@ -62,10 +64,8 @@ export const setupMatchmaking = (io: Server) => {
     const user = (socket as any).user;
     console.log(`🔌 Novo usuário conectado: ${user?.email || socket.id}`);
 
-    // Inicializa contador de rate limit para este socket
     socketRateLimits.set(socket.id, { count: 0, lastReset: Date.now() });
 
-    // Middleware de pacote para aplicar Rate Limiting por evento
     socket.use(([event, ...args], next) => {
       const tracker = socketRateLimits.get(socket.id);
       const now = Date.now();
@@ -77,7 +77,6 @@ export const setupMatchmaking = (io: Server) => {
         } else {
           tracker.count += 1;
           if (tracker.count > MAX_EVENTS_PER_WINDOW) {
-            console.warn(`⚠️ Rate limit excedido para o socket ${socket.id} no evento ${event}`);
             socket.emit('rate_limit_exceeded', {
               message: 'Você está enviando requisições rápido demais. Aguarde um instante.'
             });
@@ -94,7 +93,7 @@ export const setupMatchmaking = (io: Server) => {
 
     socket.on('find_match', (data: unknown) => {
       safeParseEvent(findMatchSchema, data, async (parsedData) => {
-        const topicId = parsedData?.topicId || 'general';
+        const topicId = (parsedData?.topicId && parsedData.topicId.trim() !== '') ? parsedData.topicId : 'general';
         
         if (!queues[topicId]) queues[topicId] = [];
         
@@ -226,4 +225,4 @@ export const setupMatchmaking = (io: Server) => {
       });
     });
   });
-};
+};  

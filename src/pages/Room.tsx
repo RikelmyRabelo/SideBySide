@@ -106,6 +106,7 @@ const Room: React.FC = memo(() => {
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const pendingCandidates = useRef<RTCIceCandidateInit[]>([]);
+  const pendingOfferRef = useRef<RTCSessionDescriptionInit | null>(null);
   const [mediaError, setMediaError] = useState<string | null>(null);
 
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
@@ -175,6 +176,7 @@ const Room: React.FC = memo(() => {
     setLocalStream(null);
     setRemoteStream(null);
     pendingCandidates.current = [];
+    pendingOfferRef.current = null;
 
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close();
@@ -370,6 +372,18 @@ const Room: React.FC = memo(() => {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
         socket.emit('webrtc_offer', { roomId: currentRoomId, sdp: pc.localDescription });
+      } else if (pendingOfferRef.current) {
+        await pc.setRemoteDescription(new RTCSessionDescription(pendingOfferRef.current));
+        pendingOfferRef.current = null;
+        
+        while (pendingCandidates.current.length > 0) {
+          const candidate = pendingCandidates.current.shift();
+          if (candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        }
+
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socket.emit('webrtc_answer', { roomId: currentRoomId, sdp: pc.localDescription });
       }
 
     } catch (err: any) {
@@ -408,7 +422,11 @@ const Room: React.FC = memo(() => {
 
     newSocket.on('webrtc_offer', async (data: { sdp: RTCSessionDescriptionInit }) => {
       const pc = peerConnectionRef.current;
-      if (!pc) return;
+      if (!pc) {
+        pendingOfferRef.current = data.sdp;
+        return;
+      }
+      
       await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
       
       while (pendingCandidates.current.length > 0) {
