@@ -559,7 +559,7 @@ app.get('/api/friends/requests', authenticateToken, async (req: Request, res: Re
 app.post('/api/friends/accept', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user.id;
-    const { requestId, senderId } = req.body;
+    const { requestId, senderId, action } = req.body;
     
     let targetRequesterId = senderId;
 
@@ -568,6 +568,25 @@ app.post('/api/friends/accept', authenticateToken, async (req: Request, res: Res
       if (rel) {
         targetRequesterId = targetRequesterId || rel.userId;
       }
+    }
+
+    if (action === 'reject') {
+      if (requestId) {
+        await prisma.friendRelation.deleteMany({ where: { id: String(requestId) } });
+      } else if (targetRequesterId) {
+        await prisma.friendRelation.deleteMany({
+          where: {
+            OR: [
+              { userId: String(targetRequesterId), friendId: userId },
+              { userId: userId, friendId: String(targetRequesterId) }
+            ]
+          }
+        });
+      }
+      return res.status(200).json({ message: 'Solicitação de amizade recusada e removida com sucesso.' });
+    }
+
+    if (requestId) {
       await prisma.friendRelation.updateMany({
         where: { id: String(requestId) },
         data: { status: 'accepted' }
