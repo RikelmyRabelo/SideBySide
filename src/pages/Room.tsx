@@ -59,6 +59,8 @@ const Room: React.FC = memo(() => {
   const [userAudioLevel, setUserAudioLevel] = useState(0);
   const [partnerAudioLevel, setPartnerAudioLevel] = useState(0);
 
+  const [remoteCamActiveState, setRemoteCamActiveState] = useState(true);
+
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameAudioRef = useRef<number | null>(null);
@@ -71,6 +73,35 @@ const Room: React.FC = memo(() => {
   const [partnerName, setPartnerName] = useState<string>('Estudante');
   const [partnerAvatarUrl, setPartnerAvatarUrl] = useState<string>(getAvatarFallback('Estudante'));
   const [roomId, setRoomId] = useState<string | null>(null);
+
+  const completedSessionRef = useRef<{ roomId: string | null; partnerId: string | null; partnerName: string; partnerAvatarUrl: string; duration: number }>({
+    roomId: null,
+    partnerId: null,
+    partnerName: 'Estudante',
+    partnerAvatarUrl: getAvatarFallback('Estudante'),
+    duration: 0,
+  });
+
+  const hasRatedCurrentSessionRef = useRef<boolean>(false);
+
+  // Referência atualizada em tempo real para evitar Stale Closures no Socket
+  const sessionStateRef = useRef({
+    isSearching: true,
+    partnerId: null as string | null,
+    partnerName: 'Estudante',
+    partnerAvatarUrl: getAvatarFallback('Estudante'),
+    duration: 0
+  });
+
+  useEffect(() => {
+    sessionStateRef.current = {
+      isSearching: isSearchingNextPair,
+      partnerId,
+      partnerName,
+      partnerAvatarUrl,
+      duration: sessionElapsedSeconds
+    };
+  }, [isSearchingNextPair, partnerId, partnerName, partnerAvatarUrl, sessionElapsedSeconds]);
 
   const roomIdRef = useRef<string | null>(null);
   const micActiveRef = useRef(micActive);
@@ -106,7 +137,11 @@ const Room: React.FC = memo(() => {
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const pendingCandidates = useRef<RTCIceCandidateInit[]>([]);
+  const pendingOfferRef = useRef<RTCSessionDescriptionInit | null>(null);
   const [mediaError, setMediaError] = useState<string | null>(null);
+
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
 
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
@@ -172,9 +207,13 @@ const Room: React.FC = memo(() => {
       streamRef.current = null;
     }
 
+    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+    if (localVideoRef.current) localVideoRef.current.srcObject = null;
+
     setLocalStream(null);
     setRemoteStream(null);
     pendingCandidates.current = [];
+    pendingOfferRef.current = null;
 
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close();
@@ -277,6 +316,7 @@ const Room: React.FC = memo(() => {
   }, [isSearchingNextPair]);
 
   useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | undefined;
     if (connectionStatus === 'connected' && !partnerDisconnected && !isSearchingNextPair) {
       if (!sessionStartedAtRef.current) sessionStartedAtRef.current = Date.now();
       const timer = window.setInterval(() => {
@@ -329,10 +369,17 @@ const Room: React.FC = memo(() => {
 
       pc.ontrack = (event) => {
         if (event.streams && event.streams[0]) {
-          setRemoteStream(event.streams[0]);
+          const incomingStream = event.streams[0];
+          setRemoteStream(incomingStream);
           setConnectionStatus('connected');
 
-          const incomingStream = event.streams[0];
+          const videoTrack = incomingStream.getVideoTracks()[0];
+          if (videoTrack) {
+            setRemoteCamActiveState(!videoTrack.muted && videoTrack.enabled);
+            videoTrack.onmute = () => setRemoteCamActiveState(false);
+            videoTrack.onunmute = () => setRemoteCamActiveState(true);
+          }
+
           try {
             const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
             const remoteAudioCtx = new AudioCtx();
@@ -370,6 +417,18 @@ const Room: React.FC = memo(() => {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
         socket.emit('webrtc_offer', { roomId: currentRoomId, sdp: pc.localDescription });
+      } else if (pendingOfferRef.current) {
+        await pc.setRemoteDescription(new RTCSessionDescription(pendingOfferRef.current));
+        pendingOfferRef.current = null;
+        
+        while (pendingCandidates.current.length > 0) {
+          const candidate = pendingCandidates.current.shift();
+          if (candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        }
+
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socket.emit('webrtc_answer', { roomId: currentRoomId, sdp: pc.localDescription });
       }
 
     } catch (err: any) {
@@ -386,9 +445,9 @@ const Room: React.FC = memo(() => {
     });
 
     newSocket.on('match_found', async (data: { roomId: string; partnerId: string; partnerName?: string; partnerAvatar?: string; initiator: boolean }) => {
+      hasRatedCurrentSessionRef.current = false;
       setRoomId(data.roomId);
       roomIdRef.current = data.roomId;
-      
       setPartnerId(data.partnerId);
       
       const resolvedPartnerName = data.partnerName || 'Estudante';
@@ -402,20 +461,43 @@ const Room: React.FC = memo(() => {
     });
 
     newSocket.on('partner_left', () => {
-      setPartnerDisconnected(true);
+      const state = sessionStateRef.current;
+      
+      // Bloqueia a abertura do modal se o usuário atual já está na fila
+      if (state.isSearching || !roomIdRef.current || hasRatedCurrentSessionRef.current) return;
+      
+      hasRatedCurrentSessionRef.current = true;
+      setIsConfirmExitOpen(false); 
+
+      completedSessionRef.current = {
+        roomId: roomIdRef.current || roomId,
+        partnerId: state.partnerId,
+        partnerName: state.partnerName,
+        partnerAvatarUrl: state.partnerAvatarUrl,
+        duration: state.duration,
+      };
+
       stopMediaStream();
+      setPendingAction('nextPair');
+      showToast('O seu parceiro encerrou a chamada.', 'info');
+      setIsRatingOpen(true);
+    });
+
+    newSocket.on('camera_status', (data: { camActive: boolean }) => {
+      setRemoteCamActiveState(data.camActive);
     });
 
     newSocket.on('webrtc_offer', async (data: { sdp: RTCSessionDescriptionInit }) => {
       const pc = peerConnectionRef.current;
-      if (!pc) return;
+      if (!pc) {
+        pendingOfferRef.current = data.sdp;
+        return;
+      }
       await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-      
       while (pendingCandidates.current.length > 0) {
         const candidate = pendingCandidates.current.shift();
         if (candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
       }
-
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       newSocket.emit('webrtc_answer', { roomId: roomIdRef.current, sdp: pc.localDescription });
@@ -425,7 +507,6 @@ const Room: React.FC = memo(() => {
       const pc = peerConnectionRef.current;
       if (!pc) return;
       await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-      
       while (pendingCandidates.current.length > 0) {
         const candidate = pendingCandidates.current.shift();
         if (candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
@@ -434,13 +515,13 @@ const Room: React.FC = memo(() => {
 
     newSocket.on('webrtc_ice_candidate', async (data: { candidate: RTCIceCandidateInit }) => {
       const pc = peerConnectionRef.current;
-      if (!pc) return;
-      
-      if (pc.remoteDescription && pc.remoteDescription.type) {
-        await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-      } else {
+      if (!pc || !pc.remoteDescription || !pc.remoteDescription.type) {
         pendingCandidates.current.push(data.candidate);
+        return;
       }
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+      } catch (err) {}
     });
 
     newSocket.on('chat_message', (data: { text: string; id: number }) => {
@@ -451,7 +532,7 @@ const Room: React.FC = memo(() => {
       stopMediaStream();
       newSocket.disconnect();
     };
-  }, [topicId, initializeWebRTC, stopMediaStream]);
+  }, [topicId, initializeWebRTC, stopMediaStream, showToast]);
 
   const handleSendFriendRequest = useCallback(async () => {
     if (!partnerId || friendRequestSent) return;
@@ -480,10 +561,17 @@ const Room: React.FC = memo(() => {
   }, [micActive]);
 
   const toggleCamera = useCallback(() => {
+    const nextCamState = !camActive;
     if (streamRef.current) {
-      streamRef.current.getVideoTracks().forEach((track) => { track.enabled = !camActive; });
+      streamRef.current.getVideoTracks().forEach((track) => { 
+        track.enabled = nextCamState; 
+      });
     }
-    setCamActive(!camActive);
+    setCamActive(nextCamState);
+
+    if (socketRef.current && roomIdRef.current) {
+      socketRef.current.emit('camera_status', { roomId: roomIdRef.current, camActive: nextCamState });
+    }
   }, [camActive]);
 
   const handleConfirmReport = useCallback(async (reason: string) => {
@@ -502,32 +590,84 @@ const Room: React.FC = memo(() => {
         })
       });
     } catch (err) {}
-    setPendingAction('nextPair');
-    setIsRatingOpen(true);
-  }, [partnerId, sessionElapsedSeconds, chatMessages.length, roomId, showToast]);
+    
+    if (socketRef.current && roomIdRef.current) {
+      socketRef.current.emit('leave_room', { roomId: roomIdRef.current });
+      roomIdRef.current = null;
+    }
+
+    if (!hasRatedCurrentSessionRef.current) {
+      hasRatedCurrentSessionRef.current = true;
+      completedSessionRef.current = {
+        roomId,
+        partnerId,
+        partnerName,
+        partnerAvatarUrl,
+        duration: sessionElapsedSeconds,
+      };
+
+      setPendingAction('nextPair');
+      setIsRatingOpen(true);
+    }
+  }, [partnerId, sessionElapsedSeconds, chatMessages.length, roomId, partnerName, partnerAvatarUrl]);
 
   const handleEndCall = useCallback(() => {
     if (isSearchingNextPair) {
       if (socketRef.current) socketRef.current.emit('cancel_match');
       stopMediaStream();
       setPendingAction('exit');
-      setIsRatingOpen(true);
+      
+      completedSessionRef.current = { roomId: null, partnerId: null, partnerName: 'Estudante', partnerAvatarUrl: getAvatarFallback('Estudante'), duration: 0 };
+      navigate('/dashboard');
     } else {
+      // Abre o modal de confirmação primeiro. O evento de sair real ocorre em handleConfirmExit
       setIsConfirmExitOpen(true);
     }
-  }, [isSearchingNextPair, stopMediaStream]);
+  }, [isSearchingNextPair, stopMediaStream, navigate]);
 
   const handleConfirmExit = useCallback(() => {
+    // Desconecta a sala apenas agora, após o usuário confirmar que quer sair
+    if (socketRef.current && roomIdRef.current) {
+      socketRef.current.emit('leave_room', { roomId: roomIdRef.current });
+      roomIdRef.current = null;
+    }
+    
+    if (!hasRatedCurrentSessionRef.current) {
+      hasRatedCurrentSessionRef.current = true;
+      completedSessionRef.current = {
+        roomId,
+        partnerId,
+        partnerName,
+        partnerAvatarUrl,
+        duration: sessionElapsedSeconds,
+      };
+    }
+    
     stopMediaStream();
     setIsConfirmExitOpen(false);
     setPendingAction('exit');
     setIsRatingOpen(true);
-  }, [stopMediaStream]);
+  }, [roomId, partnerId, partnerName, partnerAvatarUrl, sessionElapsedSeconds, stopMediaStream]);
 
   const handleNextPair = useCallback(() => {
-    setPendingAction('nextPair');
-    setIsRatingOpen(true);
-  }, []);
+    if (socketRef.current && roomIdRef.current) {
+      socketRef.current.emit('leave_room', { roomId: roomIdRef.current });
+      roomIdRef.current = null;
+    }
+
+    if (!hasRatedCurrentSessionRef.current) {
+      hasRatedCurrentSessionRef.current = true;
+      completedSessionRef.current = {
+        roomId,
+        partnerId,
+        partnerName,
+        partnerAvatarUrl,
+        duration: sessionElapsedSeconds,
+      };
+      setPendingAction('nextPair');
+      setIsRatingOpen(true);
+    }
+  }, [roomId, partnerId, partnerName, partnerAvatarUrl, sessionElapsedSeconds]);
 
   const triggerSearchNextPair = useCallback(() => {
     stopMediaStream();
@@ -545,6 +685,14 @@ const Room: React.FC = memo(() => {
 
   const handleRatingSubmit = useCallback(async (data: { partnerRating?: number; platformRating: number; comment: string }) => {
     setIsRatingOpen(false);
+
+    const sessionContext = completedSessionRef.current;
+    const targetRoomId = sessionContext.roomId || roomId || `session_${Date.now()}`;
+    const targetPartnerId = sessionContext.partnerId || partnerId;
+    const targetPartnerName = sessionContext.partnerName || partnerName;
+    const targetPartnerAvatar = sessionContext.partnerAvatarUrl || partnerAvatarUrl;
+    const targetDurationSec = sessionContext.duration || sessionElapsedSeconds;
+
     try {
       await fetch('http://localhost:3000/api/room/rate', {
         method: 'POST',
@@ -552,21 +700,28 @@ const Room: React.FC = memo(() => {
         credentials: 'include',
         body: JSON.stringify({
           ...data,
-          partnerName,
-          partnerAvatar: partnerAvatarUrl,
-          duration: `${Math.floor(sessionElapsedSeconds / 60)} min`,
+          sessionId: targetRoomId,
+          partnerId: targetPartnerId,
+          partnerName: targetPartnerName,
+          partnerAvatar: targetPartnerAvatar,
+          duration: `${Math.floor(targetDurationSec / 60)} min`,
           topic: currentTopic.title,
           vocabLearned: currentTopic.vocabPreview || ['Vocabulary', 'Conversation', 'Fluency']
         })
       });
+
+      localStorage.removeItem('cache_http://localhost:3000/api/user/me');
     } catch (err) {}
+
+    completedSessionRef.current = { roomId: null, partnerId: null, partnerName: 'Estudante', partnerAvatarUrl: getAvatarFallback('Estudante'), duration: 0 };
     
     if (pendingAction === 'exit') navigate('/dashboard');
     else triggerSearchNextPair();
-  }, [partnerName, partnerAvatarUrl, sessionElapsedSeconds, currentTopic, pendingAction, navigate, triggerSearchNextPair]);
+  }, [roomId, partnerId, partnerName, partnerAvatarUrl, sessionElapsedSeconds, currentTopic, pendingAction, navigate, triggerSearchNextPair]);
 
   const handleRatingClose = useCallback(() => {
     setIsRatingOpen(false);
+    completedSessionRef.current = { roomId: null, partnerId: null, partnerName: 'Estudante', partnerAvatarUrl: getAvatarFallback('Estudante'), duration: 0 };
     if (pendingAction === 'exit') navigate('/dashboard');
     else triggerSearchNextPair();
   }, [pendingAction, navigate, triggerSearchNextPair]);
@@ -587,10 +742,36 @@ const Room: React.FC = memo(() => {
   const formattedTimer = useMemo(() => formatSessionTimer(sessionElapsedSeconds), [sessionElapsedSeconds]);
 
   const isRemoteVideoActive = useMemo(() => {
-    if (!remoteStream) return false;
+    if (!remoteStream || !remoteCamActiveState) return false;
     const videoTracks = remoteStream.getVideoTracks();
     return videoTracks.length > 0 && videoTracks.some(track => track.enabled && track.readyState === 'live');
-  }, [remoteStream]);
+  }, [remoteStream, remoteCamActiveState]);
+
+  const isLocalVideoActive = useMemo(() => {
+    if (!localStream || !camActive) return false;
+    const videoTracks = localStream.getVideoTracks();
+    return videoTracks.length > 0 && videoTracks.some(track => track.enabled && track.readyState === 'live');
+  }, [localStream, camActive]);
+
+  useEffect(() => {
+    if (remoteVideoRef.current) {
+      if (isRemoteVideoActive && remoteStream) {
+        remoteVideoRef.current.srcObject = remoteStream;
+      } else {
+        remoteVideoRef.current.srcObject = null;
+      }
+    }
+  }, [isRemoteVideoActive, remoteStream]);
+
+  useEffect(() => {
+    if (localVideoRef.current) {
+      if (isLocalVideoActive && localStream) {
+        localVideoRef.current.srcObject = localStream;
+      } else {
+        localVideoRef.current.srcObject = null;
+      }
+    }
+  }, [isLocalVideoActive, localStream]);
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col font-sans h-screen overflow-hidden relative selection:bg-[#1C1917] selection:text-[#FAF9F6]">
@@ -632,45 +813,6 @@ const Room: React.FC = memo(() => {
           <div className="flex items-center gap-3">
             <button type="button" onClick={() => {}} className="px-3 py-1 bg-[#1C1917] text-[#FAF9F6] rounded-lg text-[10px] font-black uppercase">Usar Apenas Áudio</button>
             <button type="button" onClick={() => {}} className="underline uppercase tracking-wider text-[10px] text-amber-900">Tentar Novamente</button>
-          </div>
-        </div>
-      )}
-
-      {partnerDisconnected && (
-        <div className="fixed inset-0 bg-[#1C1917]/80 backdrop-blur-md z-[120] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-8 max-w-md w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-6 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-amber-50 border-2 border-amber-200 text-amber-600 flex items-center justify-center mx-auto shadow-sm">
-              <svg className="w-8 h-8 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3" />
-              </svg>
-            </div>
-            <div className="flex flex-col gap-2">
-              <span className="text-[10px] font-black uppercase tracking-widest text-[#FAF9F6] bg-[#1C1917] px-2.5 py-0.5 rounded w-fit mx-auto">
-                PARCEIRO DESCONECTADO
-              </span>
-              <h3 className="text-lg font-black uppercase text-[#1C1917]">
-                Seu par saiu da chamada
-              </h3>
-              <p className="text-xs text-[#57534E] font-medium leading-relaxed">
-                A conexão foi encerrada porque o outro participante fechou a aba ou perdeu a conexão. Deseja procurar um novo par ou retornar ao painel?
-              </p>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => navigate('/dashboard')}
-                className="flex-1 py-3 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] text-xs font-black uppercase rounded-xl hover:bg-[#F5F5F4] transition-all"
-              >
-                Voltar ao Painel
-              </button>
-              <button
-                type="button"
-                onClick={triggerSearchNextPair}
-                className="flex-1 py-3 bg-[#1C1917] text-[#FAF9F6] text-xs font-black uppercase rounded-xl border-2 border-[#1C1917] hover:bg-[#292524] transition-all shadow-sm"
-              >
-                Procurar Novo Par
-              </button>
-            </div>
           </div>
         </div>
       )}
@@ -731,13 +873,13 @@ const Room: React.FC = memo(() => {
           ) : (
             <div className="absolute inset-0 bg-[#F5F5F4] flex items-center justify-center">
               <video 
-                ref={(el) => { if (el && remoteStream && el.srcObject !== remoteStream) el.srcObject = remoteStream; }} 
+                ref={remoteVideoRef} 
                 autoPlay 
                 playsInline 
                 className={`w-full h-full object-cover transition-opacity duration-300 ${connectionStatus === 'reconnecting' ? 'opacity-40 grayscale-[50%]' : 'opacity-100'} ${!isRemoteVideoActive ? 'hidden' : 'block'}`} 
               />
               
-              {!isRemoteVideoActive && connectionStatus === 'connected' && (
+              {!isRemoteVideoActive && (
                 <div className="absolute inset-0 bg-[#1C1917] flex flex-col items-center justify-center z-0">
                   <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#292524] shadow-2xl mb-6">
                     <img src={partnerAvatarUrl} alt="Foto do Parceiro" className="w-full h-full object-cover" />
@@ -757,14 +899,14 @@ const Room: React.FC = memo(() => {
 
           <div className={`absolute bottom-5 right-6 left-auto top-auto z-40 w-48 h-32 rounded-2xl overflow-hidden border-2 shadow-2xl transition-all duration-300 ${isUserSpeaking ? 'border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'border-[#FFFFFF]'}`}>
             <video 
-              ref={(el) => { if (el && localStream && el.srcObject !== localStream) el.srcObject = localStream; }} 
+              ref={localVideoRef} 
               autoPlay 
               playsInline 
               muted 
-              className={`w-full h-full object-cover transform -scale-x-100 ${camActive ? 'block' : 'hidden'}`} 
+              className={`w-full h-full object-cover transform -scale-x-100 ${isLocalVideoActive ? 'block' : 'hidden'}`} 
             />
             
-            {!camActive && (
+            {!isLocalVideoActive && (
               <div className="absolute inset-0 bg-[#1C1917] flex flex-col items-center justify-center z-0">
                 <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-[#57534E] shadow-xl mb-1">
                   <img src={userAvatarUrl} alt="Sua Foto" className="w-full h-full object-cover" />
@@ -838,12 +980,14 @@ const Room: React.FC = memo(() => {
 
           <ReportModal isOpen={isReportOpen} onClose={() => setIsReportOpen(false)} onConfirm={handleConfirmReport} />
           
-          <RatingModal 
-            isOpen={isRatingOpen} 
-            onClose={handleRatingClose} 
-            onSubmit={handleRatingSubmit} 
-            partnerName={isSearchingNextPair ? "" : partnerName} 
-          />
+          {isRatingOpen && (
+            <RatingModal 
+              isOpen={isRatingOpen} 
+              onClose={handleRatingClose} 
+              onSubmit={handleRatingSubmit} 
+              partnerName={completedSessionRef.current.partnerName} 
+            />
+          )}
 
           {isConfirmExitOpen && (
             <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-[110] flex items-center justify-center p-4">

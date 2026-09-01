@@ -103,7 +103,7 @@ export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = memo(({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ requestId: id, senderId })
+        body: JSON.stringify({ requestId: id, senderId, action: 'reject' })
       });
       setRequestsList((prev) => prev.filter((r) => r.id !== id));
       if (selectedUserProfile?.id === id) {

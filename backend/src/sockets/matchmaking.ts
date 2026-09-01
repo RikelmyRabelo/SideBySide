@@ -11,21 +11,25 @@ const activeRooms: Map<string, Set<string>> = new Map();
 const socketRoomMap: Map<string, string> = new Map();
 const socketTopicMap: Map<string, string> = new Map();
 
-// Estrutura para controle de Rate Limiting por Socket (Janela Deslizante)
 interface RateLimitTracker {
   count: number;
   lastReset: number;
 }
 const socketRateLimits = new Map<string, RateLimitTracker>();
 
-const RATE_LIMIT_WINDOW_MS = 1000; // Janela de 1 segundo
-const MAX_EVENTS_PER_WINDOW = 10;   // Máximo de 10 mensagens/eventos por segundo por cliente
+const RATE_LIMIT_WINDOW_MS = 1000;
+const MAX_EVENTS_PER_WINDOW = 10;
 
-const findMatchSchema = z.object({ topicId: z.string().optional() }).optional();
+const findMatchSchema = z.object({ 
+  topicId: z.string().nullable().optional() 
+}).optional();
+
 const webrtcSdpSchema = z.object({ roomId: z.string(), sdp: z.any() });
 const webrtcIceSchema = z.object({ roomId: z.string(), candidate: z.any() });
+const cameraStatusSchema = z.object({ roomId: z.string(), camActive: z.boolean() });
 const chatSchema = z.object({ roomId: z.string(), text: z.string().min(1) });
 const directMessageSchema = z.object({ recipientId: z.string(), text: z.string().min(1) });
+const leaveRoomSchema = z.object({ roomId: z.string().optional() }).optional();
 
 const safeParseEvent = <T>(schema: z.ZodType<T>, data: unknown, callback: (parsedData: T) => void) => {
   const result = schema.safeParse(data);
@@ -62,10 +66,8 @@ export const setupMatchmaking = (io: Server) => {
     const user = (socket as any).user;
     console.log(`🔌 Novo usuário conectado: ${user?.email || socket.id}`);
 
-    // Inicializa contador de rate limit para este socket
     socketRateLimits.set(socket.id, { count: 0, lastReset: Date.now() });
 
-    // Middleware de pacote para aplicar Rate Limiting por evento
     socket.use(([event, ...args], next) => {
       const tracker = socketRateLimits.get(socket.id);
       const now = Date.now();
@@ -77,7 +79,6 @@ export const setupMatchmaking = (io: Server) => {
         } else {
           tracker.count += 1;
           if (tracker.count > MAX_EVENTS_PER_WINDOW) {
-            console.warn(`⚠️ Rate limit excedido para o socket ${socket.id} no evento ${event}`);
             socket.emit('rate_limit_exceeded', {
               message: 'Você está enviando requisições rápido demais. Aguarde um instante.'
             });
@@ -94,7 +95,7 @@ export const setupMatchmaking = (io: Server) => {
 
     socket.on('find_match', (data: unknown) => {
       safeParseEvent(findMatchSchema, data, async (parsedData) => {
-        const topicId = parsedData?.topicId || 'general';
+        const topicId = (parsedData?.topicId && parsedData.topicId.trim() !== '') ? parsedData.topicId : 'general';
         
         if (!queues[topicId]) queues[topicId] = [];
         
@@ -166,18 +167,21 @@ export const setupMatchmaking = (io: Server) => {
       }
     });
 
-    const handlePartnerLeave = () => {
-      const roomId = socketRoomMap.get(socket.id);
-      if (roomId) {
-        socket.to(roomId).emit('partner_left');
-        const room = activeRooms.get(roomId);
-        if (room) {
-          room.delete(socket.id);
-          if (room.size === 0) activeRooms.delete(roomId);
+    const handlePartnerLeave = (data?: unknown) => {
+      safeParseEvent(leaveRoomSchema, data, (parsedData) => {
+        const targetRoomId = parsedData?.roomId || socketRoomMap.get(socket.id);
+        
+        if (targetRoomId) {
+          socket.to(targetRoomId).emit('partner_left');
+          const room = activeRooms.get(targetRoomId);
+          if (room) {
+            room.delete(socket.id);
+            if (room.size === 0) activeRooms.delete(targetRoomId);
+          }
+          socket.leave(targetRoomId);
         }
         socketRoomMap.delete(socket.id);
-        socket.leave(roomId);
-      }
+      });
     };
 
     socket.on('leave_room', handlePartnerLeave);
@@ -190,6 +194,12 @@ export const setupMatchmaking = (io: Server) => {
       handlePartnerLeave();
       socketTopicMap.delete(socket.id);
       socketRateLimits.delete(socket.id);
+    });
+
+    socket.on('camera_status', (data: unknown) => {
+      safeParseEvent(cameraStatusSchema, data, (parsedData) => {
+        socket.to(parsedData.roomId).emit('camera_status', { camActive: parsedData.camActive });
+      });
     });
 
     socket.on('webrtc_offer', (data: unknown) => {

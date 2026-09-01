@@ -30,15 +30,18 @@ export const Dashboard: React.FC = memo(() => {
   const navigate = useNavigate();
   const { showToast } = useToast();
 
-  const { data: userData, refetch } = useFetchCache<any>('http://localhost:3000/api/user/me', {
+  const { data: userData, refetch: refetchUserData } = useFetchCache<any>('http://localhost:3000/api/user/me', {
     credentials: 'include'
   });
 
+  // Atualiza os dados automaticamente quando a janela ganha foco (ex: volta da sala de aula/avaliação)
   useEffect(() => {
-    if (refetch) {
-      refetch();
-    }
-  }, [refetch]);
+    const handleFocus = () => {
+      if (refetchUserData) refetchUserData();
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [refetchUserData]);
 
   const [mediaMode, setMediaMode] = useState<'video' | 'audio'>('video');
   const [expandedMatching, setExpandedMatching] = useState(true);
@@ -812,3 +815,4 @@ export const Dashboard: React.FC = memo(() => {
 });
 
 Dashboard.displayName = 'Dashboard';
+export default Dashboard;
