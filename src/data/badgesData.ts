@@ -93,6 +93,38 @@ export const BADGES_CATALOG: Badge[] = [
     maxProgress: 500,
   },
 
+  // --- NOVAS CONQUISTAS SOLICITADAS ---
+  {
+    id: 'first-friend',
+    title: 'Primeira Amizade',
+    description: 'Adicione o seu primeiro amigo na rede de contatos.',
+    category: 'social',
+    icon: 'user-plus',
+    unlocked: false,
+    progress: 0,
+    maxProgress: 1,
+  },
+  {
+    id: 'first-message',
+    title: 'Primeira Mensagem',
+    description: 'Envie sua primeira mensagem direta para um amigo.',
+    category: 'social',
+    icon: 'chat',
+    unlocked: false,
+    progress: 0,
+    maxProgress: 1,
+  },
+  {
+    id: 'first-room-3min',
+    title: 'Primeira Sala',
+    description: 'Participe de uma sala temática por mais de 3 minutos.',
+    category: 'time',
+    icon: 'clock',
+    unlocked: false,
+    progress: 0,
+    maxProgress: 1,
+  },
+
   // --- NOVAS: STREAKS & HÁBITOS ---
   {
     id: 'streak-7-verbal-marathon',
@@ -109,7 +141,7 @@ export const BADGES_CATALOG: Badge[] = [
     title: 'Madrugador Poligota',
     description: 'Complete uma sessão de prática antes das 08h da manhã.',
     category: 'streak',
-    icon: 'sun', // Ícone de sol para o período da manhã
+    icon: 'sun',
     unlocked: false,
     progress: 0,
     maxProgress: 1,
@@ -119,7 +151,7 @@ export const BADGES_CATALOG: Badge[] = [
     title: 'Coruja da Conversa',
     description: 'Participe de uma sala de vídeo após as 22h.',
     category: 'streak',
-    icon: 'moon', // Ícone de lua para o período noturno
+    icon: 'moon',
     unlocked: false,
     progress: 0,
     maxProgress: 1,
@@ -131,7 +163,7 @@ export const BADGES_CATALOG: Badge[] = [
     title: 'Ímã de Conexões',
     description: 'Adicione 5 novos amigos na plataforma após sessões.',
     category: 'social',
-    icon: 'user-plus', // Ícone de adicionar usuário
+    icon: 'user-plus',
     unlocked: false,
     progress: 0,
     maxProgress: 5,
@@ -141,7 +173,7 @@ export const BADGES_CATALOG: Badge[] = [
     title: 'Embaixador da Empatia',
     description: 'Receba 10 avaliações máximas (5 estrelas) consecutivas.',
     category: 'social',
-    icon: 'heart', // Ícone de coração para empatia
+    icon: 'heart',
     unlocked: false,
     progress: 0,
     maxProgress: 10,
@@ -165,7 +197,7 @@ export const BADGES_CATALOG: Badge[] = [
     title: 'Mês de Prática',
     description: 'Completar 30 dias desde a data de cadastro na comunidade.',
     category: 'time',
-    icon: 'calendar', // Ícone de calendário para contagem de dias/meses
+    icon: 'calendar',
     unlocked: false,
     progress: 0,
     maxProgress: 30,
@@ -175,7 +207,7 @@ export const BADGES_CATALOG: Badge[] = [
     title: 'Veterano de Ouro',
     description: 'Manter a conta ativa e registrada na plataforma por 1 ano.',
     category: 'time',
-    icon: 'shield', // Ícone de escudo representando longevidade e proteção
+    icon: 'shield',
     unlocked: false,
     progress: 0,
     maxProgress: 365,
@@ -187,7 +219,7 @@ export const BADGES_CATALOG: Badge[] = [
     title: 'Guardião da Comunidade',
     description: 'Concedida aos administradores e moderadores oficiais da plataforma.',
     category: 'admin',
-    icon: 'shield-check', // Ícone de escudo com verificação para administradores
+    icon: 'shield-check',
     unlocked: false,
     progress: 0,
     maxProgress: 1,
