@@ -4,7 +4,6 @@ import type { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import cors from 'cors';
-import nodemailer from 'nodemailer';
 import { z, ZodError } from 'zod';
 import rateLimit from 'express-rate-limit';
 import winston from 'winston';
@@ -16,6 +15,7 @@ import cookie from 'cookie';
 import { setupMatchmaking } from './sockets/matchmaking.js';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { createClient } from 'redis';
+import { cookieOptions, pendingUsers, verificationCodes, transporter, loginHandler, logoutHandler } from './controllers/authController.js';
 
 const app = express();
 
@@ -52,15 +52,6 @@ Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
   console.error('❌ Erro ao conectar o Redis Adapter:', err);
 });
 
-const cookieOptions = {
-  httpOnly: true, 
-  secure: true, 
-  sameSite: 'none' as const, 
-  maxAge: 7 * 24 * 60 * 60 * 1000 
-};
-
-const pendingUsers = new Map<string, { name: string; email: string; passwordHash: string; level: string; code: string }>();
-const verificationCodes = new Map<string, string>();
 const matchFeedback = new Map<string, Map<string, 'positive' | 'negative' | 'skip'>>();
 const sessionFeedback = new Map<string, { averageRating: number; count: number; lastUpdated: Date }>();
 const conversationQuality = new Map<string, Map<string, { duration: number; messages: number; rating: number; timestamp: Date }>>();
@@ -88,16 +79,6 @@ const logger = winston.createLogger({
 app.use((req: Request, res: Response, next: NextFunction) => {
   logger.info(`[${req.method}] ${req.url} - IP: ${req.ip}`);
   next();
-});
-
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-  logger: false,
-  debug: false,
 });
 
 const authLimiter = rateLimit({
@@ -228,26 +209,9 @@ app.post('/api/auth/register', authLimiter, validateRequest(registerSchema), asy
   } catch (error: any) { next(error); }
 });
 
-app.post('/api/auth/login', authLimiter, validateRequest(loginSchema), async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { email, password } = req.body;
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-      return res.status(401).json({ error: 'Credenciais inválidas.' });
-    }
-    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
-    res.cookie('token', token, cookieOptions);
-    return res.status(200).json({
-      message: 'Login com sucesso.',
-      user: { id: user.id, name: user.name, email: user.email, level: user.level, reputation: user.reputation, tag: user.tag },
-    });
-  } catch (error: any) { next(error); }
-});
+app.post('/api/auth/login', authLimiter, validateRequest(loginSchema), loginHandler);
 
-app.post('/api/auth/logout', (req: Request, res: Response) => {
-  res.clearCookie('token');
-  return res.status(200).json({ message: 'Logout realizado com sucesso.' });
-});
+app.post('/api/auth/logout', logoutHandler);
 
 app.post('/api/auth/forgot-password', passwordResetLimiter, validateRequest(emailOnlySchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
