@@ -1,4 +1,3 @@
-// backend/src/routes/user.ts
 import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
 
