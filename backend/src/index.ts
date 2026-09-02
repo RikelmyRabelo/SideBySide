@@ -191,19 +191,31 @@ app.post('/api/auth/register', authLimiter, validateRequest(registerSchema), asy
   try {
     const { name, email, password, level } = req.body;
     const normalizedName = name?.trim() || 'Usuário';
+    
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) return res.status(400).json({ error: 'E-mail já cadastrado.' });
+
+    // Evita duplicidade/múltiplos envios limpando registros anteriores pendentes do mesmo e-mail
+    pendingUsers.delete(email);
+    verificationCodes.delete(`register_${email}`);
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const code = Math.floor(100000 + Math.random() * 900000).toString();
+    
     pendingUsers.set(email, { name: normalizedName, email, passwordHash: hashedPassword, level: level || 'B1', code });
+    verificationCodes.set(`register_${email}`, code);
+
     await transporter.sendMail({
       from: '"SideBySide" <no-reply@sidebyside.com>',
       to: email,
       subject: 'Ative sua conta no SideBySide',
       html: `<h2>Bem-vindo!</h2><p>Seu código é: <b>${code}</b></p>`,
     });
+
     return res.status(201).json({ message: 'Código de verificação enviado.', email });
-  } catch (error: any) { next(error); }
+  } catch (error: any) { 
+    next(error); 
+  }
 });
 
 app.post('/api/auth/login', authLimiter, validateRequest(loginSchema), async (req: Request, res: Response, next: NextFunction) => {
@@ -233,7 +245,7 @@ app.post('/api/auth/forgot-password', passwordResetLimiter, validateRequest(emai
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return res.status(200).json({ message: 'Se o e-mail estiver cadastrado, um código foi enviado.' });
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    verificationCodes.set(email, code);
+    verificationCodes.set(`reset_${email}`, code);
     await transporter.sendMail({
       from: '"SideBySide" <no-reply@sidebyside.com>',
       to: email,
@@ -247,7 +259,7 @@ app.post('/api/auth/forgot-password', passwordResetLimiter, validateRequest(emai
 app.post('/api/auth/verify-reset-code', passwordResetLimiter, validateRequest(verifyCodeSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, code } = req.body;
-    const storedCode = verificationCodes.get(email);
+    const storedCode = verificationCodes.get(`reset_${email}`);
     if (!storedCode || storedCode !== code) return res.status(400).json({ error: 'Código inválido.' });
     return res.status(200).json({ message: 'Código verificado com sucesso.' });
   } catch (error: any) { next(error); }
@@ -256,13 +268,13 @@ app.post('/api/auth/verify-reset-code', passwordResetLimiter, validateRequest(ve
 app.post('/api/auth/reset-password', passwordResetLimiter, validateRequest(resetPasswordSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, code, newPassword } = req.body;
-    const storedCode = verificationCodes.get(email);
+    const storedCode = verificationCodes.get(`reset_${email}`);
     if (!storedCode || storedCode !== code) return res.status(400).json({ error: 'Código inválido.' });
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return res.status(400).json({ error: 'Usuário não encontrado.' });
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await prisma.user.update({ where: { id: user.id }, data: { password: hashedPassword } });
-    verificationCodes.delete(email);
+    verificationCodes.delete(`reset_${email}`);
     return res.status(200).json({ message: 'Senha redefinida.' });
   } catch (error: any) { next(error); }
 });
@@ -279,6 +291,7 @@ app.post('/api/auth/verify-code', authLimiter, validateRequest(verifyCodeSchema)
     const pending = targetEmail ? pendingUsers.get(targetEmail) : null;
     if (!pending || pending.code !== code) return res.status(400).json({ error: 'Código inválido.' });
     pendingUsers.delete(targetEmail);
+    verificationCodes.delete(`register_${targetEmail}`);
     
     const tempUser = await prisma.user.create({
       data: { name: pending.name, email: pending.email, password: pending.passwordHash, level: pending.level, reputation: 100 },
@@ -316,6 +329,7 @@ app.post('/api/auth/resend-code', passwordResetLimiter, validateRequest(emailOnl
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     pending.code = code;
     pendingUsers.set(email, pending);
+    verificationCodes.set(`register_${email}`, code);
     await transporter.sendMail({
       from: '"SideBySide" <no-reply@sidebyside.com>',
       to: email,
@@ -462,7 +476,7 @@ app.post('/api/room/rate', authenticateToken, async (req: Request, res: Response
         totalSessions, 
         totalMinutes, 
         lastSession: historyEntry as any, 
-        sessionsHistory: [...filteredHistory, historyEntry] as any 
+        sessionsHistory: [historyEntry, ...filteredHistory] as any 
       } 
     });
 

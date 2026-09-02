@@ -254,8 +254,10 @@ export const Login: React.FC = () => {
     return () => observer.disconnect();
   }, []);
 
-    const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return; // Proteção contra requisições duplas
+
     setErrorMessage(null);
     setSuccessMessage(null);
 
@@ -277,7 +279,6 @@ export const Login: React.FC = () => {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Erro ao solicitar recuperação.');
 
-        // Salva o e-mail no cache local e redireciona para a tela que possui os inputs do código e da nova senha
         localStorage.setItem('sidebyside_pending_email', email);
         navigate('/reset-password', { state: { email } });
       } catch (err: any) {
@@ -347,73 +348,6 @@ export const Login: React.FC = () => {
 
     } catch (err: any) {
       setErrorMessage(err.message || 'Erro ao conectar com o servidor.');
-    } finally {
-      setIsSubmitting(false);
-    }
-
-    if (!email || !password) {
-      setErrorMessage('Por favor, preencha todos os campos obrigatórios.');
-      return;
-    }
-
-    if (!/\S+@\S+\.\S+/.test(email)) {
-      setErrorMessage('Por favor, insira um e-mail válido.');
-      return;
-    }
-
-    if (!isLogin && password.length < 6) {
-      setErrorMessage('A senha precisa ter no mínimo 6 caracteres.');
-      return;
-    }
-
-    if (!isLogin && !agreeTerms) {
-      setErrorMessage('Você deve aceitar os Termos de Uso e a Política de Moderação para continuar.');
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      const endpoint = isLogin
-        ? 'http://localhost:3000/api/auth/login'
-        : 'http://localhost:3000/api/auth/register';
-
-      const payload = isLogin
-        ? { email, password }
-        : { email, password, level: 'B1' };
-
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Erro ao processar a requisição.');
-      }
-
-      // Se for login bem-sucedido, salva no localStorage os dados novos e faz o "hard reload" limpo pro dashboard
-      if (isLogin) {
-        localStorage.setItem('sidebyside_last_email', email);
-        if (data.user) {
-          localStorage.setItem('user', JSON.stringify(data.user));
-        }
-        window.location.href = '/dashboard';
-        return;
-      } 
-      
-      // Se for criação de conta, vai para a tela de Verificação do E-mail
-      if (!isLogin) {
-        localStorage.setItem('sidebyside_pending_email', email);
-        navigate('/verify-code');
-      }
-
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Erro ao conectar com o servidor.');
-    } finally {
       setIsSubmitting(false);
     }
   };
