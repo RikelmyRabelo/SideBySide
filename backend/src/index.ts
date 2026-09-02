@@ -476,7 +476,7 @@ app.post('/api/room/rate', authenticateToken, async (req: Request, res: Response
         totalSessions, 
         totalMinutes, 
         lastSession: historyEntry as any, 
-        sessionsHistory: [...filteredHistory, historyEntry] as any 
+        sessionsHistory: [historyEntry, ...filteredHistory] as any 
       } 
     });
 
