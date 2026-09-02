@@ -116,6 +116,22 @@ const passwordResetLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const messageLimiter = rateLimit({
+  windowMs: 60 * 1000, 
+  max: 30, 
+  message: { error: 'Muitas mensagens enviadas. Aguarde um minuto.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const reportLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, 
+  max: 3, 
+  message: { error: 'Limite de denúncias excedido. Tente novamente mais tarde.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 const validateRequest = (schema: z.ZodTypeAny) => (req: Request, res: Response, next: NextFunction) => {
   try {
     req.body = schema.parse(req.body);
@@ -348,7 +364,7 @@ app.post('/api/room/join', authenticateToken, async (req: Request, res: Response
   } catch (error: any) { next(error); }
 });
 
-app.post('/api/room/report', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+app.post('/api/room/report', authenticateToken, reportLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user.id;
     const { reportedUserId, reason, sessionDuration, messageCount, roomId } = req.body || {};
@@ -721,7 +737,7 @@ app.delete('/api/friends/:friendId', authenticateToken, async (req: Request, res
   }
 });
 
-app.post('/api/messages/send', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+app.post('/api/messages/send', authenticateToken, messageLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const senderId = (req as any).user.id;
     const recipientId = String(req.body.recipientId);

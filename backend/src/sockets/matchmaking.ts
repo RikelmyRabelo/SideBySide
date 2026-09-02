@@ -19,6 +19,7 @@ const socketRateLimits = new Map<string, RateLimitTracker>();
 
 const RATE_LIMIT_WINDOW_MS = 1000;
 const MAX_EVENTS_PER_WINDOW = 10;
+const MAX_CHAT_EVENTS_PER_WINDOW = 5;
 
 const findMatchSchema = z.object({ 
   topicId: z.string().nullable().optional() 
@@ -78,9 +79,11 @@ export const setupMatchmaking = (io: Server) => {
           tracker.lastReset = now;
         } else {
           tracker.count += 1;
-          if (tracker.count > MAX_EVENTS_PER_WINDOW) {
+          const threshold = (event === 'chat_message' || event === 'direct_message') ? MAX_CHAT_EVENTS_PER_WINDOW : MAX_EVENTS_PER_WINDOW;
+          
+          if (tracker.count > threshold) {
             socket.emit('rate_limit_exceeded', {
-              message: 'Você está enviando requisições rápido demais. Aguarde um instante.'
+              message: 'Você está enviando eventos rápido demais. Aguarde um instante.'
             });
             return next(new Error('Taxa de requisições excedida'));
           }
