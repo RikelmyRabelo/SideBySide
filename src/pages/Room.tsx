@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
+import api from '../services/api';
 import { ReportModal } from '../components/room/ReportModal';
 import { RatingModal } from '../components/room/RatingModal';
 import { TOPICS_CATALOG, FREE_TALK_TOPIC, TopicItem } from '../data/topicsData';
@@ -122,11 +123,9 @@ const Room: React.FC = memo(() => {
   useEffect(() => {
     const fetchUserAvatar = async () => {
       try {
-        const response = await fetch('http://localhost:3000/api/user/me', { credentials: 'include' });
-        if (response.ok) {
-          const data = await response.json();
-          setUserAvatarUrl(data.avatar || getAvatarFallback(data.name || 'Estudante'));
-        }
+        const response = await api.get('/api/user/me');
+        const data = response.data;
+        setUserAvatarUrl(data.avatar || getAvatarFallback(data.name || 'Estudante'));
       } catch (err) {}
     };
     fetchUserAvatar();
@@ -437,7 +436,8 @@ const Room: React.FC = memo(() => {
   }, [setupAudioAnalyzer]);
 
   useEffect(() => {
-    const newSocket = io('http://localhost:3000', { withCredentials: true });
+    const baseURL = api.defaults.baseURL || 'http://localhost:3000';
+    const newSocket = io(baseURL, { withCredentials: true });
     socketRef.current = newSocket;
 
     newSocket.on('connect', () => {
@@ -541,39 +541,26 @@ const Room: React.FC = memo(() => {
   const handleSendFriendRequest = useCallback(async () => {
     if (!partnerId || friendRequestSent) return;
     try {
-      const response = await fetch('http://localhost:3000/api/friends/request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ targetUserId: partnerId })
-      });
-      if (response.ok) {
+      const response = await api.post('/api/friends/request', { targetUserId: partnerId });
+      if (response.status === 200 || response.status === 201) {
         setFriendRequestSent(true);
         showToast('Solicitação de amizade enviada com sucesso!', 'success');
-      } else {
-        const errData = await response.json().catch(() => ({}));
-        showToast(errData.error || 'Erro ao enviar solicitação de amizade', 'error');
       }
-    } catch (err) {
-      showToast('Erro de rede ao enviar solicitação de amizade.', 'error');
+    } catch (err: any) {
+      showToast(err.response?.data?.error || 'Erro ao enviar solicitação de amizade', 'error');
     }
   }, [partnerId, friendRequestSent, showToast]);
 
   const handleAcceptOrRejectFriend = useCallback(async (action: 'accept' | 'reject') => {
     if (!incomingFriendRequest) return;
     try {
-      const response = await fetch('http://localhost:3000/api/friends/accept', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          requestId: incomingFriendRequest.requestId,
-          senderId: incomingFriendRequest.senderId,
-          action
-        })
+      const response = await api.post('/api/friends/accept', {
+        requestId: incomingFriendRequest.requestId,
+        senderId: incomingFriendRequest.senderId,
+        action
       });
 
-      if (response.ok) {
+      if (response.status === 200) {
         if (action === 'accept') {
           showToast(`Você e ${incomingFriendRequest.name} agora são amigos! 🤝`, 'success');
           setFriendRequestSent(true);
@@ -614,17 +601,12 @@ const Room: React.FC = memo(() => {
   const handleConfirmReport = useCallback(async (reason: string) => {
     setIsReportOpen(false);
     try {
-      await fetch('http://localhost:3000/api/room/report', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ 
-          reportedUserId: partnerId, 
-          reason,
-          sessionDuration: sessionElapsedSeconds,
-          messageCount: chatMessages.length,
-          roomId
-        })
+      await api.post('/api/room/report', { 
+        reportedUserId: partnerId, 
+        reason,
+        sessionDuration: sessionElapsedSeconds,
+        messageCount: chatMessages.length,
+        roomId
       });
     } catch (err) {}
     
@@ -730,23 +712,16 @@ const Room: React.FC = memo(() => {
     const targetDurationSec = sessionContext.duration || sessionElapsedSeconds;
 
     try {
-      await fetch('http://localhost:3000/api/room/rate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          ...data,
-          sessionId: targetRoomId,
-          partnerId: targetPartnerId,
-          partnerName: targetPartnerName,
-          partnerAvatar: targetPartnerAvatar,
-          duration: `${Math.floor(targetDurationSec / 60)} min`,
-          topic: currentTopic.title,
-          vocabLearned: currentTopic.vocabPreview || ['Vocabulary', 'Conversation', 'Fluency']
-        })
+      await api.post('/api/room/rate', {
+        ...data,
+        sessionId: targetRoomId,
+        partnerId: targetPartnerId,
+        partnerName: targetPartnerName,
+        partnerAvatar: targetPartnerAvatar,
+        duration: `${Math.floor(targetDurationSec / 60)} min`,
+        topic: currentTopic.title,
+        vocabLearned: currentTopic.vocabPreview || ['Vocabulary', 'Conversation', 'Fluency']
       });
-
-      localStorage.removeItem('cache_http://localhost:3000/api/user/me');
     } catch (err) {}
 
     completedSessionRef.current = { roomId: null, partnerId: null, partnerName: 'Estudante', partnerAvatarUrl: getAvatarFallback('Estudante'), duration: 0 };

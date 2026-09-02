@@ -1,6 +1,8 @@
+// src/pages/Dashboard.tsx
 import React, { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
+import api from '../services/api';
 import { Button } from '../components/ui/Button';
 import { FriendsManagerModal, Friend, FriendRequest } from '../components/dashboard/FriendsManagerModal';
 import { DirectChatsModal } from '../components/dashboard/DirectChatsModal';
@@ -30,11 +32,8 @@ export const Dashboard: React.FC = memo(() => {
   const navigate = useNavigate();
   const { showToast } = useToast();
 
-  const { data: userData, refetch: refetchUserData } = useFetchCache<any>('http://localhost:3000/api/user/me', {
-    credentials: 'include'
-  });
+  const { data: userData, refetch: refetchUserData } = useFetchCache<any>('/api/user/me');
 
-  // Atualiza os dados automaticamente quando a janela ganha foco (ex: volta da sala de aula/avaliação)
   useEffect(() => {
     const handleFocus = () => {
       if (refetchUserData) refetchUserData();
@@ -80,7 +79,8 @@ export const Dashboard: React.FC = memo(() => {
   const [unreadCounts, setUnreadCounts] = useState<{ [key: string]: number }>({});
 
   useEffect(() => {
-    const socket: Socket = io('http://localhost:3000', { withCredentials: true });
+    const baseURL = api.defaults.baseURL || 'http://localhost:3000';
+    const socket: Socket = io(baseURL, { withCredentials: true });
 
     socket.on('direct_message', (data: { senderId: string }) => {
       setUnreadCounts((prev) => ({
@@ -107,15 +107,11 @@ export const Dashboard: React.FC = memo(() => {
     const fetchData = async () => {
       try {
         const [reqRes, friendsRes] = await Promise.all([
-          fetch('http://localhost:3000/api/friends/requests', { credentials: 'include' }),
-          fetch('http://localhost:3000/api/friends/list', { credentials: 'include' })
+          api.get('/api/friends/requests'),
+          api.get('/api/friends/list')
         ]);
-        if (reqRes.ok) {
-          setRequestsList(await reqRes.json());
-        }
-        if (friendsRes.ok) {
-          setFriendsList(await friendsRes.json());
-        }
+        setRequestsList(reqRes.data);
+        setFriendsList(friendsRes.data);
       } catch (e) {
         console.error('Erro ao buscar dados de amigos/solicitações:', e);
       }
@@ -197,17 +193,13 @@ export const Dashboard: React.FC = memo(() => {
 
   const fetchNotifications = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:3000/api/notifications', {
-        credentials: 'include'
-      });
-      if (response.ok) {
-        const data = await response.json();
-        const localReadCache = JSON.parse(localStorage.getItem('sbs_read_notifications') || '[]');
-        const mergedData = data.map((n: any) => 
-          localReadCache.includes(n.id) ? { ...n, read: true } : n
-        );
-        setNotifications(mergedData);
-      }
+      const response = await api.get('/api/notifications');
+      const data = response.data;
+      const localReadCache = JSON.parse(localStorage.getItem('sbs_read_notifications') || '[]');
+      const mergedData = data.map((n: any) => 
+        localReadCache.includes(n.id) ? { ...n, read: true } : n
+      );
+      setNotifications(mergedData);
     } catch (error) {
       console.error('Erro ao carregar notificações globais:', error);
     }
@@ -228,11 +220,6 @@ export const Dashboard: React.FC = memo(() => {
       localStorage.setItem('sbs_read_notifications', JSON.stringify(readIds));
       return updated;
     });
-    
-    fetch('http://localhost:3000/api/notifications/read-all', {
-      method: 'PUT',
-      credentials: 'include'
-    }).catch((error) => console.error('A rota PUT de notificações não existe no servidor (Ignorando erro).', error));
   };
 
   const startMatchingFlow = useCallback(() => {
@@ -267,10 +254,7 @@ export const Dashboard: React.FC = memo(() => {
 
   const handleLogout = useCallback(async () => {
     try {
-      await fetch('http://localhost:3000/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include'
-      });
+      await api.post('/api/auth/logout');
     } catch (err) {
       console.error('Erro ao encerrar sessão no servidor', err);
     }

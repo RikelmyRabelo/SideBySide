@@ -1,5 +1,7 @@
+// src/pages/Login.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import api from '../services/api';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 
@@ -21,7 +23,6 @@ export const Login: React.FC = () => {
     }
   }, []);
   
-  // Estado da animação no rodapé
   const [footerAnimStep, setFooterAnimStep] = useState<0 | 1 | 2 | 3 | 4>(0);
 
   useEffect(() => {
@@ -32,7 +33,6 @@ export const Login: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Estado de Consentimento de Cookies e LGPD
   const [showCookieBanner, setShowCookieBanner] = useState(false);
 
   useEffect(() => {
@@ -47,7 +47,6 @@ export const Login: React.FC = () => {
     setShowCookieBanner(false);
   };
 
-  // Lista ordenada das seções para a transição de slide via wheel
   const sectionIds = ['hero', 'about', 'features', 'testimonials', 'faq', 'auth', 'footer'];
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const isScrollingRef = useRef(false);
@@ -89,7 +88,6 @@ export const Login: React.FC = () => {
     }, 850);
   };
 
-  // Estado do indicador de atividade ao vivo
   const [activeUsers, setActiveUsers] = useState(142);
 
   useEffect(() => {
@@ -101,12 +99,10 @@ export const Login: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Estado para validações e mensagens
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showTooltip, setShowTooltip] = useState(false);
 
-  // Lógica de cálculo da força da senha
   const getPasswordStrength = (pass: string) => {
     if (!pass) return { score: 0, label: '', color: 'bg-[#E7E5E4]', width: 'w-0' };
     let score = 0;
@@ -122,14 +118,12 @@ export const Login: React.FC = () => {
 
   const passwordStrength = getPasswordStrength(password);
 
-  // Estado do FAQ Interativo
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   const toggleFaq = (index: number) => {
     setOpenFaq(openFaq === index ? null : index);
   };
 
-  // Hero: Alternância PT/EN
   const [isEnglish, setIsEnglish] = useState(false);
 
   useEffect(() => {
@@ -140,7 +134,6 @@ export const Login: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Estado do Carrossel de Depoimentos
   const testimonials = [
     {
       quote: "Fiquei super apreensivo na primeira conversa, mas o suporte de temas na tela me ajudou demais. Hoje converso sem medo no trabalho!",
@@ -184,7 +177,6 @@ export const Login: React.FC = () => {
     return () => clearInterval(testimonialTimer);
   }, [testimonials.length]);
 
-  // Cursor com rastreamento e ocultação nas bordas
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
   const [cursorOpacity, setCursorOpacity] = useState(1);
@@ -233,7 +225,6 @@ export const Login: React.FC = () => {
     return () => cancelAnimationFrame(animationFrameId);
   }, [mousePos]);
 
-  // Observador para acionar a entrada dos cards
   const [isCardsVisible, setIsCardsVisible] = useState(false);
   const featuresRef = useRef<HTMLElement>(null);
 
@@ -256,7 +247,7 @@ export const Login: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmitting) return; // Proteção contra requisições duplas
+    if (isSubmitting) return;
 
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -269,20 +260,12 @@ export const Login: React.FC = () => {
 
       setIsSubmitting(true);
       try {
-        const response = await fetch('http://localhost:3000/api/auth/forgot-password', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ email }),
-        });
-
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Erro ao solicitar recuperação.');
+        await api.post('/api/auth/forgot-password', { email });
 
         localStorage.setItem('sidebyside_pending_email', email);
         navigate('/reset-password', { state: { email } });
       } catch (err: any) {
-        setErrorMessage(err.message || 'Erro ao conectar com o servidor.');
+        setErrorMessage(err.response?.data?.error || err.message || 'Erro ao conectar com o servidor.');
         setIsSubmitting(false);
       }
       return;
@@ -311,26 +294,11 @@ export const Login: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      const endpoint = isLogin
-        ? 'http://localhost:3000/api/auth/login'
-        : 'http://localhost:3000/api/auth/register';
+      const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
+      const payload = isLogin ? { email, password } : { email, password, level: 'B1' };
 
-      const payload = isLogin
-        ? { email, password }
-        : { email, password, level: 'B1' };
-
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Erro ao processar a requisição.');
-      }
+      const response = await api.post(endpoint, payload);
+      const data = response.data;
 
       if (isLogin) {
         localStorage.setItem('sidebyside_last_email', email);
@@ -347,7 +315,7 @@ export const Login: React.FC = () => {
       }
 
     } catch (err: any) {
-      setErrorMessage(err.message || 'Erro ao conectar com o servidor.');
+      setErrorMessage(err.response?.data?.error || err.message || 'Erro ao conectar com o servidor.');
       setIsSubmitting(false);
     }
   };
@@ -374,7 +342,6 @@ export const Login: React.FC = () => {
   return (
     <div className="min-h-screen w-full bg-[#FAF9F6] text-[#1C1917] font-sans selection:bg-[#1C1917] selection:text-[#FAF9F6] overflow-x-hidden relative">
       
-      {/* Cursor Solido Neutro */}
       <div
         className="pointer-events-none fixed z-50 w-3.5 h-3.5 rounded-full bg-[#1C1917] transition-opacity duration-300 ease-out -translate-x-1/2 -translate-y-1/2"
         style={{
@@ -384,7 +351,6 @@ export const Login: React.FC = () => {
         }}
       />
 
-      {/* Header Fixo */}
       <div className="fixed top-6 left-0 right-0 w-full flex justify-center z-40 px-4">
         <header className="w-full max-w-5xl px-6 py-3.5 flex items-center justify-between bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl shadow-sm">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => scrollToSection('hero')}>
@@ -414,7 +380,6 @@ export const Login: React.FC = () => {
         </header>
       </div>
 
-      {/* HERO SLIDE */}
       <section id="hero" className="relative min-h-screen w-full flex flex-col justify-between pt-32 pb-10 px-6 lg:px-12 border-b border-[#E7E5E4] overflow-hidden">
         <div className="relative z-10 max-w-5xl mx-auto my-auto text-center flex flex-col items-center gap-6">
           
@@ -471,7 +436,6 @@ export const Login: React.FC = () => {
         </div>
       </section>
 
-      {/* STATEMENT SLIDE */}
       <section id="about" className="min-h-screen w-full pt-20 pb-8 px-6 lg:px-12 max-w-6xl mx-auto flex flex-col justify-center gap-8 border-b border-[#E7E5E4]">
         <h2 className="text-2xl sm:text-4xl lg:text-5xl font-black uppercase tracking-tight text-[#1C1917] leading-[1.2] text-center sm:text-left">
           SEM TEORIA OU EXERCÍCIOS PASSIVOS. NOSSO FOCO É{" "}
@@ -540,7 +504,6 @@ export const Login: React.FC = () => {
         </div>
       </section>
 
-      {/* PILARES SLIDE */}
       <section id="features" ref={featuresRef} className="min-h-screen w-full pt-20 pb-8 px-6 lg:px-12 max-w-7xl mx-auto flex flex-col justify-center gap-10 border-b border-[#E7E5E4] overflow-hidden">
         <div className="flex flex-col gap-2">
           <span className="text-xs font-bold text-[#78716C] uppercase tracking-widest">Estrutura e Garantias</span>
@@ -620,7 +583,6 @@ export const Login: React.FC = () => {
         </div>
       </section>
 
-      {/* DEPOIMENTOS SLIDE */}
       <section id="testimonials" className="min-h-screen w-full pt-20 pb-8 px-6 lg:px-12 max-w-5xl mx-auto flex flex-col justify-center gap-10 border-b border-[#E7E5E4]">
         <div className="flex flex-col gap-2 text-center items-center">
           <span className="text-xs font-bold text-[#78716C] uppercase tracking-widest">Comunidade em Ação</span>
@@ -709,7 +671,6 @@ export const Login: React.FC = () => {
         </div>
       </section>
 
-      {/* FAQ SLIDE */}
       <section id="faq" className="min-h-screen w-full pt-20 pb-8 px-6 lg:px-12 max-w-4xl mx-auto flex flex-col justify-center gap-8 border-b border-[#E7E5E4]">
         <div className="flex flex-col gap-2 text-center items-center">
           <span className="text-xs font-bold text-[#78716C] uppercase tracking-widest">Tire suas dúvidas</span>
@@ -743,7 +704,6 @@ export const Login: React.FC = () => {
         </div>
       </section>
 
-      {/* AUTH SLIDE */}
       <section id="auth" className="min-h-screen w-full pt-16 pb-8 px-6 max-w-md mx-auto flex flex-col justify-center">
         <div className="bg-[#FFFFFF] rounded-2xl p-7 shadow-lg flex flex-col gap-5 text-[#1C1917] border border-[#E7E5E4]">
           
@@ -793,7 +753,6 @@ export const Login: React.FC = () => {
             </div>
           )}
 
-          {/* Mensagem de Erro Estilizada */}
           {errorMessage && (
             <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold flex items-center gap-2.5 animate-fadeIn">
               <svg className="w-4 h-4 shrink-0 fill-current text-red-600" viewBox="0 0 20 20">
@@ -803,7 +762,6 @@ export const Login: React.FC = () => {
             </div>
           )}
 
-          {/* Mensagem de Sucesso */}
           {successMessage && (
             <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2.5 animate-fadeIn">
               <svg className="w-4 h-4 shrink-0 fill-current text-emerald-600" viewBox="0 0 20 20">
@@ -1023,7 +981,6 @@ export const Login: React.FC = () => {
         </div>
       </section>
 
-      {/* Banner de Cookies / LGPD Fixo */}
       {showCookieBanner && (
         <div className="fixed bottom-6 left-6 right-6 md:left-auto md:right-6 md:max-w-md bg-[#1C1917] text-[#FAF9F6] p-6 rounded-2xl shadow-2xl border border-[#292524] z-50 flex flex-col gap-4 animate-fadeIn">
           <div className="flex flex-col gap-1.5">
@@ -1054,7 +1011,6 @@ export const Login: React.FC = () => {
         </div>
       )}
 
-      {/* FOOTER SLIDE */}
       <footer id="footer" className="min-h-screen w-full bg-[#1C1917] border-t-4 border-[#1C1917] px-6 lg:px-12 text-[#FAF9F6] flex flex-col justify-between pt-24 pb-12">
         <div className="max-w-7xl mx-auto w-full grid grid-cols-1 md:grid-cols-2 gap-12 items-center my-auto">
           <div className="flex flex-col gap-5">

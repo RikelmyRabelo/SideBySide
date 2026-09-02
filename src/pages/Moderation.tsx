@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 export const Moderation: React.FC = () => {
   const navigate = useNavigate();
 
-  // Garante que a página abra no topo
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -12,7 +11,6 @@ export const Moderation: React.FC = () => {
   return (
     <div className="min-h-screen w-full bg-[#FAF9F6] text-[#1C1917] font-sans selection:bg-[#1C1917] selection:text-[#FAF9F6] relative">
       
-      {/* Header Fixo / Navegação de Volta */}
       <div className="fixed top-6 left-0 right-0 w-full flex justify-center z-40 px-4">
         <header className="w-full max-w-4xl px-6 py-3.5 flex items-center justify-between bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl shadow-sm">
           <div 
@@ -35,10 +33,8 @@ export const Moderation: React.FC = () => {
         </header>
       </div>
 
-      {/* Conteúdo Principal da Política de Moderação */}
       <main className="max-w-4xl mx-auto pt-36 pb-24 px-6 lg:px-12 flex flex-col gap-10">
         
-        {/* Cabeçalho do Documento */}
         <div className="flex flex-col gap-3 border-b border-[#E7E5E4] pb-8">
           <span className="px-3 py-1 bg-[#F5F5F4] border border-[#E7E5E4] text-[#78716C] text-xs font-bold uppercase tracking-widest rounded-md w-fit">
             Documentação Legal
@@ -51,7 +47,6 @@ export const Moderation: React.FC = () => {
           </p>
         </div>
 
-        {/* Artigo / Texto Jurídico Estruturado */}
         <article className="flex flex-col gap-8 text-sm sm:text-base text-[#57534E] leading-relaxed">
           
           <p className="font-medium text-[#1C1917]">
@@ -96,7 +91,7 @@ export const Moderation: React.FC = () => {
                 <strong>3.1. Monitoramento em Tempo Real:</strong> As salas de chamada são monitoradas ativamente por sistemas de Inteligência Artificial para identificar padrões de comportamento que violem estas diretrizes de segurança.
               </p>
               <p>
-                <strong>3.2. Privacidade das Transmissões:</strong> Conforme nossa Política de Privacidade, este monitoramento é realizado <strong>ao vivo para segurança</strong> e o conteúdo audiovisual das chamadas privadas **NÃO é gravado ou armazenado de forma sequencial**, sendo apenas processado temporariamente para análise de conformidade.
+                <strong>3.2. Privacidade das Transmissões:</strong> Conforme nossa Política de Privacidade, este monitoramento é realizado <strong>ao vivo para segurança</strong> e o conteúdo audiovisual das chamadas privadas <strong>NÃO é gravado ou armazenado de forma sequencial</strong>, sendo apenas processado temporariamente para análise de conformidade.
               </p>
             </div>
           </section>
@@ -107,7 +102,7 @@ export const Moderation: React.FC = () => {
             </h2>
             <div className="flex flex-col gap-2 text-xs sm:text-sm">
               <p>
-                <strong>4.1. Denúncia Instantânea (*Report*):</strong> A plataforma oferece um botão de denúncia de fácil acesso durante todas as chamadas. Encorajamos os usuários a relatar imediatamente qualquer comportamento inadequado.
+                <strong>4.1. Denúncia Instantânea (Report):</strong> A plataforma oferece um botão de denúncia de fácil acesso durante todas as chamadas. Encorajamos os usuários a relatar imediatamente qualquer comportamento inadequado.
               </p>
               <p>
                 <strong>4.2. Trocar Parceiro/Encerrar Chamada:</strong> O usuário tem autonomia total para desconectar-se de uma chamada a qualquer momento, sem necessidade de justificativa, caso se sinta desconfortável.
@@ -121,7 +116,7 @@ export const Moderation: React.FC = () => {
             </h2>
             <div className="flex flex-col gap-2 text-xs sm:text-sm">
               <p>
-                <strong>5.1. Penalidades Progressivas:</strong> Dependendo da gravidade, as sanções podem incluir suspensão preventiva temporária ou **banimento permanente** da conta.
+                <strong>5.1. Penalidades Progressivas:</strong> Dependendo da gravidade, as sanções podem incluir suspensão preventiva temporária ou <strong>banimento permanente</strong> da conta.
               </p>
               <p>
                 <strong>5.2. Banimento Sem Aviso Prévio:</strong> O SideBySide reserva-se o direito de encerrar contas que violem gravemente as diretrizes de ética, sem necessidade de aviso prévio e sem direito a compensações.
@@ -132,7 +127,6 @@ export const Moderation: React.FC = () => {
             </div>
           </section>
 
-          {/* Contato de Moderação */}
           <div className="bg-[#1C1917] text-[#FAF9F6] p-6 sm:p-8 rounded-2xl flex flex-col gap-2 mt-4 shadow-xl">
             <h3 className="text-lg font-black uppercase tracking-tight text-[#FAF9F6]">
               Relatar Violência ou Conteúdo Grave?
@@ -145,7 +139,6 @@ export const Moderation: React.FC = () => {
         </article>
       </main>
 
-      {/* Footer Simples */}
       <footer className="w-full bg-[#1C1917] border-t border-[#292524] py-8 px-6 text-center text-xs text-[#A8A29E]">
         <p>© 2026 SideBySide. Todos os direitos reservados.</p>
       </footer>

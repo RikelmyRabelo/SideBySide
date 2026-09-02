@@ -1,5 +1,7 @@
+// src/pages/ForgotPassword.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import api from '../services/api';
 import { Button } from '../components/ui/Button';
 
 export const ForgotPassword: React.FC = () => {
@@ -60,16 +62,7 @@ export const ForgotPassword: React.FC = () => {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:3000/api/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Erro ao solicitar recuperação de senha.');
-      }
+      await api.post('/api/auth/forgot-password', { email });
 
       setSuccess(true);
       localStorage.setItem('sidebyside_pending_email', email);
@@ -78,7 +71,7 @@ export const ForgotPassword: React.FC = () => {
         navigate('/reset-password', { state: { email } });
       }, 2000);
     } catch (err: any) {
-      setError(err.message || 'Erro ao conectar com o servidor.');
+      setError(err.response?.data?.error || err.message || 'Erro ao conectar com o servidor.');
     } finally {
       setIsSubmitting(false);
     }

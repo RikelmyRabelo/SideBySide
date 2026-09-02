@@ -1,3 +1,4 @@
+// src/pages/AuthSuccess.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
@@ -5,7 +6,6 @@ import { Button } from '../components/ui/Button';
 export const AuthSuccess: React.FC = () => {
   const navigate = useNavigate();
 
-  // Efeito de Cursor Sólido Neutro
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
   const [cursorOpacity, setCursorOpacity] = useState(1);
@@ -47,7 +47,6 @@ export const AuthSuccess: React.FC = () => {
     return () => cancelAnimationFrame(animationFrameId);
   }, [mousePos]);
 
-  // Confetes Monocromáticos Brutalistas
   const confettiItems = Array.from({ length: 24 }).map((_, i) => ({
     id: i,
     left: `${Math.random() * 90 + 5}%`,
@@ -59,8 +58,6 @@ export const AuthSuccess: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col font-sans selection:bg-[#1C1917] selection:text-[#FAF9F6] relative overflow-hidden">
-      
-      {/* Cursor Solido Neutro */}
       <div
         className="pointer-events-none fixed z-50 w-3.5 h-3.5 rounded-full bg-[#1C1917] transition-opacity duration-300 ease-out -translate-x-1/2 -translate-y-1/2 hidden md:block"
         style={{
@@ -70,7 +67,6 @@ export const AuthSuccess: React.FC = () => {
         }}
       />
 
-      {/* Chuva de Confete Animada (CSS Native) */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
         {confettiItems.map((item) => (
           <div
@@ -97,7 +93,6 @@ export const AuthSuccess: React.FC = () => {
       <main className="flex-1 max-w-md w-full mx-auto p-6 flex flex-col justify-center my-auto z-20">
         <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-8 sm:p-10 shadow-[8px_8px_0px_0px_#1C1917] flex flex-col items-center text-center gap-6 relative animate-in zoom-in-90 fade-in duration-500">
           
-          {/* Container do Ícone com Animação Saltante Clean */}
           <div className="w-20 h-20 rounded-2xl bg-[#1C1917] text-[#FAF9F6] flex items-center justify-center shadow-lg relative z-10 animate-bounce duration-700 border-2 border-[#1C1917]">
             <svg
               className="w-10 h-10 stroke-current stroke-[3] fill-none"
@@ -119,7 +114,6 @@ export const AuthSuccess: React.FC = () => {
             </p>
           </div>
 
-          {/* Card de Estatísticas de Boas-Vindas */}
           <div className="w-full bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-2xl p-4 flex justify-around items-center">
             <div className="flex flex-col items-center">
               <span className="text-lg font-black text-[#1C1917]">100%</span>
