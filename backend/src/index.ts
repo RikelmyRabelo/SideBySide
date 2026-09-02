@@ -152,9 +152,10 @@ io.use((socket: Socket, next: (err?: Error) => void) => {
 
     if (!token) return next(new Error('Autenticação não encontrada no handshake.'));
 
-    jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    jwt.verify(token, JWT_SECRET, (err, decoded: any) => {
       if (err) return next(new Error('Sessão JWT inválida ou expirada.'));
       (socket as any).user = decoded;
+      socket.join(`user_${decoded.id}`);
       next();
     });
   } catch (error) {
@@ -191,31 +192,24 @@ app.post('/api/auth/register', authLimiter, validateRequest(registerSchema), asy
   try {
     const { name, email, password, level } = req.body;
     const normalizedName = name?.trim() || 'Usuário';
-    
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) return res.status(400).json({ error: 'E-mail já cadastrado.' });
-
-    // Evita duplicidade/múltiplos envios limpando registros anteriores pendentes do mesmo e-mail
+    
     pendingUsers.delete(email);
     verificationCodes.delete(`register_${email}`);
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    
     pendingUsers.set(email, { name: normalizedName, email, passwordHash: hashedPassword, level: level || 'B1', code });
     verificationCodes.set(`register_${email}`, code);
-
     await transporter.sendMail({
       from: '"SideBySide" <no-reply@sidebyside.com>',
       to: email,
       subject: 'Ative sua conta no SideBySide',
       html: `<h2>Bem-vindo!</h2><p>Seu código é: <b>${code}</b></p>`,
     });
-
     return res.status(201).json({ message: 'Código de verificação enviado.', email });
-  } catch (error: any) { 
-    next(error); 
-  }
+  } catch (error: any) { next(error); }
 });
 
 app.post('/api/auth/login', authLimiter, validateRequest(loginSchema), async (req: Request, res: Response, next: NextFunction) => {
@@ -532,12 +526,19 @@ app.post('/api/friends/request', authenticateToken, async (req: Request, res: Re
       return res.status(400).json({ error: 'Já existe uma solicitação ou amizade entre vocês.' });
     }
 
-    await prisma.friendRelation.create({
+    const friendRelation = await prisma.friendRelation.create({
       data: {
         userId: userId,
         friendId: String(resolvedTargetId),
         status: 'pending'
       }
+    });
+
+    io.to(`user_${resolvedTargetId}`).emit('friend_request_received', {
+      requestId: friendRelation.id,
+      senderId: userId,
+      name: sender.name,
+      avatar: sender.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'
     });
 
     return res.status(200).json({ message: 'Solicitação enviada com sucesso.' });

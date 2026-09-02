@@ -48,6 +48,7 @@ const Room: React.FC = memo(() => {
   const [partnerDisconnected, setPartnerDisconnected] = useState(false);
 
   const [friendRequestSent, setFriendRequestSent] = useState(false);
+  const [incomingFriendRequest, setIncomingFriendRequest] = useState<{ requestId: string; senderId: string; name: string; avatar: string } | null>(null);
 
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [currentTranscript, setCurrentTranscript] = useState('');
@@ -84,7 +85,6 @@ const Room: React.FC = memo(() => {
 
   const hasRatedCurrentSessionRef = useRef<boolean>(false);
 
-  // Referência atualizada em tempo real para evitar Stale Closures no Socket
   const sessionStateRef = useRef({
     isSearching: true,
     partnerId: null as string | null,
@@ -457,13 +457,13 @@ const Room: React.FC = memo(() => {
       setPartnerDisconnected(false);
       setIsSearchingNextPair(false);
       setFriendRequestSent(false);
+      setIncomingFriendRequest(null);
       await initializeWebRTC(newSocket, data.roomId, data.initiator);
     });
 
     newSocket.on('partner_left', () => {
       const state = sessionStateRef.current;
       
-      // Bloqueia a abertura do modal se o usuário atual já está na fila
       if (state.isSearching || !roomIdRef.current || hasRatedCurrentSessionRef.current) return;
       
       hasRatedCurrentSessionRef.current = true;
@@ -485,6 +485,10 @@ const Room: React.FC = memo(() => {
 
     newSocket.on('camera_status', (data: { camActive: boolean }) => {
       setRemoteCamActiveState(data.camActive);
+    });
+
+    newSocket.on('friend_request_received', (data: { requestId: string; senderId: string; name: string; avatar: string }) => {
+      setIncomingFriendRequest(data);
     });
 
     newSocket.on('webrtc_offer', async (data: { sdp: RTCSessionDescriptionInit }) => {
@@ -545,13 +549,46 @@ const Room: React.FC = memo(() => {
       });
       if (response.ok) {
         setFriendRequestSent(true);
+        showToast('Solicitação de amizade enviada com sucesso!', 'success');
       } else {
-        console.error('Erro ao enviar solicitação de amizade');
+        const errData = await response.json().catch(() => ({}));
+        showToast(errData.error || 'Erro ao enviar solicitação de amizade', 'error');
       }
     } catch (err) {
-      console.error('Erro de rede ao enviar solicitação de amizade:', err);
+      showToast('Erro de rede ao enviar solicitação de amizade.', 'error');
     }
-  }, [partnerId, friendRequestSent]);
+  }, [partnerId, friendRequestSent, showToast]);
+
+  const handleAcceptOrRejectFriend = useCallback(async (action: 'accept' | 'reject') => {
+    if (!incomingFriendRequest) return;
+    try {
+      const response = await fetch('http://localhost:3000/api/friends/accept', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          requestId: incomingFriendRequest.requestId,
+          senderId: incomingFriendRequest.senderId,
+          action
+        })
+      });
+
+      if (response.ok) {
+        if (action === 'accept') {
+          showToast(`Você e ${incomingFriendRequest.name} agora são amigos! 🤝`, 'success');
+          setFriendRequestSent(true);
+        } else {
+          showToast('Solicitação de amizade recusada.', 'info');
+        }
+      } else {
+        showToast('Erro ao processar a solicitação.', 'error');
+      }
+    } catch (err) {
+      showToast('Erro de conexão ao responder solicitação.', 'error');
+    } finally {
+      setIncomingFriendRequest(null);
+    }
+  }, [incomingFriendRequest, showToast]);
 
   const toggleMicrophone = useCallback(() => {
     if (streamRef.current) {
@@ -620,13 +657,11 @@ const Room: React.FC = memo(() => {
       completedSessionRef.current = { roomId: null, partnerId: null, partnerName: 'Estudante', partnerAvatarUrl: getAvatarFallback('Estudante'), duration: 0 };
       navigate('/dashboard');
     } else {
-      // Abre o modal de confirmação primeiro. O evento de sair real ocorre em handleConfirmExit
       setIsConfirmExitOpen(true);
     }
   }, [isSearchingNextPair, stopMediaStream, navigate]);
 
   const handleConfirmExit = useCallback(() => {
-    // Desconecta a sala apenas agora, após o usuário confirmar que quer sair
     if (socketRef.current && roomIdRef.current) {
       socketRef.current.emit('leave_room', { roomId: roomIdRef.current });
       roomIdRef.current = null;
@@ -677,6 +712,7 @@ const Room: React.FC = memo(() => {
     setIsSearchingNextPair(true);
     setSessionElapsedSeconds(0);
     setCurrentTopic(topicId && TOPICS_CATALOG[topicId] ? TOPICS_CATALOG[topicId] : FREE_TALK_TOPIC);
+    setIncomingFriendRequest(null);
     
     if (socketRef.current) {
       socketRef.current.emit('find_match', { topicId: topicId || null });
@@ -829,6 +865,36 @@ const Room: React.FC = memo(() => {
                 <div className="w-12 h-1.5 bg-[#E7E5E4] rounded-full overflow-hidden flex">
                   <div className="bg-emerald-500 h-full transition-all duration-75" style={{ width: `${partnerAudioLevel}%` }} />
                 </div>
+              </div>
+            </div>
+          )}
+
+          {incomingFriendRequest && (
+            <div className="absolute top-4 left-4 z-50 bg-[#1C1917] text-[#FAF9F6] border-2 border-[#FAF9F6] p-4 rounded-2xl shadow-2xl flex flex-col gap-3 max-w-sm animate-in fade-in slide-in-from-top-4 duration-300">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#292524] border border-[#57534E] shrink-0">
+                  <img src={incomingFriendRequest.avatar} alt={incomingFriendRequest.name} className="w-full h-full object-cover" />
+                </div>
+                <div className="flex flex-col text-left">
+                  <span className="text-[10px] font-black uppercase text-[#A8A29E] tracking-wider">Solicitação de Amizade</span>
+                  <span className="text-xs font-black uppercase text-[#FAF9F6]">{incomingFriendRequest.name} quer ser seu amigo!</span>
+                </div>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => handleAcceptOrRejectFriend('reject')}
+                  className="flex-1 py-2 bg-[#292524] hover:bg-[#383230] text-[#FAF9F6] text-[10px] font-black uppercase rounded-xl transition-all border border-[#57534E]"
+                >
+                  Recusar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAcceptOrRejectFriend('accept')}
+                  className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black uppercase rounded-xl transition-all shadow-sm"
+                >
+                  Aceitar
+                </button>
               </div>
             </div>
           )}
