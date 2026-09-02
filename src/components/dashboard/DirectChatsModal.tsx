@@ -21,6 +21,7 @@ export interface DirectChatsModalProps {
 export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen, onClose, selectedContact, friendsList, unreadCounts, onClearUnread }) => {
   const [activeContact, setActiveContact] = useState<Friend | null>(null);
   const [viewingProfile, setViewingProfile] = useState<any | null>(null);
+  const [showRemoveConfirmModal, setShowRemoveConfirmModal] = useState(false);
   const [inputMessage, setInputMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   
@@ -93,6 +94,7 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
     if (!isOpen) {
       setViewingProfile(null);
       setActiveContact(null);
+      setShowRemoveConfirmModal(false);
     }
   }, [isOpen]);
 
@@ -113,6 +115,30 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
       }
     } catch {
       setViewingProfile(contact);
+    }
+  };
+
+  const handleConfirmRemoveFriend = async () => {
+    if (!viewingProfile) return;
+    const targetId = viewingProfile.id;
+
+    try {
+      const response = await fetch(`http://localhost:3000/api/friends/${targetId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao remover amizade.');
+      }
+
+      setShowRemoveConfirmModal(false);
+      setViewingProfile(null);
+      setActiveContact(null);
+      onClose();
+      window.location.reload();
+    } catch (error: any) {
+      alert(error.message || 'Erro ao processar a remoção de amizade.');
     }
   };
 
@@ -413,13 +439,64 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={() => setViewingProfile(null)}
-              className="w-full py-3.5 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-black text-xs uppercase tracking-widest rounded-xl transition-all border-2 border-[#1C1917] shadow-sm"
-            >
-              Fechar Visualização
-            </button>
+            <div className="flex flex-col gap-2.5 w-full pt-2">
+              <button
+                type="button"
+                onClick={() => setShowRemoveConfirmModal(true)}
+                className="w-full py-3.5 bg-red-50 hover:bg-red-100 text-red-600 font-black text-xs uppercase tracking-widest rounded-xl transition-all border-2 border-red-200 shadow-sm cursor-pointer"
+              >
+                Remover Amizade
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setViewingProfile(null)}
+                className="w-full py-3.5 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-black text-xs uppercase tracking-widest rounded-xl transition-all border-2 border-[#1C1917] shadow-sm cursor-pointer"
+              >
+                Fechar Visualização
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmação de Exclusão de Amizade */}
+      {showRemoveConfirmModal && viewingProfile && (
+        <div className="fixed inset-0 bg-[#1C1917]/80 backdrop-blur-md z-[130] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-8 max-w-md w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-6 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-red-50 border-2 border-red-200 text-red-600 flex items-center justify-center mx-auto shadow-sm">
+              <svg className="w-8 h-8 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M22 10.5h-6m-2.25-4.5h-3.5a2.25 2.25 0 00-2.25 2.25v10.5a2.25 2.25 0 002.25 2.25h10.5a2.25 2.25 0 002.25-2.25v-3.5m-6-10.5l6 6m0-6l-6 6" />
+              </svg>
+            </div>
+            <div className="flex flex-col gap-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#FAF9F6] bg-red-600 px-2.5 py-0.5 rounded w-fit mx-auto">
+                DESFAZER VÍNCULO
+              </span>
+              <h3 className="text-lg font-black uppercase text-[#1C1917]">
+                Remover {viewingProfile.name} dos amigos?
+              </h3>
+              <p className="text-xs text-[#57534E] font-medium leading-relaxed">
+                Esta ação apagará o vínculo de amizade e todo o histórico de mensagens trocadas entre vocês de forma permanente.
+              </p>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowRemoveConfirmModal(false)}
+                className="flex-1 py-3.5 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] text-xs font-black uppercase rounded-xl hover:bg-[#F5F5F4] transition-all cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmRemoveFriend}
+                className="flex-1 py-3.5 bg-red-600 text-[#FAF9F6] text-xs font-black uppercase rounded-xl border-2 border-red-600 hover:bg-red-700 transition-all shadow-sm cursor-pointer"
+              >
+                Sim, Remover
+              </button>
+            </div>
           </div>
         </div>
       )}
