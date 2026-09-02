@@ -6,7 +6,7 @@ describe('Socket Rate Limiter Logic', () => {
     const MAX_CHAT_EVENTS = 5;
     
     let count = 1;
-    let lastReset = Date.now();
+    const lastReset = Date.now();
     const now = Date.now();
 
     // Simulando disparos rápidos na mesma janela

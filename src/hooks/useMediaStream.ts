@@ -57,7 +57,7 @@ export const useMediaStream = ({
 
         streamRef.current = newStream;
         setStream(newStream);
-      } catch (err) {
+      } catch (_err) {
         if (isMounted) {
           setError('Não foi possível acessar a câmera ou microfone.');
         }

@@ -1,4 +1,3 @@
-// src/pages/Profile.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
@@ -47,7 +46,6 @@ export const Profile: React.FC = () => {
     return () => cancelAnimationFrame(animationFrameId);
   }, [mousePos]);
 
-  const [userData, setUserData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   const [displayName, setDisplayName] = useState('');
@@ -69,7 +67,6 @@ export const Profile: React.FC = () => {
       try {
         const res = await api.get('/api/user/me');
         const data = res.data;
-        setUserData(data);
         setDisplayName(data.name || '');
         setBirthDate(data.birthDate || '');
         setShowAgeInProfile(data.showAgeInProfile ?? true);
@@ -122,22 +119,9 @@ export const Profile: React.FC = () => {
     try {
       const dataUrl = await fileToDataUrl(file);
       setAvatarUrl(dataUrl);
-    } catch (err) {
+    } catch (_err) {
       alert('Erro ao carregar imagem.');
     }
-  };
-
-  const toggleInterest = (interest: string) => {
-    setSelectedInterests((prev) => {
-      if (prev.includes(interest)) {
-        return prev.filter((i) => i !== interest);
-      }
-      if (prev.length >= 5) {
-        alert('Máximo de 5 tópicos permitidos.');
-        return prev;
-      }
-      return [...prev, interest];
-    });
   };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -155,8 +139,9 @@ export const Profile: React.FC = () => {
         avatar: avatarUrl,
       });
       alert('Perfil atualizado com sucesso!');
-    } catch (err: any) {
-      alert(err.response?.data?.error || 'Erro ao atualizar perfil.');
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { error?: string } } };
+      alert(errorObj.response?.data?.error || 'Erro ao atualizar perfil.');
     }
   };
 
@@ -168,8 +153,9 @@ export const Profile: React.FC = () => {
       });
       localStorage.clear();
       navigate('/');
-    } catch (err: any) {
-      setDeleteError(err.response?.data?.error || 'Erro ao excluir conta.');
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { error?: string } } };
+      setDeleteError(errorObj.response?.data?.error || 'Erro ao excluir conta.');
     }
   };
 

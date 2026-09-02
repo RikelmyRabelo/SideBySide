@@ -1,14 +1,17 @@
+// backend/src/routes/profile.ts
 import { Router } from 'express';
+import type { Request, Response } from 'express';
 import { prisma } from '../lib/prisma.js';
 
 const router = Router();
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const stringId = Array.isArray(id) ? id[0] : id;
 
     const userProfile = await prisma.user.findUnique({
-      where: { id },
+      where: { id: stringId },
       select: {
         id: true,
         name: true,
@@ -23,7 +26,7 @@ router.get('/:id', async (req, res) => {
     }
 
     return res.json(userProfile);
-  } catch (error) {
+  } catch (_error) {
     return res.status(500).json({ error: 'Erro interno no servidor' });
   }
 });

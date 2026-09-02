@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
 import api from '../services/api';
@@ -53,7 +53,8 @@ const Room: React.FC = memo(() => {
 
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [currentTranscript, setCurrentTranscript] = useState('');
-  const [spokenHistory, setSpokenHistory] = useState<string[]>([]);
+  const [_spokenHistory, setSpokenHistory] = useState<string[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const speechRecognitionRef = useRef<any>(null);
 
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
@@ -126,7 +127,7 @@ const Room: React.FC = memo(() => {
         const response = await api.get('/api/user/me');
         const data = response.data;
         setUserAvatarUrl(data.avatar || getAvatarFallback(data.name || 'Estudante'));
-      } catch (err) {}
+      } catch (_err: unknown) {}
     };
     fetchUserAvatar();
   }, []);
@@ -148,7 +149,7 @@ const Room: React.FC = memo(() => {
 
   const setupAudioAnalyzer = useCallback((stream: MediaStream) => {
     try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (!AudioCtx) return;
 
       const audioCtx = new AudioCtx();
@@ -178,7 +179,7 @@ const Room: React.FC = memo(() => {
       };
 
       checkAudioLevel();
-    } catch (e) {}
+    } catch (_e: unknown) {}
   }, []);
 
   const stopMediaStream = useCallback(() => {
@@ -193,7 +194,7 @@ const Room: React.FC = memo(() => {
     }
 
     if (speechRecognitionRef.current) {
-      try { speechRecognitionRef.current.stop(); } catch (e) {}
+      try { speechRecognitionRef.current.stop(); } catch (_e: unknown) {}
       speechRecognitionRef.current = null;
       setIsTranscribing(false);
     }
@@ -221,6 +222,7 @@ const Room: React.FC = memo(() => {
   }, []);
 
   const toggleSpeechTranscription = useCallback(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognitionAPI) {
       alert('Seu navegador não suporta a Web Speech API para transcrição em tempo real.');
@@ -240,6 +242,7 @@ const Room: React.FC = memo(() => {
       recognition.lang = 'en-US';
       recognition.onstart = () => setIsTranscribing(true);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       recognition.onresult = (event: any) => {
         let interimText = '';
         let finalText = '';
@@ -262,7 +265,7 @@ const Room: React.FC = memo(() => {
 
       speechRecognitionRef.current = recognition;
       recognition.start();
-    } catch (err) {
+    } catch (_err: unknown) {
       setIsTranscribing(false);
     }
   }, [isTranscribing]);
@@ -315,19 +318,20 @@ const Room: React.FC = memo(() => {
   }, [isSearchingNextPair]);
 
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | undefined;
+    let timer: number | undefined;
     if (connectionStatus === 'connected' && !partnerDisconnected && !isSearchingNextPair) {
       if (!sessionStartedAtRef.current) sessionStartedAtRef.current = Date.now();
-      const timer = window.setInterval(() => {
+      timer = window.setInterval(() => {
         if (sessionStartedAtRef.current) setSessionElapsedSeconds(Math.floor((Date.now() - sessionStartedAtRef.current) / 1000));
       }, 1000);
-      return () => window.clearInterval(timer);
-    }
-    if (connectionStatus === 'reconnecting' || connectionStatus === 'failed' || partnerDisconnected || isSearchingNextPair) {
+    } else if (connectionStatus === 'reconnecting' || connectionStatus === 'failed' || partnerDisconnected || isSearchingNextPair) {
       sessionStartedAtRef.current = null;
     }
-    return undefined;
-  }, [connectionStatus, partnerDisconnected, isSearchingNextPair]);
+    
+    return () => {
+      if (timer) window.clearInterval(timer);
+    };
+  }, [connectionStatus, partnerDisconnected, isSearchingNextPair, roomId]);
 
   const toggleFullscreen = useCallback(async () => {
     try {
@@ -337,7 +341,7 @@ const Room: React.FC = memo(() => {
         await document.exitFullscreen();
       }
       setIsFullscreen(!document.fullscreenElement);
-    } catch (err) {}
+    } catch (_err: unknown) {}
   }, []);
 
   const initializeWebRTC = useCallback(async (socket: Socket, currentRoomId: string, isInitiator: boolean) => {
@@ -353,7 +357,7 @@ const Room: React.FC = memo(() => {
       let stream: MediaStream;
       try {
         stream = await navigator.mediaDevices.getUserMedia(constraints);
-      } catch (fallbackErr) {
+      } catch (_fallbackErr: unknown) {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
       }
 
@@ -380,7 +384,7 @@ const Room: React.FC = memo(() => {
           }
 
           try {
-            const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+            const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
             const remoteAudioCtx = new AudioCtx();
             const remoteAnalyser = remoteAudioCtx.createAnalyser();
             remoteAnalyser.fftSize = 256;
@@ -400,7 +404,7 @@ const Room: React.FC = memo(() => {
               requestAnimationFrame(checkRemoteAudio);
             };
             checkRemoteAudio();
-          } catch (e) {}
+          } catch (_e: unknown) {}
         }
       };
 
@@ -430,7 +434,7 @@ const Room: React.FC = memo(() => {
         socket.emit('webrtc_answer', { roomId: currentRoomId, sdp: pc.localDescription });
       }
 
-    } catch (err: any) {
+    } catch (_err: unknown) {
       setMediaError('Permita o uso da câmera e do microfone para conversar.');
     }
   }, [setupAudioAnalyzer]);
@@ -525,7 +529,7 @@ const Room: React.FC = memo(() => {
       }
       try {
         await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-      } catch (err) {}
+      } catch (_err: unknown) {}
     });
 
     newSocket.on('chat_message', (data: { text: string; id: number }) => {
@@ -536,7 +540,7 @@ const Room: React.FC = memo(() => {
       stopMediaStream();
       newSocket.disconnect();
     };
-  }, [topicId, initializeWebRTC, stopMediaStream, showToast]);
+  }, [topicId, initializeWebRTC, stopMediaStream, showToast, roomId]);
 
   const handleSendFriendRequest = useCallback(async () => {
     if (!partnerId || friendRequestSent) return;
@@ -546,8 +550,9 @@ const Room: React.FC = memo(() => {
         setFriendRequestSent(true);
         showToast('Solicitação de amizade enviada com sucesso!', 'success');
       }
-    } catch (err: any) {
-      showToast(err.response?.data?.error || 'Erro ao enviar solicitação de amizade', 'error');
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { error?: string } } };
+      showToast(errorObj.response?.data?.error || 'Erro ao enviar solicitação de amizade', 'error');
     }
   }, [partnerId, friendRequestSent, showToast]);
 
@@ -570,7 +575,7 @@ const Room: React.FC = memo(() => {
       } else {
         showToast('Erro ao processar a solicitação.', 'error');
       }
-    } catch (err) {
+    } catch (_err: unknown) {
       showToast('Erro de conexão ao responder solicitação.', 'error');
     } finally {
       setIncomingFriendRequest(null);
@@ -608,7 +613,7 @@ const Room: React.FC = memo(() => {
         messageCount: chatMessages.length,
         roomId
       });
-    } catch (err) {}
+    } catch (_err: unknown) {}
     
     if (socketRef.current && roomIdRef.current) {
       socketRef.current.emit('leave_room', { roomId: roomIdRef.current });
@@ -722,7 +727,7 @@ const Room: React.FC = memo(() => {
         topic: currentTopic.title,
         vocabLearned: currentTopic.vocabPreview || ['Vocabulary', 'Conversation', 'Fluency']
       });
-    } catch (err) {}
+    } catch (_err: unknown) {}
 
     completedSessionRef.current = { roomId: null, partnerId: null, partnerName: 'Estudante', partnerAvatarUrl: getAvatarFallback('Estudante'), duration: 0 };
     

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BADGES_CATALOG, Badge } from '../../data/badgesData';
+import { BADGES_CATALOG } from '../../data/badgesData';
 
 interface BadgesModalProps {
   isOpen: boolean;
@@ -62,7 +62,6 @@ export const BadgesModal: React.FC<BadgesModalProps> = ({ isOpen, onClose }) => 
     <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-[100] flex items-center justify-center p-4">
       <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 max-w-2xl w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150 max-h-[85vh] overflow-hidden">
         
-        {/* Header Modal */}
         <div className="flex items-center justify-between border-b-2 border-[#E7E5E4] pb-4">
           <div className="flex flex-col">
             <span className="text-[10px] font-black uppercase tracking-widest text-[#78716C]">
@@ -81,7 +80,6 @@ export const BadgesModal: React.FC<BadgesModalProps> = ({ isOpen, onClose }) => 
           </button>
         </div>
 
-        {/* Card de Progresso Geral */}
         <div className="bg-[#FAF9F6] border-2 border-[#1C1917] p-4 rounded-2xl flex flex-col gap-3">
           <div className="flex justify-between items-center text-xs font-black text-[#1C1917] uppercase">
             <span>Progresso Geral da Conta</span>
@@ -95,7 +93,6 @@ export const BadgesModal: React.FC<BadgesModalProps> = ({ isOpen, onClose }) => 
           </div>
         </div>
 
-        {/* Filtros */}
         <div className="grid grid-cols-3 bg-[#F5F5F4] p-1 border-2 border-[#1C1917] rounded-xl text-xs font-black uppercase tracking-wider">
           <button
             type="button"
@@ -120,7 +117,6 @@ export const BadgesModal: React.FC<BadgesModalProps> = ({ isOpen, onClose }) => 
           </button>
         </div>
 
-        {/* Lista de Badges Grid */}
         <div className="flex-1 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-3 pr-1">
           {filteredBadges.map((badge) => (
             <div
@@ -159,7 +155,6 @@ export const BadgesModal: React.FC<BadgesModalProps> = ({ isOpen, onClose }) => 
                   {badge.description}
                 </p>
 
-                {/* Barra de Progresso Individual */}
                 {!badge.unlocked && (
                   <div className="mt-2 flex flex-col gap-1">
                     <div className="flex justify-between text-[9px] font-black text-[#78716C] uppercase">

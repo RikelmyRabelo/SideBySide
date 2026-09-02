@@ -153,8 +153,9 @@ export const VerifyCode: React.FC = () => {
       localStorage.removeItem('sidebyside_pending_name');
 
       navigate('/onboarding');
-    } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Erro ao conectar com o servidor.');
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { error?: string } }; message?: string };
+      setError(errorObj.response?.data?.error || errorObj.message || 'Erro ao conectar com o servidor.');
     } finally {
       setIsSubmitting(false);
     }
@@ -176,8 +177,9 @@ export const VerifyCode: React.FC = () => {
       if (inputRefs.current[0]) {
         inputRefs.current[0].focus();
       }
-    } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Erro ao reenviar código.');
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { error?: string } }; message?: string };
+      setError(errorObj.response?.data?.error || errorObj.message || 'Erro ao reenviar código.');
     }
   };
 

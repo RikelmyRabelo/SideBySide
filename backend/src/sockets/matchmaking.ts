@@ -55,21 +55,24 @@ export const setupMatchmaking = (io: Server) => {
         if (err) {
           return next(new Error('Sessão JWT inválida ou expirada.'));
         }
+         
         (socket as any).user = decoded;
         next();
       });
-    } catch (error) {
+    } catch (_error) {
       next(new Error('Erro interno de autenticação WebSocket.'));
     }
   });
 
   io.on('connection', (socket: Socket) => {
+     
     const user = (socket as any).user;
     console.log(`🔌 Novo usuário conectado: ${user?.email || socket.id}`);
 
     socketRateLimits.set(socket.id, { count: 0, lastReset: Date.now() });
 
-    socket.use(([event, ...args], next) => {
+     
+    socket.use(([event, ..._args]: [string, ...any[]], next: (err?: Error) => void) => {
       const tracker = socketRateLimits.get(socket.id);
       const now = Date.now();
 
@@ -114,7 +117,9 @@ export const setupMatchmaking = (io: Server) => {
           const socket2 = queues[topicId].shift();
 
           if (socket1 && socket2) {
+             
             const user1 = (socket1 as any).user;
+             
             const user2 = (socket2 as any).user;
             const roomId = `room_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
             
@@ -128,8 +133,8 @@ export const setupMatchmaking = (io: Server) => {
             socketTopicMap.delete(socket1.id);
             socketTopicMap.delete(socket2.id);
 
-            let u1Data = { name: 'Estudante', avatar: null as string | null };
-            let u2Data = { name: 'Estudante', avatar: null as string | null };
+            const u1Data = { name: 'Estudante', avatar: null as string | null };
+            const u2Data = { name: 'Estudante', avatar: null as string | null };
 
             try {
               if (user1?.id) {
@@ -140,7 +145,9 @@ export const setupMatchmaking = (io: Server) => {
                 const dbU2 = await prisma.user.findUnique({ where: { id: user2.id } });
                 if (dbU2) { u2Data.name = dbU2.name; u2Data.avatar = dbU2.avatar; }
               }
-            } catch (err) {}
+            } catch (_err) {
+              // silenciado
+            }
 
             socket1.emit('match_found', { 
               roomId, 

@@ -53,9 +53,9 @@ Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
 });
 
 const matchFeedback = new Map<string, Map<string, 'positive' | 'negative' | 'skip'>>();
-const sessionFeedback = new Map<string, { averageRating: number; count: number; lastUpdated: Date }>();
-const conversationQuality = new Map<string, Map<string, { duration: number; messages: number; rating: number; timestamp: Date }>>();
-const repeatMatchPreferences = new Map<string, Set<string>>();
+const _sessionFeedback = new Map<string, { averageRating: number; count: number; lastUpdated: Date }>();
+const _conversationQuality = new Map<string, Map<string, { duration: number; messages: number; rating: number; timestamp: Date }>>();
+const _repeatMatchPreferences = new Map<string, Set<string>>();
 const reports = new Map<string, { reporterId: string; reason: string; timestamp: Date }[]>();
 
 const logger = winston.createLogger({
@@ -133,15 +133,18 @@ const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
     return res.status(401).json({ error: 'Acesso negado. Sessão não encontrada.' });
   }
 
+   
   jwt.verify(token, JWT_SECRET, (err: any, decoded: any) => {
     if (err) {
       return res.status(403).json({ error: 'Sessão inválida ou expirada.' });
     }
+     
     (req as any).user = decoded;
     next();
   });
 };
 
+ 
 io.use((socket: Socket, next: (err?: Error) => void) => {
   try {
     const cookies = cookie.parse(socket.request.headers.cookie || '');
@@ -149,13 +152,15 @@ io.use((socket: Socket, next: (err?: Error) => void) => {
 
     if (!token) return next(new Error('Autenticação não encontrada no handshake.'));
 
+     
     jwt.verify(token, JWT_SECRET, (err, decoded: any) => {
       if (err) return next(new Error('Sessão JWT inválida ou expirada.'));
+       
       (socket as any).user = decoded;
       socket.join(`user_${decoded.id}`);
       next();
     });
-  } catch (error) {
+  } catch (_error) {
     next(new Error('Erro interno de autenticação WebSocket.'));
   }
 });
@@ -206,6 +211,7 @@ app.post('/api/auth/register', authLimiter, validateRequest(registerSchema), asy
       html: `<h2>Bem-vindo!</h2><p>Seu código é: <b>${code}</b></p>`,
     });
     return res.status(201).json({ message: 'Código de verificação enviado.', email });
+   
   } catch (error: any) { next(error); }
 });
 
@@ -227,6 +233,7 @@ app.post('/api/auth/forgot-password', passwordResetLimiter, validateRequest(emai
       html: `<p>Seu código é: <b>${code}</b></p>`,
     });
     return res.status(200).json({ message: 'Código enviado com sucesso.' });
+   
   } catch (error: any) { next(error); }
 });
 
@@ -236,6 +243,7 @@ app.post('/api/auth/verify-reset-code', passwordResetLimiter, validateRequest(ve
     const storedCode = verificationCodes.get(`reset_${email}`);
     if (!storedCode || storedCode !== code) return res.status(400).json({ error: 'Código inválido.' });
     return res.status(200).json({ message: 'Código verificado com sucesso.' });
+   
   } catch (error: any) { next(error); }
 });
 
@@ -250,6 +258,7 @@ app.post('/api/auth/reset-password', passwordResetLimiter, validateRequest(reset
     await prisma.user.update({ where: { id: user.id }, data: { password: hashedPassword } });
     verificationCodes.delete(`reset_${email}`);
     return res.status(200).json({ message: 'Senha redefinida.' });
+   
   } catch (error: any) { next(error); }
 });
 
@@ -264,7 +273,7 @@ app.post('/api/auth/verify-code', authLimiter, validateRequest(verifyCodeSchema)
     }
     const pending = targetEmail ? pendingUsers.get(targetEmail) : null;
     if (!pending || pending.code !== code) return res.status(400).json({ error: 'Código inválido.' });
-    pendingUsers.delete(targetEmail);
+    pendingUsers.delete(targetEmail!);
     verificationCodes.delete(`register_${targetEmail}`);
     
     const tempUser = await prisma.user.create({
@@ -292,6 +301,7 @@ app.post('/api/auth/verify-code', authLimiter, validateRequest(verifyCodeSchema)
       message: 'Conta criada.',
       user: { id: newUser.id, name: newUser.name, email: newUser.email, level: newUser.level, reputation: newUser.reputation, tag: newUser.tag }
     });
+   
   } catch (error: any) { next(error); }
 });
 
@@ -311,25 +321,29 @@ app.post('/api/auth/resend-code', passwordResetLimiter, validateRequest(emailOnl
       html: `<p>Seu novo código é: <b>${code}</b></p>`,
     });
     return res.status(200).json({ message: 'Código reenviado com sucesso.' });
+   
   } catch (error: any) { next(error); }
 });
 
-app.get('/api/room/status', (req: Request, res: Response) => {
+app.get('/api/room/status', (_req: Request, res: Response) => {
   return res.status(200).json({ hasActiveSession: false, sessionId: null });
 });
 
 app.post('/api/room/join', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
+     
     const userId = (req as any).user.id;
     const { topicId } = req.body || {};
     const allUsers = await prisma.user.findMany({ where: { id: { not: userId } }, select: { id: true } });
     const partnerId = allUsers.length > 0 ? allUsers[Math.floor(Math.random() * allUsers.length)].id : null;
     return res.status(200).json({ message: 'Entrada registrada.', topicId: topicId || null, partnerId: partnerId || null });
+   
   } catch (error: any) { next(error); }
 });
 
 app.post('/api/room/report', authenticateToken, reportLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
+     
     const userId = (req as any).user.id;
     const { reportedUserId, reason, sessionDuration, messageCount, roomId } = req.body || {};
     
@@ -390,6 +404,7 @@ app.post('/api/room/report', authenticateToken, reportLimiter, async (req: Reque
       reportId: report.id, 
       userFlagStatus: flagStatus 
     });
+   
   } catch (error: any) { 
     next(error); 
   }
@@ -397,6 +412,7 @@ app.post('/api/room/report', authenticateToken, reportLimiter, async (req: Reque
 
 app.post('/api/room/rate', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
+     
     const userId = (req as any).user.id;
     const { 
       sessionId, 
@@ -436,9 +452,12 @@ app.post('/api/room/rate', authenticateToken, async (req: Request, res: Response
       createdAt: new Date().toISOString() 
     };
 
+     
     const previousHistory = Array.isArray(user.sessionsHistory) ? (user.sessionsHistory as any[]) : [];
+     
     const filteredHistory = previousHistory.filter((entry: any) => entry && entry.sessionId !== sessionId);
     
+     
     const isNewSession = !previousHistory.some((entry: any) => entry && entry.sessionId === sessionId);
     const totalSessions = isNewSession ? (user.totalSessions || 0) + 1 : (user.totalSessions || 0);
     const totalMinutes = isNewSession ? (user.totalMinutes || 0) + 15 : (user.totalMinutes || 0);
@@ -449,12 +468,15 @@ app.post('/api/room/rate', authenticateToken, async (req: Request, res: Response
         reputation: updatedReputation, 
         totalSessions, 
         totalMinutes, 
+         
         lastSession: historyEntry as any, 
+         
         sessionsHistory: [historyEntry, ...filteredHistory] as any 
       } 
     });
 
     return res.status(200).json({ message: 'Avaliação salva com sucesso.', reputation: updatedUser.reputation, averageRating: safeAverage });
+   
   } catch (error: any) { 
     next(error); 
   }
@@ -462,6 +484,7 @@ app.post('/api/room/rate', authenticateToken, async (req: Request, res: Response
 
 app.post('/api/friends/request', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
+     
     const userId = (req as any).user.id;
     const { targetUserId, tag } = req.body || {};
     
@@ -522,6 +545,7 @@ app.post('/api/friends/request', authenticateToken, async (req: Request, res: Re
     });
 
     return res.status(200).json({ message: 'Solicitação enviada com sucesso.' });
+   
   } catch (error: any) { 
     next(error); 
   }
@@ -529,12 +553,14 @@ app.post('/api/friends/request', authenticateToken, async (req: Request, res: Re
 
 app.get('/api/friends/requests', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
+     
     const userId = (req as any).user.id;
     const pendingRelations = await prisma.friendRelation.findMany({
       where: { friendId: userId, status: 'pending' },
       include: { user: true }
     });
 
+     
     const requests = pendingRelations.map((rel: any) => ({
       id: rel.id,
       senderId: rel.userId,
@@ -546,6 +572,7 @@ app.get('/api/friends/requests', authenticateToken, async (req: Request, res: Re
     }));
 
     return res.status(200).json(requests);
+   
   } catch (error: any) {
     next(error);
   }
@@ -553,6 +580,7 @@ app.get('/api/friends/requests', authenticateToken, async (req: Request, res: Re
 
 app.post('/api/friends/accept', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
+     
     const userId = (req as any).user.id;
     const { requestId, senderId, action } = req.body;
     
@@ -625,6 +653,7 @@ app.post('/api/friends/accept', authenticateToken, async (req: Request, res: Res
     }
 
     return res.status(200).json({ message: 'Amizade aceita com sucesso.' });
+   
   } catch (error: any) {
     next(error);
   }
@@ -632,6 +661,7 @@ app.post('/api/friends/accept', authenticateToken, async (req: Request, res: Res
 
 app.get('/api/friends/list', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
+     
     const userId = (req as any).user.id;
     
     const relations = await prisma.friendRelation.findMany({
@@ -642,6 +672,7 @@ app.get('/api/friends/list', authenticateToken, async (req: Request, res: Respon
     });
 
     const friendIds = new Set<string>();
+     
     relations.forEach((rel: any) => {
       if (rel.userId === userId) friendIds.add(rel.friendId);
       if (rel.friendId === userId) friendIds.add(rel.userId);
@@ -656,6 +687,7 @@ app.get('/api/friends/list', authenticateToken, async (req: Request, res: Respon
       select: { id: true, name: true, level: true, avatar: true, tag: true }
     });
 
+     
     const formatted = friendsData.map((f: any) => ({
       id: f.id,
       name: f.name,
@@ -666,6 +698,7 @@ app.get('/api/friends/list', authenticateToken, async (req: Request, res: Respon
     }));
 
     return res.status(200).json(formatted);
+   
   } catch (error: any) {
     next(error);
   }
@@ -673,6 +706,7 @@ app.get('/api/friends/list', authenticateToken, async (req: Request, res: Respon
 
 app.delete('/api/friends/:friendId', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
+     
     const userId = (req as any).user.id;
     const targetId = String(req.params.friendId);
 
@@ -696,6 +730,7 @@ app.delete('/api/friends/:friendId', authenticateToken, async (req: Request, res
     });
 
     return res.status(200).json({ message: 'Amizade e histórico removidos com sucesso.' });
+   
   } catch (error: any) {
     next(error);
   }
@@ -703,6 +738,7 @@ app.delete('/api/friends/:friendId', authenticateToken, async (req: Request, res
 
 app.post('/api/messages/send', authenticateToken, messageLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
+     
     const senderId = (req as any).user.id;
     const recipientId = String(req.body.recipientId);
     const text = String(req.body.text);
@@ -723,6 +759,7 @@ app.post('/api/messages/send', authenticateToken, messageLimiter, async (req: Re
     });
 
     return res.status(201).json(message);
+   
   } catch (error: any) {
     next(error);
   }
@@ -730,6 +767,7 @@ app.post('/api/messages/send', authenticateToken, messageLimiter, async (req: Re
 
 app.get('/api/messages/:recipientId', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
+     
     const senderId = (req as any).user.id;
     const recipientId = String(req.params.recipientId);
 
@@ -744,6 +782,7 @@ app.get('/api/messages/:recipientId', authenticateToken, async (req: Request, re
     });
 
     return res.status(200).json(messages);
+   
   } catch (error: any) {
     next(error);
   }
@@ -751,11 +790,13 @@ app.get('/api/messages/:recipientId', authenticateToken, async (req: Request, re
 
 app.get('/api/user/me', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
+     
     const userId = (req as any).user.id;
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
     
     const feedbacks = Array.isArray(user.sessionsHistory) 
+       
       ? (user.sessionsHistory as any[]).filter(s => s && s.comment).map((s, idx) => ({
           id: idx + 1,
           author: 'Parceiro de Conversa',
@@ -770,11 +811,13 @@ app.get('/api/user/me', authenticateToken, async (req: Request, res: Response, n
       reputationScore: `${user.reputation ?? 100}/100`,
       feedbacks,
     });
+   
   } catch (error: any) { next(error); }
 });
 
 app.delete('/api/user/me', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
+     
     const userId = (req as any).user.id;
     const { password } = req.body;
 
@@ -802,6 +845,7 @@ app.delete('/api/user/me', authenticateToken, async (req: Request, res: Response
 
     res.clearCookie('token');
     return res.status(200).json({ message: 'Conta excluída com sucesso.' });
+   
   } catch (error: any) {
     next(error);
   }
@@ -832,6 +876,7 @@ app.get('/api/user/:id', authenticateToken, async (req: Request, res: Response, 
 
     if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
     return res.status(200).json(user);
+   
   } catch (error: any) { 
     next(error); 
   }
@@ -839,12 +884,14 @@ app.get('/api/user/:id', authenticateToken, async (req: Request, res: Response, 
 
 app.get('/api/notifications', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
+     
     const userId = (req as any).user.id;
     const notifications = await prisma.notification.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
     });
     return res.status(200).json(notifications);
+   
   } catch (error: any) { 
     next(error); 
   }
@@ -852,22 +899,26 @@ app.get('/api/notifications', authenticateToken, async (req: Request, res: Respo
 
 app.get('/api/matches/candidates', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
+     
     const userId = (req as any).user.id;
     const me = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, level: true, interests: true, reputation: true, totalSessions: true, totalMinutes: true } });
     if (!me) return res.status(404).json({ error: 'Usuário não encontrado.' });
     
     const allUsers = await prisma.user.findMany({ where: { id: { not: userId }, isBanned: false }, take: 1 });
+     
     const candidates = allUsers.map((candidate: any) => ({
       id: candidate.id, name: candidate.name, level: candidate.level, avatar: candidate.avatar,
       interests: candidate.interests || [], sharedInterests: [], score: 85, reputation: candidate.reputation,
       totalSessions: candidate.totalSessions || 0, totalMinutes: candidate.totalMinutes || 0, history: null, flagStatus: candidate.flagStatus
     }));
     return res.status(200).json({ candidates, me: { id: me.id, level: me.level, interests: me.interests || [] } });
+   
   } catch (error: any) { next(error); }
 });
 
 app.post('/api/matches/feedback', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
+     
     const userId = (req as any).user.id;
     const { candidateId, outcome } = req.body;
     if (!candidateId || !['positive', 'negative', 'skip'].includes(outcome)) return res.status(400).json({ error: 'Dados inválidos.' });
@@ -875,15 +926,18 @@ app.post('/api/matches/feedback', authenticateToken, async (req: Request, res: R
     userMap.set(candidateId, outcome);
     matchFeedback.set(userId, userMap);
     return res.status(200).json({ message: 'Feedback salvo.' });
+   
   } catch (error: any) { next(error); }
 });
 
 app.put('/api/user/profile', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
+     
     const tokenUser = (req as any).user;
     const { cefrLevel, ...bodyData } = req.body;
     
-    const updateData = {
+     
+    const updateData: any = {
       ...bodyData,
       ...(cefrLevel ? { level: cefrLevel } : {})
     };
@@ -919,13 +973,15 @@ app.put('/api/user/profile', authenticateToken, async (req: Request, res: Respon
     });
 
     return res.status(200).json({ message: 'Perfil atualizado com sucesso.', user: updatedUser });
+   
   } catch (error: any) { 
     next(error); 
   }
 });
 
-app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-  logger.error('Erro global:', { message: err.message });
+ 
+app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
+  logger.error('Erro global:', { message: err.message, path: req.url });
   return res.status(err.status || 500).json({ error: err.message || 'Erro interno.' });
 });
 

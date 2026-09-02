@@ -1,10 +1,13 @@
+// backend/src/routes/user.ts
 import { Router } from 'express';
+import type { Request, Response } from 'express';
 import { prisma } from '../lib/prisma.js';
 
 const router = Router();
 
-router.get('/me', async (req, res) => {
+router.get('/me', async (req: Request, res: Response) => {
   try {
+     
     const userId = (req as any).userId; // ou req.user?.id dependendo da auth atual
     if (!userId) {
       return res.status(401).json({ error: 'Não autorizado' });
@@ -27,7 +30,7 @@ router.get('/me', async (req, res) => {
     }
 
     return res.json(user);
-  } catch (error) {
+  } catch (_error) {
     return res.status(500).json({ error: 'Erro interno no servidor' });
   }
 });

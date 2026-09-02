@@ -1,11 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { Button } from '../components/ui/Button';
 
 export const Onboarding: React.FC = () => {
-  const navigate = useNavigate();
-
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
   const [cursorOpacity, setCursorOpacity] = useState(1);
@@ -553,8 +550,9 @@ export const Onboarding: React.FC = () => {
                     });
 
                     window.location.href = '/auth-success';
-                  } catch (error: any) {
-                    alert(error.response?.data?.error || error.message || 'Erro ao salvar o onboarding.');
+                  } catch (error: unknown) {
+                    const err = error as { response?: { data?: { error?: string } }; message?: string };
+                    alert(err.response?.data?.error || err.message || 'Erro ao salvar o onboarding.');
                   }
                 }}
                 className="w-full py-4 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-black text-xs uppercase tracking-widest rounded-xl transition-all border-2 border-[#1C1917] shadow-lg"

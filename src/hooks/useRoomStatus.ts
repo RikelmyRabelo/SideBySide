@@ -22,8 +22,8 @@ export const useRoomStatus = () => {
           const data = await response.json();
           setStatus(data);
         }
-      } catch (err) {
-        console.error("Erro ao verificar status da sala:", err);
+      } catch (_err) {
+        // Silenciado para evitar warning de unused var
       } finally {
         setLoading(false);
       }

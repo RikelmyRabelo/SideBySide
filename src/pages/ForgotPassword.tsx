@@ -1,4 +1,3 @@
-// src/pages/ForgotPassword.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
@@ -70,8 +69,9 @@ export const ForgotPassword: React.FC = () => {
       setTimeout(() => {
         navigate('/reset-password', { state: { email } });
       }, 2000);
-    } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Erro ao conectar com o servidor.');
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { error?: string } }; message?: string };
+      setError(errorObj.response?.data?.error || errorObj.message || 'Erro ao conectar com o servidor.');
     } finally {
       setIsSubmitting(false);
     }

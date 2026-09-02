@@ -1,182 +1,306 @@
-// src/pages/Dashboard.tsx
+// src/pages/Room.tsx
 import React, { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
 import api from '../services/api';
-import { Button } from '../components/ui/Button';
-import { FriendsManagerModal, Friend, FriendRequest } from '../components/dashboard/FriendsManagerModal';
-import { DirectChatsModal } from '../components/dashboard/DirectChatsModal';
-import { BadgesModal } from '../components/dashboard/BadgesModal';
-import { DeviceCheckModal } from '../components/dashboard/DeviceCheckModal';
-import { SupportModal } from '../components/dashboard/SupportModal';
-import { NotificationsModal } from '../components/dashboard/NotificationsModal';
+import { ReportModal } from '../components/room/ReportModal';
+import { RatingModal } from '../components/room/RatingModal';
+import { TOPICS_CATALOG, FREE_TALK_TOPIC, TopicItem } from '../data/topicsData';
 import { useToast } from '../components/ui/ToastContext';
-import { TopicItemType } from '../types/user';
-import { useFetchCache } from '../hooks/useFetchCache';
-import { BADGES_CATALOG } from '../data/badgesData';
 
-const DEFAULT_MINUTES_HISTORY = [
-  { day: 'Seg', min: 0 }, { day: 'Ter', min: 0 }, { day: 'Qua', min: 0 },
-  { day: 'Qui', min: 0 }, { day: 'Sex', min: 0 }, { day: 'Sáb', min: 0 }, { day: 'Dom', min: 0 },
-];
+const formatSessionTimer = (seconds: number) => {
+  const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+  const secs = (seconds % 60).toString().padStart(2, '0');
+  return `${mins}:${secs}`;
+};
 
-const WEEK_DAYS_LIST = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+const ICE_SERVERS = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' }
+  ],
+};
 
-const DAILY_TOPICS: TopicItemType[] = [
-  { id: 'travel', category: 'Viagens & Culturas', title: 'Experiências Inesquecíveis', icebreaker: 'Qual foi o destino mais marcante que você já visitou e por quê?', vocabPreview: ['Destination', 'Wanderlust', 'Unforgettable'] },
-  { id: 'career', category: 'Trabalho & Tecnologia', title: 'O Futuro da Inteligência Artificial', icebreaker: 'Como a tecnologia e a IA têm mudado a sua rotina diária no trabalho?', vocabPreview: ['Automation', 'Efficiency', 'Workflow'] },
-  { id: 'hobbies', category: 'Estilo de Vida', title: 'Passatempos & Hábitos Diários', icebreaker: 'O que você mais gosta de fazer para relaxar no final de semana?', vocabPreview: ['Leisure', 'Unwind', 'Daily Routine'] },
-];
+const getAvatarFallback = (name: string) => {
+  const cleanName = name?.trim() || 'Estudante';
+  const initial = cleanName.charAt(0).toUpperCase();
+  return `https://ui-avatars.com/api/?name=${initial}&background=292524&color=FAF9F6&bold=true`;
+};
 
-export const Dashboard: React.FC = memo(() => { 
+const Room: React.FC = memo(() => {
   const navigate = useNavigate();
+  const { topicId } = useParams<{ topicId?: string }>();
   const { showToast } = useToast();
+  
+  const [currentTopic, setCurrentTopic] = useState<TopicItem>(() => {
+    if (topicId && TOPICS_CATALOG[topicId]) return TOPICS_CATALOG[topicId];
+    return FREE_TALK_TOPIC;
+  });
 
-  const { data: userData, refetch: refetchUserData } = useFetchCache<any>('/api/user/me');
+  const [micActive, setMicActive] = useState(true);
+  const [camActive, setCamActive] = useState(true);
+  const [activeTab, setActiveTab] = useState<'topics' | 'chat'>('topics');
+  const [isReportOpen, setIsReportOpen] = useState(false);
+  const [isRatingOpen, setIsRatingOpen] = useState(false);
+  const [isConfirmExitOpen, setIsConfirmExitOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  
+  const [isSearchingNextPair, setIsSearchingNextPair] = useState(true);
+  const [pendingAction, setPendingAction] = useState<'exit' | 'nextPair' | null>(null);
+  const [partnerDisconnected, setPartnerDisconnected] = useState(false);
+
+  const [friendRequestSent, setFriendRequestSent] = useState(false);
+  const [incomingFriendRequest, setIncomingFriendRequest] = useState<{ requestId: string; senderId: string; name: string; avatar: string } | null>(null);
+
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [currentTranscript, setCurrentTranscript] = useState('');
+  const [_spokenHistory, setSpokenHistory] = useState<string[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const speechRecognitionRef = useRef<any>(null);
+
+  const [isUserSpeaking, setIsUserSpeaking] = useState(false);
+  const [isPartnerSpeaking, setIsPartnerSpeaking] = useState(false);
+  const [userAudioLevel, setUserAudioLevel] = useState(0);
+  const [partnerAudioLevel, setPartnerAudioLevel] = useState(0);
+
+  const [remoteCamActiveState, setRemoteCamActiveState] = useState(true);
+
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animationFrameAudioRef = useRef<number | null>(null);
+
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'reconnecting' | 'failed'>('connected');
+  const [sessionElapsedSeconds, setSessionElapsedSeconds] = useState(0);
+  const sessionStartedAtRef = useRef<number | null>(null);
+  
+  const [partnerId, setPartnerId] = useState<string | null>(null);
+  const [partnerName, setPartnerName] = useState<string>('Estudante');
+  const [partnerAvatarUrl, setPartnerAvatarUrl] = useState<string>(getAvatarFallback('Estudante'));
+  const [roomId, setRoomId] = useState<string | null>(null);
+
+  const completedSessionRef = useRef<{ roomId: string | null; partnerId: string | null; partnerName: string; partnerAvatarUrl: string; duration: number }>({
+    roomId: null,
+    partnerId: null,
+    partnerName: 'Estudante',
+    partnerAvatarUrl: getAvatarFallback('Estudante'),
+    duration: 0,
+  });
+
+  const hasRatedCurrentSessionRef = useRef<boolean>(false);
+
+  const sessionStateRef = useRef({
+    isSearching: true,
+    partnerId: null as string | null,
+    partnerName: 'Estudante',
+    partnerAvatarUrl: getAvatarFallback('Estudante'),
+    duration: 0
+  });
 
   useEffect(() => {
-    const handleFocus = () => {
-      if (refetchUserData) refetchUserData();
+    sessionStateRef.current = {
+      isSearching: isSearchingNextPair,
+      partnerId,
+      partnerName,
+      partnerAvatarUrl,
+      duration: sessionElapsedSeconds
     };
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [refetchUserData]);
+  }, [isSearchingNextPair, partnerId, partnerName, partnerAvatarUrl, sessionElapsedSeconds]);
 
-  const [mediaMode, setMediaMode] = useState<'video' | 'audio'>('video');
-  const [expandedMatching, setExpandedMatching] = useState(true);
+  const roomIdRef = useRef<string | null>(null);
+  const micActiveRef = useRef(micActive);
+
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+
+  const [animStep, setAnimStep] = useState<0 | 1 | 2 | 3 | 4>(0);
+  const [chatMessages, setChatMessages] = useState<{ id: number; sender: 'me' | 'other'; text: string }[]>([]);
+  const [chatInput, setChatInput] = useState('');
+
+  const [userAvatarUrl, setUserAvatarUrl] = useState<string>(getAvatarFallback('S'));
+
+  useEffect(() => {
+    micActiveRef.current = micActive;
+  }, [micActive]);
+
+  useEffect(() => {
+    const fetchUserAvatar = async () => {
+      try {
+        const response = await api.get('/api/user/me');
+        const data = response.data;
+        setUserAvatarUrl(data.avatar || getAvatarFallback(data.name || 'Estudante'));
+      } catch (_err: unknown) {}
+    };
+    fetchUserAvatar();
+  }, []);
+
+  const videoContainerRef = useRef<HTMLDivElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const socketRef = useRef<Socket | null>(null);
+  const pendingCandidates = useRef<RTCIceCandidateInit[]>([]);
+  const pendingOfferRef = useRef<RTCSessionDescriptionInit | null>(null);
+  const [mediaError, setMediaError] = useState<string | null>(null);
+
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
 
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
   const [cursorOpacity, setCursorOpacity] = useState(1);
 
-  const [activeMetricModal, setActiveMetricModal] = useState<'streak' | 'minutes' | 'sessions' | null>(null);
+  const setupAudioAnalyzer = useCallback((stream: MediaStream) => {
+    try {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtx) return;
 
-  const [isFriendsOpen, setIsFriendsOpen] = useState(false);
-  const [isDirectChatsOpen, setIsDirectChatsOpen] = useState(false);
-  const [isBadgesOpen, setIsBadgesOpen] = useState(false);
-  const [isDeviceCheckOpen, setIsDeviceCheckOpen] = useState(false);
-  const [isSupportOpen, setIsSupportOpen] = useState(false);
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [selectedChatContact, setSelectedChatContact] = useState<Friend | null>(null);
+      const audioCtx = new AudioCtx();
+      audioContextRef.current = audioCtx;
 
-  const [notifications, setNotifications] = useState<any[]>([]);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      analyserRef.current = analyser;
 
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const userMenuRef = useRef<HTMLDivElement>(null);
-  const [activeModal, setActiveModal] = useState<'goals' | 'reminders' | null>(null);
-  
-  const [showTopicConfirmModal, setShowTopicConfirmModal] = useState(false);
-  const [topicToJoin, setTopicToJoin] = useState<TopicItemType | null>(null);
-  const [selectedTopic, setSelectedTopic] = useState<TopicItemType>(DAILY_TOPICS[0]);
+      const source = audioCtx.createMediaStreamSource(stream);
+      source.connect(analyser);
 
-  const [reminderEnabled, setReminderEnabled] = useState(false);
-  const [reminderTime, setReminderTime] = useState('19:00');
-  const [selectedDays, setSelectedDays] = useState<string[]>([]);
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
-  const [friendsList, setFriendsList] = useState<Friend[]>([]);
-  const [requestsList, setRequestsList] = useState<FriendRequest[]>([]);
+      const checkAudioLevel = () => {
+        if (!analyserRef.current) return;
+        analyserRef.current.getByteFrequencyData(dataArray);
+        
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+        const average = sum / dataArray.length;
+        const normalizedLevel = Math.min(100, Math.round((average / 128) * 100));
 
-  const [unreadCounts, setUnreadCounts] = useState<{ [key: string]: number }>({});
+        setUserAudioLevel(normalizedLevel);
+        setIsUserSpeaking(average > 12 && micActiveRef.current);
+        animationFrameAudioRef.current = requestAnimationFrame(checkAudioLevel);
+      };
+
+      checkAudioLevel();
+    } catch (_e: unknown) {}
+  }, []);
+
+  const stopMediaStream = useCallback(() => {
+    if (animationFrameAudioRef.current) {
+      cancelAnimationFrame(animationFrameAudioRef.current);
+      animationFrameAudioRef.current = null;
+    }
+
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+
+    if (speechRecognitionRef.current) {
+      try { speechRecognitionRef.current.stop(); } catch (_e: unknown) {}
+      speechRecognitionRef.current = null;
+      setIsTranscribing(false);
+    }
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => {
+        track.stop();
+        track.enabled = false;
+      });
+      streamRef.current = null;
+    }
+
+    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+    if (localVideoRef.current) localVideoRef.current.srcObject = null;
+
+    setLocalStream(null);
+    setRemoteStream(null);
+    pendingCandidates.current = [];
+    pendingOfferRef.current = null;
+
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+  }, []);
+
+  const toggleSpeechTranscription = useCallback(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognitionAPI) {
+      alert('Seu navegador não suporta a Web Speech API para transcrição em tempo real.');
+      return;
+    }
+
+    if (isTranscribing && speechRecognitionRef.current) {
+      speechRecognitionRef.current.stop();
+      setIsTranscribing(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognitionAPI();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+      recognition.onstart = () => setIsTranscribing(true);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      recognition.onresult = (event: any) => {
+        let interimText = '';
+        let finalText = '';
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) finalText += event.results[i][0].transcript;
+          else interimText += event.results[i][0].transcript;
+        }
+
+        if (finalText.trim()) {
+          setCurrentTranscript(finalText.trim());
+          setSpokenHistory((prev) => [...prev, finalText.trim()]);
+        } else if (interimText.trim()) {
+          setCurrentTranscript(interimText.trim());
+        }
+      };
+
+      recognition.onerror = () => setIsTranscribing(false);
+      recognition.onend = () => setIsTranscribing(false);
+
+      speechRecognitionRef.current = recognition;
+      recognition.start();
+    } catch (_err: unknown) {
+      setIsTranscribing(false);
+    }
+  }, [isTranscribing]);
 
   useEffect(() => {
-    const baseURL = api.defaults.baseURL || 'http://localhost:3000';
-    const socket: Socket = io(baseURL, { withCredentials: true });
-
-    socket.on('direct_message', (data: { senderId: string }) => {
-      setUnreadCounts((prev) => ({
-        ...prev,
-        [data.senderId]: (prev[data.senderId] || 0) + 1
-      }));
-    });
-
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
     return () => {
-      socket.disconnect();
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      stopMediaStream();
     };
-  }, []);
-
-  const clearUnreadForSender = useCallback((senderId: string) => {
-    setUnreadCounts((prev) => {
-      if (!prev[senderId]) return prev;
-      const newCounts = { ...prev };
-      delete newCounts[senderId];
-      return newCounts;
-    });
-  }, []);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [reqRes, friendsRes] = await Promise.all([
-          api.get('/api/friends/requests'),
-          api.get('/api/friends/list')
-        ]);
-        setRequestsList(reqRes.data);
-        setFriendsList(friendsRes.data);
-      } catch (e) {
-        console.error('Erro ao buscar dados de amigos/solicitações:', e);
-      }
-    };
-    fetchData();
-    const interval = setInterval(fetchData, 8000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const friendRequestsCount = requestsList.length;
-  const unreadChatMessages = Object.keys(unreadCounts).length;
-
-  const mockSessionsHistory = useMemo(() => userData?.sessionsHistory || [], [userData]);
-  const mockMinutesHistory = useMemo(() => userData?.minutesHistory || DEFAULT_MINUTES_HISTORY, [userData]);
-  const unreadCount = useMemo(() => (notifications || []).filter((n) => !n?.read).length, [notifications]);
-  
-  const lastSessionFeedback = useMemo(() => userData?.lastSession || null, [userData]);
-  const weeklyGoal = useMemo(() => userData?.weeklyGoal || {
-    target: 5, completed: 0,
-    days: [
-      { day: 'Seg', completed: false }, { day: 'Ter', completed: false }, { day: 'Qua', completed: false },
-      { day: 'Qui', completed: false }, { day: 'Sex', completed: false }, { day: 'Sáb', completed: false },
-      { day: 'Dom', completed: false },
-    ],
-  }, [userData]);
-  const goalPercentage = useMemo(() => Math.min(100, Math.round((weeklyGoal.completed / (weeklyGoal.target || 1)) * 100)), [weeklyGoal]);
-
-  const userMetrics = useMemo(() => ({
-    currentStreak: userData?.streak || 0,
-    hasPracticedToday: userData?.hasPracticedToday || false,
-    totalMinutes: userData?.totalMinutes || 0,
-    totalSessions: userData?.totalSessions || 0,
-  }), [userData]);
-
-  const userNameDisplay = useMemo(() => userData?.name || 'Estudante', [userData]);
-  const userFirstName = useMemo(() => userNameDisplay.split(' ')[0], [userNameDisplay]);
-  const userEmailDisplay = useMemo(() => userData?.email || 'usuario@email.com', [userData]);
-  const userLevelDisplay = useMemo(() => userData?.level || 'B1', [userData]);
-  const userReputationDisplay = useMemo(() => userData?.reputation ?? 100, [userData]);
-  const userAvatarDisplay = useMemo(() => userData?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80', [userData]);
+  }, [stopMediaStream]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       setMousePos({ x: e.clientX, y: e.clientY });
       const padding = 40;
-      const isNearEdge = e.clientX < padding || e.clientY < padding || e.clientX > window.innerWidth - padding || e.clientY > window.innerHeight - padding;
-      setCursorOpacity(isNearEdge ? 0 : 1);
+      setCursorOpacity(e.clientX < padding || e.clientY < padding || e.clientX > window.innerWidth - padding || e.clientY > window.innerHeight - padding ? 0 : 1);
     };
-    const handleMouseLeave = () => setCursorOpacity(0);
     window.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseleave', handleMouseLeave);
+    document.addEventListener('mouseleave', () => setCursorOpacity(0));
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseleave', handleMouseLeave);
+      document.removeEventListener('mouseleave', () => setCursorOpacity(0));
     };
   }, []);
 
   useEffect(() => {
     let animationFrameId: number;
     const updateFollower = () => {
-      setFollowerPos((prev) => {
-        const dx = mousePos.x - prev.x;
-        const dy = mousePos.y - prev.y;
-        return { x: prev.x + dx * 0.12, y: prev.y + dy * 0.12 };
-      });
+      setFollowerPos((prev) => ({ x: prev.x + (mousePos.x - prev.x) * 0.12, y: prev.y + (mousePos.y - prev.y) * 0.12 }));
       animationFrameId = requestAnimationFrame(updateFollower);
     };
     animationFrameId = requestAnimationFrame(updateFollower);
@@ -184,619 +308,817 @@ export const Dashboard: React.FC = memo(() => {
   }, [mousePos]);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) setIsUserMenuOpen(false);
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const fetchNotifications = useCallback(async () => {
-    try {
-      const response = await api.get('/api/notifications');
-      const data = response.data;
-      const localReadCache = JSON.parse(localStorage.getItem('sbs_read_notifications') || '[]');
-      const mergedData = data.map((n: any) => 
-        localReadCache.includes(n.id) ? { ...n, read: true } : n
-      );
-      setNotifications(mergedData);
-    } catch (error) {
-      console.error('Erro ao carregar notificações globais:', error);
+    let interval: ReturnType<typeof setInterval> | undefined;
+    if (isSearchingNextPair) {
+      setAnimStep(1);
+      interval = setInterval(() => setAnimStep((prev) => (prev === 4 ? 0 : ((prev + 1) as 0 | 1 | 2 | 3 | 4))), 550);
+    } else {
+      setAnimStep(0);
     }
-  }, []);
+    return () => { if (interval) clearInterval(interval); };
+  }, [isSearchingNextPair]);
 
   useEffect(() => {
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 8000);
-    return () => clearInterval(interval);
-  }, [fetchNotifications]);
-
-  const handleOpenNotifications = () => {
-    setIsNotificationsOpen(true);
+    let timer: number | undefined;
+    if (connectionStatus === 'connected' && !partnerDisconnected && !isSearchingNextPair) {
+      if (!sessionStartedAtRef.current) sessionStartedAtRef.current = Date.now();
+      timer = window.setInterval(() => {
+        if (sessionStartedAtRef.current) setSessionElapsedSeconds(Math.floor((Date.now() - sessionStartedAtRef.current) / 1000));
+      }, 1000);
+    } else if (connectionStatus === 'reconnecting' || connectionStatus === 'failed' || partnerDisconnected || isSearchingNextPair) {
+      sessionStartedAtRef.current = null;
+    }
     
-    setNotifications((prev) => {
-      const updated = prev.map((n) => ({ ...n, read: true }));
-      const readIds = updated.map(n => n.id);
-      localStorage.setItem('sbs_read_notifications', JSON.stringify(readIds));
-      return updated;
-    });
-  };
+    return () => {
+      if (timer) window.clearInterval(timer);
+    };
+  }, [connectionStatus, partnerDisconnected, isSearchingNextPair, roomId]);
 
-  const startMatchingFlow = useCallback(() => {
-    navigate('/room');
-  }, [navigate]);
-
-  const toggleDaySelection = useCallback((day: string) => {
-    setSelectedDays(prev => (prev || []).includes(day) ? (prev || []).filter((d) => d !== day) : [...(prev || []), day]);
-  }, []);
-
-  const handleTopicCardClick = useCallback((topic: TopicItemType) => {
-    setSelectedTopic(topic);
-    setTopicToJoin(topic);
-    setShowTopicConfirmModal(true);
-  }, []);
-
-  const confirmJoinRoomWithTopic = useCallback((e?: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    const targetTopic = topicToJoin || selectedTopic;
-    setShowTopicConfirmModal(false);
-    if (targetTopic && targetTopic.id) navigate(`/room/${targetTopic.id}`);
-    else navigate('/room');
-  }, [topicToJoin, selectedTopic, navigate]);
-
-  const handleSaveReminders = useCallback(() => {
-    setActiveModal(null);
-    showToast('Preferências de lembretes salvas com sucesso!', 'success');
-  }, [showToast]);
-
-  const handleLogout = useCallback(async () => {
+  const toggleFullscreen = useCallback(async () => {
     try {
-      await api.post('/api/auth/logout');
-    } catch (err) {
-      console.error('Erro ao encerrar sessão no servidor', err);
+      if (!document.fullscreenElement) {
+        if (videoContainerRef.current) await videoContainerRef.current.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+      setIsFullscreen(!document.fullscreenElement);
+    } catch (_err: unknown) {}
+  }, []);
+
+  const initializeWebRTC = useCallback(async (socket: Socket, currentRoomId: string, isInitiator: boolean) => {
+    try {
+      const preferredAudioId = localStorage.getItem('sbs_preferred_audio_id');
+      const preferredVideoId = localStorage.getItem('sbs_preferred_video_id');
+
+      const constraints: MediaStreamConstraints = {
+        audio: preferredAudioId ? { deviceId: { exact: preferredAudioId } } : true,
+        video: preferredVideoId ? { deviceId: { exact: preferredVideoId } } : true,
+      };
+
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (_fallbackErr: unknown) {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      }
+
+      streamRef.current = stream;
+      setLocalStream(stream);
+      setupAudioAnalyzer(stream);
+
+      const pc = new RTCPeerConnection(ICE_SERVERS);
+      peerConnectionRef.current = pc;
+
+      stream.getTracks().forEach(track => pc.addTrack(track, stream));
+
+      pc.ontrack = (event) => {
+        if (event.streams && event.streams[0]) {
+          const incomingStream = event.streams[0];
+          setRemoteStream(incomingStream);
+          setConnectionStatus('connected');
+
+          const videoTrack = incomingStream.getVideoTracks()[0];
+          if (videoTrack) {
+            setRemoteCamActiveState(!videoTrack.muted && videoTrack.enabled);
+            videoTrack.onmute = () => setRemoteCamActiveState(false);
+            videoTrack.onunmute = () => setRemoteCamActiveState(true);
+          }
+
+          try {
+            const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+            const remoteAudioCtx = new AudioCtx();
+            const remoteAnalyser = remoteAudioCtx.createAnalyser();
+            remoteAnalyser.fftSize = 256;
+            const remoteSource = remoteAudioCtx.createMediaStreamSource(incomingStream);
+            remoteSource.connect(remoteAnalyser);
+            const remoteArray = new Uint8Array(remoteAnalyser.frequencyBinCount);
+
+            const checkRemoteAudio = () => {
+              remoteAnalyser.getByteFrequencyData(remoteArray);
+              let rSum = 0;
+              for (let i = 0; i < remoteArray.length; i++) rSum += remoteArray[i];
+              const rAvg = rSum / remoteArray.length;
+              const rNormalized = Math.min(100, Math.round((rAvg / 128) * 100));
+
+              setPartnerAudioLevel(rNormalized);
+              setIsPartnerSpeaking(rAvg > 10);
+              requestAnimationFrame(checkRemoteAudio);
+            };
+            checkRemoteAudio();
+          } catch (_e: unknown) {}
+        }
+      };
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate) socket.emit('webrtc_ice_candidate', { roomId: currentRoomId, candidate: event.candidate });
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') setConnectionStatus('reconnecting');
+      };
+
+      if (isInitiator) {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        socket.emit('webrtc_offer', { roomId: currentRoomId, sdp: pc.localDescription });
+      } else if (pendingOfferRef.current) {
+        await pc.setRemoteDescription(new RTCSessionDescription(pendingOfferRef.current));
+        pendingOfferRef.current = null;
+        
+        while (pendingCandidates.current.length > 0) {
+          const candidate = pendingCandidates.current.shift();
+          if (candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        }
+
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socket.emit('webrtc_answer', { roomId: currentRoomId, sdp: pc.localDescription });
+      }
+
+    } catch (_err: unknown) {
+      setMediaError('Permita o uso da câmera e do microfone para conversar.');
     }
-    localStorage.removeItem('sidebyside_user'); 
-    showToast('Sessão encerrada com sucesso.', 'info');
-    navigate('/');
-  }, [navigate, showToast]);
+  }, [setupAudioAnalyzer]);
+
+  useEffect(() => {
+    const baseURL = api.defaults.baseURL || 'http://localhost:3000';
+    const newSocket = io(baseURL, { withCredentials: true });
+    socketRef.current = newSocket;
+
+    newSocket.on('connect', () => {
+      newSocket.emit('find_match', { topicId: topicId || null });
+    });
+
+    newSocket.on('match_found', async (data: { roomId: string; partnerId: string; partnerName?: string; partnerAvatar?: string; initiator: boolean }) => {
+      hasRatedCurrentSessionRef.current = false;
+      setRoomId(data.roomId);
+      roomIdRef.current = data.roomId;
+      setPartnerId(data.partnerId);
+      
+      const resolvedPartnerName = data.partnerName || 'Estudante';
+      setPartnerName(resolvedPartnerName);
+      setPartnerAvatarUrl(data.partnerAvatar || getAvatarFallback(resolvedPartnerName));
+      
+      setPartnerDisconnected(false);
+      setIsSearchingNextPair(false);
+      setFriendRequestSent(false);
+      setIncomingFriendRequest(null);
+      await initializeWebRTC(newSocket, data.roomId, data.initiator);
+    });
+
+    newSocket.on('partner_left', () => {
+      const state = sessionStateRef.current;
+      
+      if (state.isSearching || !roomIdRef.current || hasRatedCurrentSessionRef.current) return;
+      
+      hasRatedCurrentSessionRef.current = true;
+      setIsConfirmExitOpen(false); 
+
+      completedSessionRef.current = {
+        roomId: roomIdRef.current || roomId,
+        partnerId: state.partnerId,
+        partnerName: state.partnerName,
+        partnerAvatarUrl: state.partnerAvatarUrl,
+        duration: state.duration,
+      };
+
+      stopMediaStream();
+      setPendingAction('nextPair');
+      showToast('O seu parceiro encerrou a chamada.', 'info');
+      setIsRatingOpen(true);
+    });
+
+    newSocket.on('camera_status', (data: { camActive: boolean }) => {
+      setRemoteCamActiveState(data.camActive);
+    });
+
+    newSocket.on('friend_request_received', (data: { requestId: string; senderId: string; name: string; avatar: string }) => {
+      setIncomingFriendRequest(data);
+    });
+
+    newSocket.on('webrtc_offer', async (data: { sdp: RTCSessionDescriptionInit }) => {
+      const pc = peerConnectionRef.current;
+      if (!pc) {
+        pendingOfferRef.current = data.sdp;
+        return;
+      }
+      await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+      while (pendingCandidates.current.length > 0) {
+        const candidate = pendingCandidates.current.shift();
+        if (candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      }
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      newSocket.emit('webrtc_answer', { roomId: roomIdRef.current, sdp: pc.localDescription });
+    });
+
+    newSocket.on('webrtc_answer', async (data: { sdp: RTCSessionDescriptionInit }) => {
+      const pc = peerConnectionRef.current;
+      if (!pc) return;
+      await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+      while (pendingCandidates.current.length > 0) {
+        const candidate = pendingCandidates.current.shift();
+        if (candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      }
+    });
+
+    newSocket.on('webrtc_ice_candidate', async (data: { candidate: RTCIceCandidateInit }) => {
+      const pc = peerConnectionRef.current;
+      if (!pc || !pc.remoteDescription || !pc.remoteDescription.type) {
+        pendingCandidates.current.push(data.candidate);
+        return;
+      }
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+      } catch (_err: unknown) {}
+    });
+
+    newSocket.on('chat_message', (data: { text: string; id: number }) => {
+      setChatMessages((prev) => [...prev, { id: data.id, sender: 'other', text: data.text }]);
+    });
+
+    return () => {
+      stopMediaStream();
+      newSocket.disconnect();
+    };
+  }, [topicId, initializeWebRTC, stopMediaStream, showToast, roomId]);
+
+  const handleSendFriendRequest = useCallback(async () => {
+    if (!partnerId || friendRequestSent) return;
+    try {
+      const response = await api.post('/api/friends/request', { targetUserId: partnerId });
+      if (response.status === 200 || response.status === 201) {
+        setFriendRequestSent(true);
+        showToast('Solicitação de amizade enviada com sucesso!', 'success');
+      }
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { error?: string } } };
+      showToast(errorObj.response?.data?.error || 'Erro ao enviar solicitação de amizade', 'error');
+    }
+  }, [partnerId, friendRequestSent, showToast]);
+
+  const handleAcceptOrRejectFriend = useCallback(async (action: 'accept' | 'reject') => {
+    if (!incomingFriendRequest) return;
+    try {
+      const response = await api.post('/api/friends/accept', {
+        requestId: incomingFriendRequest.requestId,
+        senderId: incomingFriendRequest.senderId,
+        action
+      });
+
+      if (response.status === 200) {
+        if (action === 'accept') {
+          showToast(`Você e ${incomingFriendRequest.name} agora são amigos! 🤝`, 'success');
+          setFriendRequestSent(true);
+        } else {
+          showToast('Solicitação de amizade recusada.', 'info');
+        }
+      } else {
+        showToast('Erro ao processar a solicitação.', 'error');
+      }
+    } catch (_err: unknown) {
+      showToast('Erro de conexão ao responder solicitação.', 'error');
+    } finally {
+      setIncomingFriendRequest(null);
+    }
+  }, [incomingFriendRequest, showToast]);
+
+  const toggleMicrophone = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getAudioTracks().forEach((track) => { track.enabled = !micActive; });
+    }
+    setMicActive(!micActive);
+  }, [micActive]);
+
+  const toggleCamera = useCallback(() => {
+    const nextCamState = !camActive;
+    if (streamRef.current) {
+      streamRef.current.getVideoTracks().forEach((track) => { 
+        track.enabled = nextCamState; 
+      });
+    }
+    setCamActive(nextCamState);
+
+    if (socketRef.current && roomIdRef.current) {
+      socketRef.current.emit('camera_status', { roomId: roomIdRef.current, camActive: nextCamState });
+    }
+  }, [camActive]);
+
+  const handleConfirmReport = useCallback(async (reason: string) => {
+    setIsReportOpen(false);
+    try {
+      await api.post('/api/room/report', { 
+        reportedUserId: partnerId, 
+        reason,
+        sessionDuration: sessionElapsedSeconds,
+        messageCount: chatMessages.length,
+        roomId
+      });
+    } catch (_err: unknown) {}
+    
+    if (socketRef.current && roomIdRef.current) {
+      socketRef.current.emit('leave_room', { roomId: roomIdRef.current });
+      roomIdRef.current = null;
+    }
+
+    if (!hasRatedCurrentSessionRef.current) {
+      hasRatedCurrentSessionRef.current = true;
+      completedSessionRef.current = {
+        roomId,
+        partnerId,
+        partnerName,
+        partnerAvatarUrl,
+        duration: sessionElapsedSeconds,
+      };
+
+      setPendingAction('nextPair');
+      setIsRatingOpen(true);
+    }
+  }, [partnerId, sessionElapsedSeconds, chatMessages.length, roomId, partnerName, partnerAvatarUrl]);
+
+  const handleEndCall = useCallback(() => {
+    if (isSearchingNextPair) {
+      if (socketRef.current) socketRef.current.emit('cancel_match');
+      stopMediaStream();
+      setPendingAction('exit');
+      
+      completedSessionRef.current = { roomId: null, partnerId: null, partnerName: 'Estudante', partnerAvatarUrl: getAvatarFallback('Estudante'), duration: 0 };
+      navigate('/dashboard');
+    } else {
+      setIsConfirmExitOpen(true);
+    }
+  }, [isSearchingNextPair, stopMediaStream, navigate]);
+
+  const handleConfirmExit = useCallback(() => {
+    if (socketRef.current && roomIdRef.current) {
+      socketRef.current.emit('leave_room', { roomId: roomIdRef.current });
+      roomIdRef.current = null;
+    }
+    
+    if (!hasRatedCurrentSessionRef.current) {
+      hasRatedCurrentSessionRef.current = true;
+      completedSessionRef.current = {
+        roomId,
+        partnerId,
+        partnerName,
+        partnerAvatarUrl,
+        duration: sessionElapsedSeconds,
+      };
+    }
+    
+    stopMediaStream();
+    setIsConfirmExitOpen(false);
+    setPendingAction('exit');
+    setIsRatingOpen(true);
+  }, [roomId, partnerId, partnerName, partnerAvatarUrl, sessionElapsedSeconds, stopMediaStream]);
+
+  const handleNextPair = useCallback(() => {
+    if (socketRef.current && roomIdRef.current) {
+      socketRef.current.emit('leave_room', { roomId: roomIdRef.current });
+      roomIdRef.current = null;
+    }
+
+    if (!hasRatedCurrentSessionRef.current) {
+      hasRatedCurrentSessionRef.current = true;
+      completedSessionRef.current = {
+        roomId,
+        partnerId,
+        partnerName,
+        partnerAvatarUrl,
+        duration: sessionElapsedSeconds,
+      };
+      setPendingAction('nextPair');
+      setIsRatingOpen(true);
+    }
+  }, [roomId, partnerId, partnerName, partnerAvatarUrl, sessionElapsedSeconds]);
+
+  const triggerSearchNextPair = useCallback(() => {
+    stopMediaStream();
+    setPartnerDisconnected(false);
+    setConnectionStatus('reconnecting');
+    setChatMessages([]);
+    setIsSearchingNextPair(true);
+    setSessionElapsedSeconds(0);
+    setCurrentTopic(topicId && TOPICS_CATALOG[topicId] ? TOPICS_CATALOG[topicId] : FREE_TALK_TOPIC);
+    setIncomingFriendRequest(null);
+    
+    if (socketRef.current) {
+      socketRef.current.emit('find_match', { topicId: topicId || null });
+    }
+  }, [stopMediaStream, topicId]);
+
+  const handleRatingSubmit = useCallback(async (data: { partnerRating?: number; platformRating: number; comment: string }) => {
+    setIsRatingOpen(false);
+
+    const sessionContext = completedSessionRef.current;
+    const targetRoomId = sessionContext.roomId || roomId || `session_${Date.now()}`;
+    const targetPartnerId = sessionContext.partnerId || partnerId;
+    const targetPartnerName = sessionContext.partnerName || partnerName;
+    const targetPartnerAvatar = sessionContext.partnerAvatarUrl || partnerAvatarUrl;
+    const targetDurationSec = sessionContext.duration || sessionElapsedSeconds;
+
+    try {
+      await api.post('/api/room/rate', {
+        ...data,
+        sessionId: targetRoomId,
+        partnerId: targetPartnerId,
+        partnerName: targetPartnerName,
+        partnerAvatar: targetPartnerAvatar,
+        duration: `${Math.floor(targetDurationSec / 60)} min`,
+        topic: currentTopic.title,
+        vocabLearned: currentTopic.vocabPreview || ['Vocabulary', 'Conversation', 'Fluency']
+      });
+    } catch (_err: unknown) {}
+
+    completedSessionRef.current = { roomId: null, partnerId: null, partnerName: 'Estudante', partnerAvatarUrl: getAvatarFallback('Estudante'), duration: 0 };
+    
+    if (pendingAction === 'exit') navigate('/dashboard');
+    else triggerSearchNextPair();
+  }, [roomId, partnerId, partnerName, partnerAvatarUrl, sessionElapsedSeconds, currentTopic, pendingAction, navigate, triggerSearchNextPair]);
+
+  const handleRatingClose = useCallback(() => {
+    setIsRatingOpen(false);
+    completedSessionRef.current = { roomId: null, partnerId: null, partnerName: 'Estudante', partnerAvatarUrl: getAvatarFallback('Estudante'), duration: 0 };
+    if (pendingAction === 'exit') navigate('/dashboard');
+    else triggerSearchNextPair();
+  }, [pendingAction, navigate, triggerSearchNextPair]);
+
+  const handleSendMessage = useCallback((e?: React.FormEvent) => {
+    e?.preventDefault();
+    const trimmed = chatInput.trim();
+    if (!trimmed || !roomIdRef.current) return;
+
+    if (socketRef.current) {
+      socketRef.current.emit('chat_message', { roomId: roomIdRef.current, text: trimmed });
+    }
+
+    setChatMessages((prev) => [...prev, { id: Date.now(), sender: 'me', text: trimmed }]);
+    setChatInput('');
+  }, [chatInput]);
+
+  const formattedTimer = useMemo(() => formatSessionTimer(sessionElapsedSeconds), [sessionElapsedSeconds]);
+
+  const isRemoteVideoActive = useMemo(() => {
+    if (!remoteStream || !remoteCamActiveState) return false;
+    const videoTracks = remoteStream.getVideoTracks();
+    return videoTracks.length > 0 && videoTracks.some(track => track.enabled && track.readyState === 'live');
+  }, [remoteStream, remoteCamActiveState]);
+
+  const isLocalVideoActive = useMemo(() => {
+    if (!localStream || !camActive) return false;
+    const videoTracks = localStream.getVideoTracks();
+    return videoTracks.length > 0 && videoTracks.some(track => track.enabled && track.readyState === 'live');
+  }, [localStream, camActive]);
+
+  useEffect(() => {
+    if (remoteVideoRef.current) {
+      if (isRemoteVideoActive && remoteStream) {
+        remoteVideoRef.current.srcObject = remoteStream;
+      } else {
+        remoteVideoRef.current.srcObject = null;
+      }
+    }
+  }, [isRemoteVideoActive, remoteStream]);
+
+  useEffect(() => {
+    if (localVideoRef.current) {
+      if (isLocalVideoActive && localStream) {
+        localVideoRef.current.srcObject = localStream;
+      } else {
+        localVideoRef.current.srcObject = null;
+      }
+    }
+  }, [isLocalVideoActive, localStream]);
 
   return (
-    <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col font-sans relative selection:bg-[#1C1917] selection:text-[#FAF9F6]">
+    <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col font-sans h-screen overflow-hidden relative selection:bg-[#1C1917] selection:text-[#FAF9F6]">
       <div
         className="pointer-events-none fixed z-50 w-3.5 h-3.5 rounded-full bg-[#1C1917] transition-opacity duration-300 ease-out -translate-x-1/2 -translate-y-1/2 hidden md:block"
         style={{ left: `${followerPos.x}px`, top: `${followerPos.y}px`, opacity: cursorOpacity }}
       />
 
-      <header className="bg-[#FFFFFF] border-b border-[#E7E5E4] px-6 py-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">
-        <div className="flex items-center gap-3 cursor-pointer" onClick={() => window.location.reload()}>
-          <div className="w-8 h-8 rounded-md bg-[#1C1917] flex items-center justify-center font-black text-[#FAF9F6] text-base">
-            S
-          </div>
-          <span className="text-lg font-black tracking-tight text-[#1C1917] uppercase">SideBySide</span>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-[#F5F5F4] border border-[#E7E5E4] rounded-lg text-xs font-bold uppercase tracking-wider text-[#57534E]">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
-            Nível: {userLevelDisplay}
-          </div>
-
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-[#F5F5F4] border border-[#E7E5E4] rounded-lg text-xs font-bold uppercase tracking-wider text-[#57534E]">
-            <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-2 text-[#1C1917]" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.105-2.574-.305-3.8A11.983 11.983 0 0112 2.714z" />
-            </svg>
-            Reputação: {userReputationDisplay}/100
-          </div>
-
-          <div className="relative">
-            <button
-              type="button"
-              onClick={handleOpenNotifications}
-              className="p-2.5 bg-[#FAF9F6] border-2 border-[#1C1917] rounded-xl hover:bg-[#F5F5F4] transition-all relative flex items-center justify-center outline-none shadow-sm"
-              title="Notificações"
-            >
-              <svg className="w-4 h-4 stroke-current fill-none stroke-2 text-[#1C1917]" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
-              </svg>
-              {unreadCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-600 text-white rounded-full text-[9px] font-black flex items-center justify-center border border-[#FFFFFF]">
-                  {unreadCount}
-                </span>
-              )}
-            </button>
-          </div>
-
-          <div className="relative" ref={userMenuRef}>
-            <button type="button" onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} className="flex items-center gap-2.5 border-l border-[#E7E5E4] pl-4 cursor-pointer hover:opacity-80 transition-opacity outline-none relative">
-              <div className="w-8 h-8 rounded-lg bg-[#E7E5E4] overflow-hidden border border-[#D6D3D1] relative">
-                <img src={userAvatarDisplay} alt={userNameDisplay} className="w-full h-full object-cover" />
-              </div>
-              
-              {(friendRequestsCount > 0 || unreadChatMessages > 0) && (
-                <span className="absolute top-0 left-2 w-3 h-3 bg-red-600 border-2 border-[#FFFFFF] rounded-full z-10 animate-pulse" />
-              )}
-
-              <span className="text-xs font-bold text-[#1C1917] hidden md:inline-block">{userNameDisplay}</span>
-              <svg className={`w-4 h-4 stroke-[#78716C] fill-none stroke-2 transition-transform duration-200 ${isUserMenuOpen ? 'rotate-180' : 'rotate-0'}`} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-              </svg>
-            </button>
-
-            {isUserMenuOpen && (
-              <div className="absolute right-0 mt-3 w-64 bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl shadow-xl py-2 z-50 flex flex-col gap-1 animate-in fade-in slide-in-from-top-2 duration-150">
-                <div className="px-4 py-2 border-b border-[#E7E5E4] flex flex-col">
-                  <span className="text-xs font-black text-[#1C1917]">{userNameDisplay}</span>
-                  <span className="text-[10px] font-bold text-[#78716C] uppercase">{userEmailDisplay}</span>
-                </div>
-
-                <button type="button" onClick={() => { setIsUserMenuOpen(false); setIsFriendsOpen(true); }} className="px-4 py-2.5 hover:bg-[#FAF9F6] text-left flex items-center justify-between transition-colors group">
-                  <div className="flex items-center gap-2.5">
-                    <svg className="w-4 h-4 stroke-[#57534E] group-hover:stroke-[#1C1917] fill-none stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.75 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>
-                    <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Lista de Amigos</span>
-                  </div>
-                  {friendRequestsCount > 0 && <span className="text-[10px] font-black bg-red-100 text-red-600 px-2 py-0.5 rounded">{friendRequestsCount}</span>}
-                </button>
-
-                <button type="button" onClick={() => { setIsUserMenuOpen(false); setSelectedChatContact(null); setIsDirectChatsOpen(true); }} className="px-4 py-2.5 hover:bg-[#FAF9F6] text-left flex items-center justify-between transition-colors group">
-                  <div className="flex items-center gap-2.5">
-                    <svg className="w-4 h-4 stroke-[#57534E] group-hover:stroke-[#1C1917] fill-none stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" /></svg>
-                    <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Conversas</span>
-                  </div>
-                  {unreadChatMessages > 0 ? (
-                    <span className="text-[10px] font-black bg-red-100 text-red-600 px-2 py-0.5 rounded">{unreadChatMessages}</span>
-                  ) : (
-                    <span className="text-[10px] font-black bg-[#F5F5F4] px-2 py-0.5 rounded text-[#1C1917]">0</span>
-                  )}
-                </button>
-
-                <button type="button" onClick={() => { setIsUserMenuOpen(false); setIsBadgesOpen(true); }} className="px-4 py-2.5 hover:bg-[#FAF9F6] text-left flex items-center justify-between transition-colors group">
-                  <div className="flex items-center gap-2.5">
-                    <svg className="w-4 h-4 stroke-[#57534E] group-hover:stroke-[#1C1917] fill-none stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg>
-                    <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Badges & Conquistas</span>
-                  </div>
-                  <span className="text-[10px] font-black bg-[#F5F5F4] px-2 py-0.5 rounded text-[#1C1917]">
-                    {BADGES_CATALOG.filter(b => b.unlocked).length}/{BADGES_CATALOG.length}
-                  </span>
-                </button>
-
-                <button type="button" onClick={() => { setIsUserMenuOpen(false); setActiveModal('reminders'); }} className="px-4 py-2.5 hover:bg-[#FAF9F6] text-left flex items-center justify-between transition-colors group">
-                  <div className="flex items-center gap-2.5">
-                    <svg className="w-4 h-4 stroke-[#57534E] group-hover:stroke-[#1C1917] fill-none stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" /></svg>
-                    <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Lembretes Diários</span>
-                  </div>
-                  <span className="text-[10px] font-bold text-[#78716C] uppercase">{reminderEnabled ? reminderTime : 'Off'}</span>
-                </button>
-
-                <button type="button" onClick={() => { setIsUserMenuOpen(false); setIsSupportOpen(true); }} className="px-4 py-2.5 hover:bg-[#FAF9F6] text-left flex items-center justify-between transition-colors group">
-                  <div className="flex items-center gap-2.5">
-                    <svg className="w-4 h-4 stroke-[#57534E] group-hover:stroke-[#1C1917] fill-none stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M12 18a.75.75 0 100-1.5.75.75 0 000 1.5z" /></svg>
-                    <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Ajuda & Suporte</span>
-                  </div>
-                </button>
-
-                <div className="border-t border-[#E7E5E4] mt-1 pt-1">
-                  <button type="button" onClick={() => { setIsUserMenuOpen(false); navigate('/profile'); }} className="w-full px-4 py-2.5 hover:bg-[#FAF9F6] text-left flex items-center gap-2.5 transition-colors group">
-                    <svg className="w-4 h-4 stroke-[#57534E] group-hover:stroke-[#1C1917] fill-none stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>
-                    <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Meu Perfil</span>
-                  </button>
-                  <button type="button" onClick={handleLogout} className="w-full px-4 py-2.5 hover:bg-red-50 text-left flex items-center gap-2.5 transition-colors group mt-1">
-                    <svg className="w-4 h-4 stroke-red-600 fill-none stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" /></svg>
-                    <span className="text-xs font-bold text-red-600">Sair da Conta</span>
-                  </button>
-                </div>
+      {!isFullscreen && (
+        <header className="bg-[#FFFFFF] border-b border-[#E7E5E4] px-6 py-3 flex items-center justify-between shrink-0 z-30 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 cursor-pointer" onClick={handleEndCall}>
+              <div className="w-8 h-8 rounded-md bg-[#1C1917] flex items-center justify-center font-black text-[#FAF9F6] text-base">S</div>
+              <span className="text-lg font-black tracking-tight text-[#1C1917] uppercase">SideBySide</span>
+            </div>
+            
+            {!isSearchingNextPair && (
+              <div className="flex items-center gap-2 bg-[#FAF9F6] border border-[#E7E5E4] px-3 py-1 rounded-xl text-xs font-black text-[#1C1917] uppercase">
+                <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l3 3" /></svg>
+                <span>{formattedTimer}</span>
               </div>
             )}
           </div>
-        </div>
-      </header>
-
-      <main className="flex-1 max-w-5xl w-full mx-auto p-6 lg:p-8 flex flex-col gap-6">
-        
-        <section className="flex flex-col gap-1 px-1">
-          <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-[#1C1917]">
-            Olá, {userFirstName}! Pronto para praticar?
-          </h1>
-          <p className="text-xs sm:text-sm text-[#57534E] max-w-2xl leading-relaxed font-medium">
-            Conecte-se instantaneamente com estudantes de nível {userLevelDisplay} de todo o mundo. Suas sessões são moderadas ativamente por IA para garantir um ambiente seguro.
-          </p>
-        </section>
-
-        <section className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0px_0px_#1C1917] flex flex-col gap-6 relative overflow-hidden">
-          <div className="absolute -right-10 -top-10 bg-[#F5F5F4] w-40 h-40 rounded-full blur-3xl opacity-50 pointer-events-none" />
           
-          <div className="flex flex-col sm:flex-row gap-6 justify-between items-start sm:items-center relative z-10 border-b-2 border-[#E7E5E4] pb-6">
-            <div className="flex flex-col gap-2 max-w-md">
-              <span className="text-[10px] font-black tracking-widest text-[#FAF9F6] uppercase bg-[#1C1917] px-3 py-1 rounded-md w-fit">
-                BATE-PAPO LIVRE
-              </span>
-              <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-[#1C1917]">Procurar Par de Conversa</h2>
-              <p className="text-xs text-[#57534E] leading-relaxed font-medium">
-                Conecte-se aleatoriamente para falar sobre qualquer assunto. Treine a fluência improvisando e usando seu inglês do dia a dia de forma natural.
+          <div className="bg-[#FAF9F6] border border-[#E7E5E4] px-4 py-1.5 rounded-xl text-xs font-black uppercase text-[#1C1917] flex items-center gap-2 hidden sm:flex">
+            <span className="text-[10px] bg-[#1C1917] text-[#FAF9F6] px-2 py-0.5 rounded">Prática Ativa</span>
+            <span className="truncate max-w-[200px] md:max-w-md">Conversando sobre: <strong className="text-emerald-700">{currentTopic.title}</strong></span>
+          </div>
+
+          <button type="button" onClick={handleEndCall} className="bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-sm">
+            {isSearchingNextPair ? 'Cancelar Busca' : 'Encerrar e Sair'}
+          </button>
+        </header>
+      )}
+
+      {mediaError && !isFullscreen && (
+        <div className="bg-amber-50 border-b border-amber-200 text-amber-800 px-6 py-2.5 text-xs font-bold flex items-center justify-between z-40">
+          <span>⚠️ {mediaError}</span>
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={() => {}} className="px-3 py-1 bg-[#1C1917] text-[#FAF9F6] rounded-lg text-[10px] font-black uppercase">Usar Apenas Áudio</button>
+            <button type="button" onClick={() => {}} className="underline uppercase tracking-wider text-[10px] text-amber-900">Tentar Novamente</button>
+          </div>
+        </div>
+      )}
+
+      <div className={`flex-1 flex overflow-hidden ${isFullscreen ? 'p-0' : 'p-4 gap-4'}`}>
+        <div ref={videoContainerRef} className={`flex-1 bg-[#FFFFFF] relative flex flex-col justify-between overflow-hidden ${isFullscreen ? 'rounded-none border-none' : `rounded-2xl border-2 transition-all duration-300 ${isPartnerSpeaking ? 'border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)]' : 'border-[#E7E5E4] shadow-sm'}`}`}>
+          {connectionStatus === 'connected' && !isSearchingNextPair && !partnerDisconnected && (
+            <div className="absolute top-4 right-4 z-20 flex items-center gap-3 bg-[#FFFFFF]/90 backdrop-blur-md px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase text-emerald-700 border border-[#E7E5E4] shadow-sm">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Conexão Excelente</span>
+              
+              <div className="flex items-center gap-1 bg-[#F5F5F4] px-2 py-0.5 rounded-lg border border-[#E7E5E4]">
+                <span className="text-[9px] text-[#78716C]">Vol:</span>
+                <div className="w-12 h-1.5 bg-[#E7E5E4] rounded-full overflow-hidden flex">
+                  <div className="bg-emerald-500 h-full transition-all duration-75" style={{ width: `${partnerAudioLevel}%` }} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {incomingFriendRequest && (
+            <div className="absolute top-4 left-4 z-50 bg-[#1C1917] text-[#FAF9F6] border-2 border-[#FAF9F6] p-4 rounded-2xl shadow-2xl flex flex-col gap-3 max-w-sm animate-in fade-in slide-in-from-top-4 duration-300">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#292524] border border-[#57534E] shrink-0">
+                  <img src={incomingFriendRequest.avatar} alt={incomingFriendRequest.name} className="w-full h-full object-cover" />
+                </div>
+                <div className="flex flex-col text-left">
+                  <span className="text-[10px] font-black uppercase text-[#A8A29E] tracking-wider">Solicitação de Amizade</span>
+                  <span className="text-xs font-black uppercase text-[#FAF9F6]">{incomingFriendRequest.name} quer ser seu amigo!</span>
+                </div>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => handleAcceptOrRejectFriend('reject')}
+                  className="flex-1 py-2 bg-[#292524] hover:bg-[#383230] text-[#FAF9F6] text-[10px] font-black uppercase rounded-xl transition-all border border-[#57534E]"
+                >
+                  Recusar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAcceptOrRejectFriend('accept')}
+                  className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black uppercase rounded-xl transition-all shadow-sm"
+                >
+                  Aceitar
+                </button>
+              </div>
+            </div>
+          )}
+
+          {isTranscribing && (
+            <div className="absolute top-4 left-4 z-20 bg-[#1C1917]/90 backdrop-blur-md px-4 py-2 rounded-xl border border-[#FAF9F6]/20 shadow-md max-w-md flex flex-col gap-1 text-left">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                <span className="text-[9px] font-black tracking-widest text-[#FAF9F6] uppercase">IA Transcription (Web Speech API)</span>
+              </div>
+              <p className="text-xs text-[#FAF9F6] font-medium italic">
+                "{currentTranscript || 'Ouvindo sua voz...'}"
               </p>
             </div>
-            
-            <Button 
-              variant="primary" 
-              onClick={startMatchingFlow} 
-              className="w-full sm:w-auto py-4 px-8 text-sm font-black uppercase tracking-widest bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl shadow-md flex items-center justify-center gap-2.5 transition-all hover:scale-[1.02] active:scale-[0.98]"
-            >
-              <svg className="w-5 h-5 fill-current text-[#FAF9F6]" viewBox="0 0 24 24"><path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" /></svg>
-              INICIAR BUSCA AGORA
-            </Button>
-          </div>
+          )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 relative z-10">
-            <div className="flex flex-col gap-2.5">
-              <div className="flex items-center justify-between">
-                <label className="text-[11px] font-black text-[#1C1917] uppercase tracking-wider">Modo de Mídia</label>
-                <button type="button" onClick={() => setIsDeviceCheckOpen(true)} className="text-[9px] font-bold uppercase text-[#78716C] hover:text-[#1C1917] underline decoration-[#E7E5E4] underline-offset-2">Testar Hardware</button>
-              </div>
-              <div className="flex bg-[#F5F5F4] p-1.5 rounded-xl border-2 border-[#E7E5E4] text-[11px] font-black uppercase tracking-wider">
-                <button type="button" onClick={() => { setMediaMode('video'); showToast('Modo Vídeo + Áudio selecionado', 'info'); }} className={`flex-1 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all ${mediaMode === 'video' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C] hover:bg-[#E7E5E4]'}`}>
-                  <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" /></svg>
-                  Vídeo + Áudio
-                </button>
-                <button type="button" onClick={() => { setMediaMode('audio'); showToast('Modo Apenas Áudio selecionado', 'info'); }} className={`flex-1 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all ${mediaMode === 'audio' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C] hover:bg-[#E7E5E4]'}`}>
-                  <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 003-3V4.5a3 3 0 00-3-3 3 3 0 00-3 3v8.25a3 3 0 003 3z" /></svg>
-                  Apenas Áudio
-                </button>
-              </div>
+          {connectionStatus === 'reconnecting' && !isSearchingNextPair && !partnerDisconnected && (
+            <div className="absolute top-4 right-4 z-20 flex items-center gap-2 bg-amber-50/90 backdrop-blur-md px-3 py-1.5 rounded-xl text-[10px] font-black uppercase text-amber-700 border border-amber-200 shadow-sm animate-in fade-in duration-300">
+              <span className="w-3 h-3 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
+              <span>Reconectando...</span>
             </div>
+          )}
 
-            <div className="flex flex-col gap-2.5">
-              <label className="text-[11px] font-black text-[#1C1917] uppercase tracking-wider">Opções de Pareamento</label>
-              <div className="flex items-center justify-between bg-[#FAF9F6] border-2 border-[#E7E5E4] px-4 py-3 rounded-xl h-full">
-                <span className="text-xs font-bold text-[#57534E] max-w-[200px] leading-tight">Permitir conectar com estudantes de níveis adjacentes (A2 e B2)</span>
-                <button type="button" onClick={() => { setExpandedMatching(!expandedMatching); showToast(expandedMatching ? 'Pareamento estrito ativado' : 'Pareamento ampliado ativado', 'info'); }} className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors ${expandedMatching ? 'bg-[#1C1917]' : 'bg-[#E7E5E4]'}`}>
-                  <div className={`bg-[#FFFFFF] w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${expandedMatching ? 'translate-x-6' : 'translate-x-0'}`} />
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
-          <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-4">
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-bold tracking-widest text-[#78716C] uppercase">PRÁTICA GUIADA</span>
-              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">Salas Temáticas Recomendadas</h2>
-            </div>
-            <span className="text-[9px] font-black text-[#1C1917] bg-[#F5F5F4] px-2 py-1 rounded-md uppercase tracking-wider hidden sm:block border border-[#E7E5E4]">Atualizado Diariamente</span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {DAILY_TOPICS.map((topic) => (
-              <button
-                key={topic.id}
-                type="button"
-                onClick={() => handleTopicCardClick(topic)}
-                className={`p-5 rounded-2xl border text-left flex flex-col justify-between gap-4 transition-all hover:-translate-y-1 active:translate-y-0 ${selectedTopic.id === topic.id ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917] shadow-lg' : 'bg-[#FAF9F6] text-[#1C1917] border-[#E7E5E4] hover:border-[#1C1917]'}`}
-              >
-                <div className="flex flex-col gap-2">
-                  <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md w-fit border ${selectedTopic.id === topic.id ? 'bg-[#292524] text-[#D6D3D1] border-[#57534E]' : 'bg-[#FFFFFF] text-[#57534E] border-[#E7E5E4]'}`}>
-                    {topic.category}
-                  </span>
-                  <h3 className="text-[15px] font-black mt-1 leading-snug">{topic.title}</h3>
-                </div>
-                <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest pt-3 border-t ${selectedTopic.id === topic.id ? 'border-[#57534E]' : 'border-[#E7E5E4]'}`}>
-                  <span className={selectedTopic.id === topic.id ? 'text-[#FAF9F6]' : 'text-[#1C1917]'}>Entrar neste tópico</span>
-                  <svg className={`w-3.5 h-3.5 fill-none stroke-current stroke-2 ${selectedTopic.id === topic.id ? 'text-emerald-400' : 'text-[#78716C]'}`} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
-                </div>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <section className="flex flex-col gap-4">
-            <h3 className="text-[11px] font-black text-[#78716C] uppercase tracking-widest pl-1">Seu Desempenho</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-4">
-              <button type="button" onClick={() => setActiveMetricModal('streak')} className="text-left group bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-5 flex items-center gap-4 shadow-sm hover:border-[#1C1917] transition-all hover:shadow-md outline-none">
-                <div className="w-12 h-12 rounded-xl bg-[#F5F5F4] border border-[#E7E5E4] text-[#1C1917] flex items-center justify-center shrink-0 group-hover:bg-[#1C1917] group-hover:text-[#FAF9F6] transition-colors">
-                  {userMetrics.hasPracticedToday ? (
-                    <svg className="w-6 h-6 fill-none stroke-current stroke-2 group-hover:animate-bounce transition-transform duration-300" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.283 0 013.361-6.867 8.21 8.21 0 003 2.48z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 18a3.75 3.75 0 00.495-7.467 5.99 5.99 0 00-1.925 3.546 5.974 5.974 0 01-2.133-1.001A3.75 3.75 0 0012 18z" /></svg>
-                  ) : (
-                    <svg className="w-6 h-6 fill-none stroke-current stroke-2 text-sky-500 group-hover:text-[#FAF9F6] group-hover:rotate-12 transition-transform duration-300" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v18m9-9H3m14.5-6.5l-11 11m11 0l-11-11M12 6.75L14.25 9M12 6.75L9.75 9m2.25 8.25l2.25-2.25m-2.25 2.25l-2.25-2.25M6.75 12L9 14.25M6.75 12L9 9.75m8.25 2.25L15 14.25m2.25-2.25L15 9.75" /></svg>
-                  )}
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-xl font-black text-[#1C1917] tracking-tight">{userMetrics.currentStreak} Dias</span>
-                  <span className="text-[10px] font-bold text-[#78716C] uppercase tracking-wider">{userMetrics.hasPracticedToday ? 'Sequência Ativa 🔥' : 'Praticar Hoje 🧊'}</span>
-                </div>
-              </button>
-
-              <button type="button" onClick={() => setActiveMetricModal('sessions')} className="text-left group bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-5 flex items-center gap-4 shadow-sm hover:border-[#1C1917] transition-all hover:shadow-md outline-none">
-                <div className="w-12 h-12 rounded-xl bg-[#F5F5F4] border border-[#E7E5E4] text-[#1C1917] flex items-center justify-center shrink-0 group-hover:bg-[#1C1917] group-hover:text-[#FAF9F6] transition-colors">
-                  <svg className="w-6 h-6 fill-none stroke-current stroke-2 group-hover:scale-125 transition-transform duration-300" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.75 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-xl font-black text-[#1C1917] tracking-tight">{userMetrics.totalSessions} Sessões</span>
-                  <span className="text-[10px] font-bold text-[#78716C] uppercase tracking-wider">Total Concluído</span>
-                </div>
-              </button>
-            </div>
-          </section>
-
-          <section className="flex flex-col gap-4">
-            <h3 className="text-[11px] font-black text-[#78716C] uppercase tracking-widest pl-1">Sua Última Prática</h3>
-            {lastSessionFeedback ? (
-              <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-5 shadow-sm flex flex-col gap-3 h-full justify-center">
-                <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg overflow-hidden border border-[#D6D3D1] bg-[#E7E5E4] shrink-0">
-                      <img src={lastSessionFeedback.partnerAvatar} alt={lastSessionFeedback.partnerName} className="w-full h-full object-cover" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-xs font-black text-[#1C1917] leading-none">{lastSessionFeedback.partnerName}</span>
-                      <span className="text-[9px] font-bold text-[#78716C] uppercase mt-0.5">{lastSessionFeedback.date}</span>
-                    </div>
+          {isSearchingNextPair ? (
+            <div className="absolute inset-0 bg-[#1C1917] z-50 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
+              <div className="flex items-center justify-center gap-3 mb-8 h-20 min-w-[380px]">
+                <span className={`text-4xl sm:text-6xl font-black uppercase text-[#FAF9F6] tracking-tighter transition-all duration-300 ${animStep >= 1 ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-6'}`}>Side</span>
+                <div className="relative flex h-16 w-12 items-center justify-center transition-all duration-500">
+                  <div className={`flex flex-col items-center justify-center leading-none text-[#A8A29E] transition-all duration-500 ${animStep >= 3 ? 'opacity-100 translate-x-0 scale-100' : 'opacity-0 translate-x-2 scale-75'}`} style={{ transform: 'rotate(-12deg) skewX(-8deg)' }}>
+                    <span className="text-3xl sm:text-5xl font-black tracking-tight leading-none">B</span>
+                    <span className="text-3xl sm:text-5xl font-black tracking-tight leading-none -mt-1">Y</span>
                   </div>
-                  <span className="text-[10px] font-black bg-[#1C1917] text-[#FAF9F6] px-2 py-0.5 rounded">{lastSessionFeedback.duration}</span>
+                </div>
+                <span className={`text-4xl sm:text-6xl font-black uppercase text-[#FAF9F6] tracking-tighter transition-all duration-500 ${animStep >= 4 ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-6'}`}>SIDE</span>
+              </div>
+              <div className="flex flex-col gap-3 max-w-sm">
+                <span className="text-[10px] font-black tracking-widest text-[#1C1917] uppercase bg-[#FAF9F6] px-3 py-1 rounded-lg w-fit mx-auto border-2 border-[#FAF9F6]">MANTENDO TÓPICO: {currentTopic.title}</span>
+                <h2 className="text-xl font-black uppercase tracking-tight text-[#FAF9F6]">Procurando novo conversante...</h2>
+              </div>
+              <div className="w-48 h-1.5 bg-[#FAF9F6]/20 rounded-full overflow-hidden mt-8"><div className="h-full bg-[#FAF9F6] rounded-full animate-pulse w-2/3 mx-auto" /></div>
+            </div>
+          ) : (
+            <div className="absolute inset-0 bg-[#F5F5F4] flex items-center justify-center">
+              <video 
+                ref={remoteVideoRef} 
+                autoPlay 
+                playsInline 
+                className={`w-full h-full object-cover transition-opacity duration-300 ${connectionStatus === 'reconnecting' ? 'opacity-40 grayscale-[50%]' : 'opacity-100'} ${!isRemoteVideoActive ? 'hidden' : 'block'}`} 
+              />
+              
+              {!isRemoteVideoActive && (
+                <div className="absolute inset-0 bg-[#1C1917] flex flex-col items-center justify-center z-0">
+                  <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#292524] shadow-2xl mb-6">
+                    <img src={partnerAvatarUrl} alt="Foto do Parceiro" className="w-full h-full object-cover" />
+                  </div>
+                  <span className="text-[10px] font-black tracking-widest uppercase text-[#FAF9F6] bg-[#292524] border border-[#57534E] px-4 py-2 rounded-full shadow-sm">
+                    Câmera Desativada
+                  </span>
+                </div>
+              )}
+
+              <div className="absolute bottom-4 left-6 bg-[#1C1917]/80 backdrop-blur-md px-3.5 py-2 rounded-xl text-xs font-black text-[#FAF9F6] uppercase z-10 flex items-center gap-3 shadow-md">
+                <span>{partnerName}</span>
+                {isPartnerSpeaking && <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />}
+              </div>
+            </div>
+          )}
+
+          <div className={`absolute bottom-5 right-6 left-auto top-auto z-40 w-48 h-32 rounded-2xl overflow-hidden border-2 shadow-2xl transition-all duration-300 ${isUserSpeaking ? 'border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'border-[#FFFFFF]'}`}>
+            <video 
+              ref={localVideoRef} 
+              autoPlay 
+              playsInline 
+              muted 
+              className={`w-full h-full object-cover transform -scale-x-100 ${isLocalVideoActive ? 'block' : 'hidden'}`} 
+            />
+            
+            {!isLocalVideoActive && (
+              <div className="absolute inset-0 bg-[#1C1917] flex flex-col items-center justify-center z-0">
+                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-[#57534E] shadow-xl mb-1">
+                  <img src={userAvatarUrl} alt="Sua Foto" className="w-full h-full object-cover" />
+                </div>
+              </div>
+            )}
+
+            <div className="absolute bottom-2 left-2 right-2 bg-[#1C1917]/90 backdrop-blur-sm px-2.5 py-1 rounded-lg text-[9px] font-black uppercase text-[#FAF9F6] z-10 flex flex-col gap-1">
+              <div className="flex items-center justify-between">
+                <span>Você {!micActive && '(Mudo)'}</span>
+                {isUserSpeaking && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
+              </div>
+              <div className="w-full h-1 bg-[#292524] rounded-full overflow-hidden flex">
+                <div className="bg-emerald-500 h-full transition-all duration-75" style={{ width: `${userAudioLevel}%` }} />
+              </div>
+            </div>
+          </div>
+
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 bg-[#FFFFFF] border border-[#E7E5E4] p-2 rounded-2xl flex items-center gap-3 shadow-lg">
+            <button type="button" onClick={toggleMicrophone} className={`p-3 rounded-xl transition-all border ${micActive ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-red-50 text-red-600 border-red-200'}`}>
+              {micActive ? <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 003-3V4.5a3 3 0 00-3-3 3 3 0 00-3 3v8.25a3 3 0 003 3z" /></svg> : <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 003-3V4.5a3 3 0 00-3-3 3 3 0 00-3 3v8.25a3 3 0 003 3z" /><path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" /></svg>}
+            </button>
+            <button type="button" onClick={toggleCamera} className={`p-3 rounded-xl transition-all border ${camActive ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-red-50 text-red-600 border-red-200'}`}>
+              {camActive ? <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" /></svg> : <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" /><path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" /></svg>}
+            </button>
+            <button type="button" onClick={toggleSpeechTranscription} title="Alternar Transcrição de Voz" className={`p-3 rounded-xl transition-all border ${isTranscribing ? 'bg-emerald-600 text-white border-emerald-600 animate-pulse' : 'bg-[#FAF9F6] border-[#E7E5E4] text-[#1C1917] hover:bg-[#F5F5F4]'}`}>
+              <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 003-3V4.5a3 3 0 00-3-3 3 3 0 00-3 3v8.25a3 3 0 003 3z" /></svg>
+            </button>
+            <button type="button" onClick={toggleFullscreen} className="p-3 bg-[#FAF9F6] border border-[#E7E5E4] hover:bg-[#F5F5F4] text-[#1C1917] rounded-xl transition-all">
+              {isFullscreen ? <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 9L4.5 4.5m0 0H9m-4.5 0V9m10.5 0l4.5-4.5m0 0H15m4.5 0V9M9 15l-4.5 4.5m0 0H9m-4.5 0v-4.5m10.5 4.5l4.5 4.5m0 0H15m4.5 0v-4.5" /></svg> : <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" /></svg>}
+            </button>
+            
+            {!isSearchingNextPair && (
+              <>
+                <div className="w-px h-6 bg-[#E7E5E4]" />
+                
+                <button
+                  type="button"
+                  onClick={handleSendFriendRequest}
+                  disabled={friendRequestSent || !partnerId}
+                  className={`p-3 rounded-xl transition-all border text-xs font-bold flex items-center gap-1.5 ${
+                    friendRequestSent
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 cursor-default'
+                      : 'bg-[#FAF9F6] border-[#E7E5E4] text-[#1C1917] hover:bg-[#F5F5F4]'
+                  }`}
+                  title={friendRequestSent ? 'Solicitação enviada' : 'Adicionar amigo'}
+                >
+                  {friendRequestSent ? (
+                    <>
+                      <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                      <span className="hidden sm:inline">Enviado</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM3 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 019.374 21c-2.331 0-4.512-.645-6.374-1.766z" /></svg>
+                      <span className="hidden sm:inline">Adicionar Amigo</span>
+                    </>
+                  )}
+                </button>
+
+                <button type="button" onClick={() => setIsReportOpen(true)} className="p-3 bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 rounded-xl transition-all text-xs font-bold">
+                  <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0l2.77-1.385a1.125 1.125 0 011.008 0L10.5 15l3.722-1.861a1.125 1.125 0 011.008 0L19.5 15V4.5l-4.27-2.135a1.125 1.125 0 00-1.008 0L10.5 4.23 6.778 2.369a1.125 1.125 0 00-1.008 0L3 3.75V15z" /></svg>
+                </button>
+                <button type="button" onClick={handleNextPair} className="px-5 py-2.5 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 shadow-sm pointer-events-auto">
+                  <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-[3]" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 8.25V18a2.25 2.25 0 002.25 2.25h13.5A2.25 2.25 0 0021 18V8.25m-18 0V6a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 6v2.25m-18 0h18M12 11.25v6m0 0l-3-3m3 3l3-3" /></svg>
+                  <span>PRÓXIMO PAR</span>
+                </button>
+              </>
+            )}
+          </div>
+
+          <ReportModal isOpen={isReportOpen} onClose={() => setIsReportOpen(false)} onConfirm={handleConfirmReport} />
+          
+          {isRatingOpen && (
+            <RatingModal 
+              isOpen={isRatingOpen} 
+              onClose={handleRatingClose} 
+              onSubmit={handleRatingSubmit} 
+              partnerName={completedSessionRef.current.partnerName} 
+            />
+          )}
+
+          {isConfirmExitOpen && (
+            <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-[110] flex items-center justify-center p-4">
+              <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-5 text-center animate-in fade-in zoom-in-95 duration-150">
+                <div className="w-14 h-14 rounded-2xl bg-amber-50 border-2 border-amber-200 text-amber-600 flex items-center justify-center mx-auto shadow-sm">
+                  <svg className="w-7 h-7 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-[9px] font-black text-[#78716C] uppercase tracking-wider">Vocabulário Aprendido</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {(lastSessionFeedback.vocabLearned || []).map((word: string, idx: number) => (
-                      <span key={idx} className="text-[10px] font-bold px-2 py-0.5 bg-[#FAF9F6] border border-[#E7E5E4] text-[#1C1917] rounded-md">{word}</span>
-                    ))}
-                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#FAF9F6] bg-[#1C1917] px-2.5 py-0.5 rounded w-fit mx-auto">SAÍDA DA SESSÃO</span>
+                  <h3 className="text-base font-black uppercase text-[#1C1917]">Tem certeza que deseja sair?</h3>
+                  <p className="text-xs text-[#57534E] font-medium leading-relaxed">Sua chamada de vídeo ativa será encerrada e você perderá a conexão com o seu par atual.</p>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button type="button" onClick={() => setIsConfirmExitOpen(false)} className="flex-1 py-3 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] text-xs font-black uppercase rounded-xl hover:bg-[#F5F5F4] transition-all shadow-sm">Continuar na Sala</button>
+                  <button type="button" onClick={handleConfirmExit} className="flex-1 py-3 bg-red-600 text-white text-xs font-black uppercase rounded-xl border-2 border-[#1C1917] hover:bg-red-700 transition-all shadow-sm">Sim, Sair</button>
                 </div>
               </div>
-            ) : (
-              <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-5 shadow-sm flex flex-col items-center justify-center text-center gap-2 h-full min-h-[140px]">
-                <span className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Nenhuma sessão recente</span>
-                <p className="text-[11px] text-[#57534E] max-w-[200px]">Participe de uma sala para visualizar seu resumo de vocabulário.</p>
-              </div>
-            )}
-          </section>
+            </div>
+          )}
         </div>
 
-      </main>
-
-      <FriendsManagerModal isOpen={isFriendsOpen} onClose={() => setIsFriendsOpen(false)} onOpenDirectChat={(friend) => { setSelectedChatContact(friend); setIsDirectChatsOpen(true); }} requestsList={requestsList} setRequestsList={setRequestsList} friendsList={friendsList} setFriendsList={setFriendsList} />
-      <DirectChatsModal isOpen={isDirectChatsOpen} onClose={() => setIsDirectChatsOpen(false)} selectedContact={selectedChatContact} friendsList={friendsList} unreadCounts={unreadCounts} onClearUnread={clearUnreadForSender} />
-      <BadgesModal isOpen={isBadgesOpen} onClose={() => setIsBadgesOpen(false)} />
-      <DeviceCheckModal isOpen={isDeviceCheckOpen} onClose={() => setIsDeviceCheckOpen(false)} mediaMode={mediaMode} />
-      <SupportModal isOpen={isSupportOpen} onClose={() => setIsSupportOpen(false)} />
-      <NotificationsModal isOpen={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} notifications={notifications} />
-
-      {showTopicConfirmModal && (topicToJoin || selectedTopic) && (
-        <div className="fixed inset-0 bg-[#1C1917]/80 backdrop-blur-md z-[130] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-8 max-w-md w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-6 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-indigo-50 border-2 border-indigo-200 text-indigo-600 flex items-center justify-center mx-auto shadow-sm">
-              <svg className="w-8 h-8 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
-              </svg>
-            </div>
-            <div className="flex flex-col gap-2">
-              <span className="text-[10px] font-black uppercase tracking-widest text-[#FAF9F6] bg-[#1C1917] px-2.5 py-0.5 rounded w-fit mx-auto">
-                SALA TEMÁTICA: {(topicToJoin || selectedTopic)?.category}
-              </span>
-              <h3 className="text-lg font-black uppercase text-[#1C1917]">
-                Entrando na sala: {(topicToJoin || selectedTopic)?.title}
-              </h3>
-              <p className="text-xs text-[#57534E] font-medium leading-relaxed">
-                Você está entrando em uma sessão temática guiada. Para garantir um excelente aprendizado, você concorda em focar e seguir o assunto proposto pela sala junto ao seu parceiro?
-              </p>
-            </div>
-            
-            <div className="bg-[#FAF9F6] border-2 border-[#E7E5E4] p-4 rounded-xl flex flex-col gap-2 text-left">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#78716C]">Pergunta Quebra-gelo Inicial:</span>
-              <p className="text-xs font-bold text-[#1C1917] italic">"{(topicToJoin || selectedTopic)?.icebreaker}"</p>
+        {!isFullscreen && (
+          <aside className="w-80 bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl flex flex-col overflow-hidden shrink-0 shadow-sm hidden md:flex">
+            <div className="grid grid-cols-2 bg-[#F5F5F4] p-1 border-b border-[#E7E5E4] text-xs font-black uppercase tracking-wider">
+              <button type="button" onClick={() => setActiveTab('topics')} className={`py-2.5 rounded-lg transition-all ${activeTab === 'topics' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C]'}`}>Guia de Tópicos</button>
+              <button type="button" onClick={() => setActiveTab('chat')} className={`py-2.5 rounded-lg transition-all ${activeTab === 'chat' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C]'}`}>Chat ({chatMessages.length})</button>
             </div>
 
-            <div className="flex gap-3 pt-2">
-              <button type="button" onClick={() => setShowTopicConfirmModal(false)} className="flex-1 py-3.5 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] text-xs font-black uppercase rounded-xl hover:bg-[#F5F5F4] transition-all">
-                Cancelar
-              </button>
-              <button type="button" onClick={confirmJoinRoomWithTopic} className="flex-1 py-3.5 bg-[#1C1917] text-[#FAF9F6] text-xs font-black uppercase rounded-xl border-2 border-[#1C1917] hover:bg-[#292524] transition-all shadow-sm cursor-pointer">
-                Concordar e Começar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+              {activeTab === 'topics' ? (
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col pb-2 border-b border-[#E7E5E4]">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#78716C]">LINHA NARRATIVA CONECTADA</span>
+                    <h3 className="text-xs font-black uppercase text-[#1C1917]">{currentTopic.title}</h3>
+                  </div>
 
-      {activeModal === 'goals' && (
-        <div className="fixed inset-0 bg-[#1C1917]/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-4">
-              <h3 className="text-base font-black uppercase tracking-tight text-[#1C1917]">Meta Semanal de Prática</h3>
-              <button type="button" onClick={() => setActiveModal(null)} className="text-[#78716C] hover:text-[#1C1917] text-sm font-bold">✕</button>
-            </div>
-            <div className="flex flex-col gap-4">
-              <div className="flex justify-between items-center text-xs font-bold text-[#1C1917]">
-                <span>Progresso Atual</span>
-                <span>{weeklyGoal.completed} de {weeklyGoal.target} conversas ({goalPercentage}%)</span>
-              </div>
-              <div className="w-full h-3 bg-[#F5F5F4] border border-[#E7E5E4] rounded-full overflow-hidden p-0.5">
-                <div className="h-full bg-[#1C1917] rounded-full transition-all duration-500 ease-out" style={{ width: `${goalPercentage}%` }} />
-              </div>
-              <div className="grid grid-cols-7 gap-2 pt-2">
-                {(mockMinutesHistory || []).map((item: { day: string; min: number }, index: number) => (
-                  <div key={index} className="flex flex-col items-center gap-2 group w-full">
-                    <div className="relative w-full flex justify-center h-full items-end">
-                      <div className={`w-6 sm:w-8 rounded-t-md transition-all duration-300 ${item.min > 0 ? 'bg-[#1C1917] group-hover:bg-[#57534E]' : 'bg-[#E7E5E4]'}`} style={{ height: `${item.min === 0 ? 4 : (item.min / 40) * 100}%` }} />
-                      {item.min > 0 && <span className="absolute -top-6 text-[9px] font-black text-[#1C1917] opacity-0 group-hover:opacity-100 transition-opacity">{item.min}m</span>}
+                  {currentTopic.steps.map((step) => (
+                    <div key={step.stepNumber} className="bg-[#FAF9F6] border border-[#E7E5E4] p-3.5 rounded-xl flex flex-col gap-2 relative group hover:border-[#1C1917] transition-all">
+                      <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-1.5">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-[#1C1917]">{step.stageTitle}</span>
+                        <span className="w-5 h-5 rounded-full bg-[#1C1917] text-[#FAF9F6] text-[9px] font-black flex items-center justify-center">{step.stepNumber}</span>
+                      </div>
+                      <p className="text-xs font-bold text-[#1C1917] leading-snug">"{step.question}"</p>
+                      <div className="flex flex-col gap-1 pt-1">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-[#78716C]">Frase de transição:</span>
+                        <span className="text-[10px] font-semibold text-[#57534E] italic bg-[#FFFFFF] p-1.5 rounded border border-[#E7E5E4]">{step.transitionPhrase}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {step.keywords.map((word, idx) => (
+                          <span key={idx} className="text-[9px] font-bold text-[#1C1917] bg-[#E7E5E4] px-2 py-0.5 rounded uppercase">{word}</span>
+                        ))}
+                      </div>
                     </div>
-                    <span className="text-[10px] font-bold text-[#78716C] uppercase mt-1">{item.day}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="primary" onClick={() => { setActiveModal(null); navigate('/profile'); }} className="flex-1 py-3 text-xs font-bold uppercase tracking-widest bg-[#FAF9F6] border border-[#1C1917] text-[#1C1917] hover:bg-[#F5F5F4] rounded-xl">Ajustar no Perfil</Button>
-              <Button variant="primary" onClick={() => setActiveModal(null)} className="flex-1 py-3 text-xs font-bold uppercase tracking-widest bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl">Fechar</Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeModal === 'reminders' && (
-        <div className="fixed inset-0 bg-[#1C1917]/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-4">
-              <h3 className="text-base font-black uppercase tracking-tight text-[#1C1917]">Configuração de Lembretes</h3>
-              <button type="button" onClick={() => setActiveModal(null)} className="text-[#78716C] hover:text-[#1C1917] text-sm font-bold">✕</button>
-            </div>
-            <div className="flex items-center justify-between bg-[#FAF9F6] border border-[#E7E5E4] p-4 rounded-xl">
-              <span className="text-xs font-bold text-[#1C1917]">Notificações Diárias</span>
-              <button type="button" onClick={() => setReminderEnabled(!reminderEnabled)} className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors ${reminderEnabled ? 'bg-[#1C1917]' : 'bg-[#E7E5E4]'}`}>
-                <div className={`bg-[#FFFFFF] w-4 h-4 rounded-full shadow-md transform transition-transform ${reminderEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
-              </button>
-            </div>
-            {reminderEnabled && (
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Horário Preferencial</label>
-                  <input type="time" value={reminderTime} onChange={(e) => setReminderTime(e.target.value)} className="px-4 py-2.5 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] w-full" />
+                  ))}
                 </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Dias Ativos</label>
-                  <div className="flex gap-1 justify-between">
-                    {WEEK_DAYS_LIST.map((day) => {
-                      const isSelected = selectedDays.includes(day);
-                      return (
-                        <button key={day} type="button" onClick={() => toggleDaySelection(day)} className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase border transition-all ${isSelected ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] text-[#78716C] border-[#E7E5E4]'}`}>
-                          {day}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-            <div className="flex gap-2">
-              <Button variant="primary" onClick={() => { setActiveModal(null); navigate('/profile'); }} className="flex-1 py-3 text-xs font-bold uppercase tracking-widest bg-[#FAF9F6] border border-[#1C1917] text-[#1C1917] hover:bg-[#F5F5F4] rounded-xl">Gerenciar no Perfil</Button>
-              <Button variant="primary" onClick={handleSaveReminders} className="flex-1 py-3 text-xs font-bold uppercase tracking-widest bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl">Salvar Preferências</Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeMetricModal && (
-        <div className="fixed inset-0 bg-[#1C1917]/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 max-w-lg w-full shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150 max-h-[85vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-4">
-              <h3 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
-                {activeMetricModal === 'streak' && 'Histórico de Ofensiva'}
-                {activeMetricModal === 'minutes' && 'Minutos Praticados'}
-                {activeMetricModal === 'sessions' && 'Histórico de Sessões'}
-              </h3>
-              <button type="button" onClick={() => setActiveMetricModal(null)} className="text-[#78716C] hover:text-[#1C1917] text-sm font-bold">✕</button>
-            </div>
-
-            {activeMetricModal === 'streak' && (
-              <div className="flex flex-col gap-6">
-                <div className="flex items-center justify-between bg-[#FAF9F6] p-4 rounded-xl border border-[#E7E5E4]">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold text-[#78716C] uppercase tracking-wider">Sequência Máxima</span>
-                    <span className="text-xl font-black text-[#1C1917]">{userData?.maxStreak || 0} Dias</span>
-                  </div>
-                  <div className="w-px h-8 bg-[#E7E5E4]" />
-                  <div className="flex flex-col gap-1 text-right">
-                    <span className="text-[10px] font-bold text-[#78716C] uppercase tracking-wider">Sequência Atual</span>
-                    <span className="text-xl font-black text-emerald-600">{userMetrics.currentStreak} Dias 🔥</span>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-3">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-[#1C1917]">Últimos 7 dias</span>
-                  <div className="grid grid-cols-7 gap-2">
-                    {(weeklyGoal.days || []).map((item: { day: string; completed: boolean }, index: number) => (
-                      <div key={index} className="flex flex-col items-center gap-1.5">
-                        <div className={`w-10 h-10 rounded-xl border flex items-center justify-center font-bold text-xs transition-colors ${item.completed ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4]'}`}>
-                          {item.completed ? '🔥' : '🧊'}
-                        </div>
-                        <span className="text-[10px] font-bold text-[#78716C] uppercase">{item.day}</span>
+              ) : (
+                <div className="flex flex-col h-full justify-between gap-3">
+                  <div className="flex flex-col gap-2 min-h-0 overflow-y-auto pr-1">
+                    {chatMessages.length === 0 ? (
+                      <div className="flex h-full items-center justify-center text-center text-[11px] font-bold uppercase tracking-wide text-[#78716C] border border-dashed border-[#E7E5E4] rounded-xl p-4">
+                        Nenhuma mensagem ainda.
                       </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeMetricModal === 'minutes' && (
-              <div className="flex flex-col gap-6">
-                <div className="flex items-center justify-between bg-[#FAF9F6] p-4 rounded-xl border border-[#E7E5E4]">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold text-[#78716C] uppercase tracking-wider">Total na Semana</span>
-                    <span className="text-xl font-black text-[#1C1917]">{userMetrics.totalMinutes} min</span>
-                  </div>
-                  <div className="w-px h-8 bg-[#E7E5E4]" />
-                  <div className="flex flex-col gap-1 text-right">
-                    <span className="text-[10px] font-bold text-[#78716C] uppercase tracking-wider">Média por Sessão</span>
-                    <span className="text-xl font-black text-[#1C1917]">{userMetrics.totalSessions > 0 ? Math.round(userMetrics.totalMinutes / userMetrics.totalSessions) : 0} min</span>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-3">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-[#1C1917]">Distribuição Semanal</span>
-                  <div className="flex items-end justify-between h-32 pt-4 border-b border-[#E7E5E4]">
-                    {(weeklyGoal.days || []).map((item: { day: string; completed: boolean }, index: number) => (
-                      <div key={index} className="flex flex-col items-center gap-1.5">
-                        <div className={`w-9 h-9 rounded-xl border flex items-center justify-center font-bold text-xs transition-colors ${item.completed ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4]'}`}>
-                          {item.completed ? <svg className="w-4 h-4 fill-none stroke-current stroke-[3]" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg> : '•'}
+                    ) : (
+                      chatMessages.map((message) => (
+                        <div key={message.id} className={`p-2.5 rounded-xl text-xs ${message.sender === 'me' ? 'bg-[#1C1917] text-[#FAF9F6] self-end' : 'bg-[#FAF9F6] text-[#1C1917] border border-[#E7E5E4]'}`}>
+                          <span className="font-black text-[10px] uppercase">{message.sender === 'me' ? 'Você' : partnerName}: </span>
+                          <span className="font-medium">{message.text}</span>
                         </div>
-                        <span className="text-[10px] font-bold text-[#78716C] uppercase">{item.day}</span>
-                      </div>
-                    ))}
+                      ))  
+                    )}
                   </div>
+                  <form onSubmit={handleSendMessage} className="flex gap-2">
+                    <input type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Digite uma mensagem..." className="flex-1 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl px-3 py-2 text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]" />
+                    <button type="submit" className="bg-[#1C1917] hover:bg-[#292524] px-3 py-2 rounded-xl text-xs font-bold text-[#FAF9F6]">➔</button>
+                  </form>
                 </div>
-              </div>
-            )}
-
-            {activeMetricModal === 'sessions' && (
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-[#1C1917]">Sessões Recentes</span>
-                  <span className="text-[10px] font-bold text-[#78716C] uppercase">Total Realizado: {userMetrics.totalSessions}</span>
-                </div>
-                <div className="flex flex-col gap-3 max-h-60 overflow-y-auto">
-                  {mockSessionsHistory.length > 0 ? (
-                    mockSessionsHistory.map((session: { id: string; partner: string; date: string; duration: number; topic: string; rating: number; comment?: string }) => (
-                      <div key={session.id} className="bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl p-4 flex flex-col gap-3 hover:border-[#1C1917] transition-colors">
-                        <div className="flex justify-between items-start">
-                          <div className="flex flex-col gap-0.5">
-                            <span className="text-xs font-black text-[#1C1917] uppercase">{session.partner}</span>
-                            <span className="text-[10px] font-bold text-[#78716C]">{session.date}</span>
-                          </div>
-                          <div className="flex items-center gap-1 bg-[#FFFFFF] border border-[#E7E5E4] px-2 py-1 rounded-lg">
-                            <span className="text-[10px] font-black text-amber-500">{'★'.repeat(session.rating)}</span>
-                          </div>
-                        </div>
-                        {session.comment && (
-                          <p className="text-xs text-[#57534E] italic bg-[#FFFFFF] p-2.5 rounded-lg border border-[#E7E5E4]">
-                            "{session.comment}"
-                          </p>
-                        )}
-                        <div className="flex items-center gap-3 pt-2 border-t border-[#E7E5E4]">
-                          <div className="flex items-center gap-1">
-                            <span className="text-[10px] font-bold text-[#A8A29E] uppercase">Duração:</span>
-                            <span className="text-[10px] font-black text-[#1C1917]">{session.duration} min</span>
-                          </div>
-                          <span className="text-[10px] text-[#E7E5E4]">|</span>
-                          <div className="flex items-center gap-1 truncate">
-                            <span className="text-[10px] font-bold text-[#A8A29E] uppercase">Tópico:</span>
-                            <span className="text-[10px] font-black text-[#1C1917] truncate">{session.topic}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="py-8 text-center text-xs font-bold text-[#78716C] uppercase">Nenhuma sessão registrada no histórico ainda.</div>
-                  )}
-                </div>
-              </div>
-            )}
-            <Button variant="primary" onClick={() => setActiveMetricModal(null)} className="w-full py-3 mt-2 text-xs font-bold uppercase tracking-widest bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl">Fechar Visualização</Button>
-          </div>
-        </div>
-      )}
+              )}
+            </div>
+          </aside>
+        )}
+      </div>
     </div>
   );
 });
 
-Dashboard.displayName = 'Dashboard';
-export default Dashboard;
+Room.displayName = 'Room';
+export default Room;

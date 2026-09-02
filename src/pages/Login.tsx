@@ -1,5 +1,4 @@
-// src/pages/Login.tsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { Button } from '../components/ui/Button';
@@ -47,9 +46,23 @@ export const Login: React.FC = () => {
     setShowCookieBanner(false);
   };
 
-  const sectionIds = ['hero', 'about', 'features', 'testimonials', 'faq', 'auth', 'footer'];
-  const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
+  const sectionIds = useRef(['hero', 'about', 'features', 'testimonials', 'faq', 'auth', 'footer']).current;
+  const [_currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const isScrollingRef = useRef(false);
+
+  const scrollToSection = useCallback((id: string) => {
+    isScrollingRef.current = true;
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+
+    const targetIdx = sectionIds.indexOf(id);
+    if (targetIdx !== -1) {
+      setCurrentSectionIndex(targetIdx);
+    }
+
+    setTimeout(() => {
+      isScrollingRef.current = false;
+    }, 850);
+  }, [sectionIds]);
 
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
@@ -72,21 +85,7 @@ export const Login: React.FC = () => {
 
     window.addEventListener('wheel', handleWheel, { passive: true });
     return () => window.removeEventListener('wheel', handleWheel);
-  }, []);
-
-  const scrollToSection = (id: string) => {
-    isScrollingRef.current = true;
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
-
-    const targetIdx = sectionIds.indexOf(id);
-    if (targetIdx !== -1) {
-      setCurrentSectionIndex(targetIdx);
-    }
-
-    setTimeout(() => {
-      isScrollingRef.current = false;
-    }, 850);
-  };
+  }, [scrollToSection, sectionIds]);
 
   const [activeUsers, setActiveUsers] = useState(142);
 
@@ -264,8 +263,9 @@ export const Login: React.FC = () => {
 
         localStorage.setItem('sidebyside_pending_email', email);
         navigate('/reset-password', { state: { email } });
-      } catch (err: any) {
-        setErrorMessage(err.response?.data?.error || err.message || 'Erro ao conectar com o servidor.');
+      } catch (err: unknown) {
+        const errorObj = err as { response?: { data?: { error?: string } }; message?: string };
+        setErrorMessage(errorObj.response?.data?.error || errorObj.message || 'Erro ao conectar com o servidor.');
         setIsSubmitting(false);
       }
       return;
@@ -314,8 +314,9 @@ export const Login: React.FC = () => {
         navigate('/verify-code');
       }
 
-    } catch (err: any) {
-      setErrorMessage(err.response?.data?.error || err.message || 'Erro ao conectar com o servidor.');
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { error?: string } }; message?: string };
+      setErrorMessage(errorObj.response?.data?.error || errorObj.message || 'Erro ao conectar com o servidor.');
       setIsSubmitting(false);
     }
   };

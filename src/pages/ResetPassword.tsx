@@ -1,4 +1,3 @@
-// src/pages/ResetPassword.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../services/api';
@@ -107,8 +106,9 @@ export const ResetPassword: React.FC = () => {
       });
 
       setIsCodeConfirmed(true);
-    } catch (err: any) {
-      setErrorMessage(err.response?.data?.error || err.message || 'Código inválido ou expirado.');
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { error?: string } }; message?: string };
+      setErrorMessage(errorObj.response?.data?.error || errorObj.message || 'Código inválido ou expirado.');
     } finally {
       setIsSubmitting(false);
     }
@@ -146,8 +146,9 @@ export const ResetPassword: React.FC = () => {
       localStorage.removeItem('sidebyside_pending_email');
       alert('Senha alterada com sucesso!');
       navigate('/');
-    } catch (err: any) {
-      setErrorMessage(err.response?.data?.error || err.message || 'Erro ao conectar com o servidor.');
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { error?: string } }; message?: string };
+      setErrorMessage(errorObj.response?.data?.error || errorObj.message || 'Erro ao conectar com o servidor.');
     } finally {
       setIsSubmitting(false);
     }
