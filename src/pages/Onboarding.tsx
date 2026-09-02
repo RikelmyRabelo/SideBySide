@@ -97,6 +97,7 @@ export const Onboarding: React.FC = () => {
   const [photoConfirmed, setPhotoConfirmed] = useState(false);
   const [personalConfirmed, setPersonalConfirmed] = useState(false);
   const [bioConfirmed, setBioConfirmed] = useState(false);
+  const [showTopicLimitModal, setShowTopicLimitModal] = useState(false);
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -136,7 +137,7 @@ export const Onboarding: React.FC = () => {
         return prev.filter((item) => item !== interest);
       }
       if (prev.length >= 5) {
-        alert('Você só pode selecionar até 5 tópicos de interesse.');
+        setShowTopicLimitModal(true);
         return prev;
       }
       return [...prev, interest];
@@ -546,7 +547,7 @@ export const Onboarding: React.FC = () => {
                   try {
                     const response = await fetch('http://localhost:3000/api/user/profile', {
                       method: 'PUT',
-                      credentials: 'include', // CORREÇÃO DE SEGURANÇA: enviar cookies da sessão!
+                      credentials: 'include',
                       headers: {
                         'Content-Type': 'application/json',
                       },
@@ -568,7 +569,6 @@ export const Onboarding: React.FC = () => {
                       throw new Error(errorData.error || 'Erro ao salvar dados do onboarding.');
                     }
 
-                    // CORREÇÃO: Força o redirecionamento com reload para a TELA DE SUCESSO.
                     window.location.href = '/auth-success';
                   } catch (error: any) {
                     alert(error.message || 'Erro ao salvar o onboarding.');
@@ -583,6 +583,39 @@ export const Onboarding: React.FC = () => {
 
         </div>
       </main>
+
+      {/* Modal de Limite de Tópicos Excedido */}
+      {showTopicLimitModal && (
+        <div className="fixed inset-0 bg-[#1C1917]/80 backdrop-blur-md z-[130] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-8 max-w-md w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-6 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-amber-50 border-2 border-amber-200 text-amber-600 flex items-center justify-center mx-auto shadow-sm">
+              <svg className="w-8 h-8 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+            </div>
+            <div className="flex flex-col gap-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#FAF9F6] bg-[#1C1917] px-2.5 py-0.5 rounded w-fit mx-auto">
+                LIMITE ATINGIDO
+              </span>
+              <h3 className="text-lg font-black uppercase text-[#1C1917]">
+                Máximo de 5 Tópicos
+              </h3>
+              <p className="text-xs text-[#57534E] font-medium leading-relaxed">
+                Você já selecionou o limite máximo de 5 tópicos de interesse. Para adicionar um novo tópico, desmarque algum dos selecionados anteriormente.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowTopicLimitModal(false)}
+              className="w-full py-3.5 bg-[#1C1917] text-[#FAF9F6] text-xs font-black uppercase rounded-xl border-2 border-[#1C1917] hover:bg-[#292524] transition-all shadow-sm cursor-pointer"
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
