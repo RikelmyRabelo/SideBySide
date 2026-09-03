@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { io, Socket } from 'socket.io-client';
-import api from '../services/api';
+import { socket } from '../services/socket'; // Importando o Socket global em vez de io
+import {  api } from '../services/api';
 import { ReportModal } from '../components/room/ReportModal';
 import { RatingModal } from '../components/room/RatingModal';
 import { TOPICS_CATALOG, FREE_TALK_TOPIC, TopicItem } from '../data/topicsData';
@@ -54,7 +54,6 @@ const Room: React.FC = memo(() => {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [currentTranscript, setCurrentTranscript] = useState('');
   const [_spokenHistory, setSpokenHistory] = useState<string[]>([]);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const speechRecognitionRef = useRef<any>(null);
 
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
@@ -135,7 +134,6 @@ const Room: React.FC = memo(() => {
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
-  const socketRef = useRef<Socket | null>(null);
   const pendingCandidates = useRef<RTCIceCandidateInit[]>([]);
   const pendingOfferRef = useRef<RTCSessionDescriptionInit | null>(null);
   const [mediaError, setMediaError] = useState<string | null>(null);
@@ -222,7 +220,6 @@ const Room: React.FC = memo(() => {
   }, []);
 
   const toggleSpeechTranscription = useCallback(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognitionAPI) {
       alert('Seu navegador não suporta a Web Speech API para transcrição em tempo real.');
@@ -242,7 +239,6 @@ const Room: React.FC = memo(() => {
       recognition.lang = 'en-US';
       recognition.onstart = () => setIsTranscribing(true);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       recognition.onresult = (event: any) => {
         let interimText = '';
         let finalText = '';
@@ -344,7 +340,7 @@ const Room: React.FC = memo(() => {
     } catch (_err: unknown) {}
   }, []);
 
-  const initializeWebRTC = useCallback(async (socket: Socket, currentRoomId: string, isInitiator: boolean) => {
+  const initializeWebRTC = useCallback(async (currentRoomId: string, isInitiator: boolean) => {
     try {
       const preferredAudioId = localStorage.getItem('sbs_preferred_audio_id');
       const preferredVideoId = localStorage.getItem('sbs_preferred_video_id');
@@ -440,15 +436,9 @@ const Room: React.FC = memo(() => {
   }, [setupAudioAnalyzer]);
 
   useEffect(() => {
-    const baseURL = api.defaults.baseURL || 'http://localhost:3000';
-    const newSocket = io(baseURL, { withCredentials: true });
-    socketRef.current = newSocket;
+    socket.emit('find_match', { topicId: topicId || null });
 
-    newSocket.on('connect', () => {
-      newSocket.emit('find_match', { topicId: topicId || null });
-    });
-
-    newSocket.on('match_found', async (data: { roomId: string; partnerId: string; partnerName?: string; partnerAvatar?: string; initiator: boolean }) => {
+    const handleMatchFound = async (data: { roomId: string; partnerId: string; partnerName?: string; partnerAvatar?: string; initiator: boolean }) => {
       hasRatedCurrentSessionRef.current = false;
       setRoomId(data.roomId);
       roomIdRef.current = data.roomId;
@@ -462,10 +452,10 @@ const Room: React.FC = memo(() => {
       setIsSearchingNextPair(false);
       setFriendRequestSent(false);
       setIncomingFriendRequest(null);
-      await initializeWebRTC(newSocket, data.roomId, data.initiator);
-    });
+      await initializeWebRTC(data.roomId, data.initiator);
+    };
 
-    newSocket.on('partner_left', () => {
+    const handlePartnerLeft = () => {
       const state = sessionStateRef.current;
       
       if (state.isSearching || !roomIdRef.current || hasRatedCurrentSessionRef.current) return;
@@ -485,17 +475,17 @@ const Room: React.FC = memo(() => {
       setPendingAction('nextPair');
       showToast('O seu parceiro encerrou a chamada.', 'info');
       setIsRatingOpen(true);
-    });
+    };
 
-    newSocket.on('camera_status', (data: { camActive: boolean }) => {
+    const handleCameraStatus = (data: { camActive: boolean }) => {
       setRemoteCamActiveState(data.camActive);
-    });
+    };
 
-    newSocket.on('friend_request_received', (data: { requestId: string; senderId: string; name: string; avatar: string }) => {
+    const handleFriendRequestReceived = (data: { requestId: string; senderId: string; name: string; avatar: string }) => {
       setIncomingFriendRequest(data);
-    });
+    };
 
-    newSocket.on('webrtc_offer', async (data: { sdp: RTCSessionDescriptionInit }) => {
+    const handleWebRTCOffer = async (data: { sdp: RTCSessionDescriptionInit }) => {
       const pc = peerConnectionRef.current;
       if (!pc) {
         pendingOfferRef.current = data.sdp;
@@ -508,10 +498,10 @@ const Room: React.FC = memo(() => {
       }
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      newSocket.emit('webrtc_answer', { roomId: roomIdRef.current, sdp: pc.localDescription });
-    });
+      socket.emit('webrtc_answer', { roomId: roomIdRef.current, sdp: pc.localDescription });
+    };
 
-    newSocket.on('webrtc_answer', async (data: { sdp: RTCSessionDescriptionInit }) => {
+    const handleWebRTCAnswer = async (data: { sdp: RTCSessionDescriptionInit }) => {
       const pc = peerConnectionRef.current;
       if (!pc) return;
       await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
@@ -519,9 +509,9 @@ const Room: React.FC = memo(() => {
         const candidate = pendingCandidates.current.shift();
         if (candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
       }
-    });
+    };
 
-    newSocket.on('webrtc_ice_candidate', async (data: { candidate: RTCIceCandidateInit }) => {
+    const handleWebRTCIceCandidate = async (data: { candidate: RTCIceCandidateInit }) => {
       const pc = peerConnectionRef.current;
       if (!pc || !pc.remoteDescription || !pc.remoteDescription.type) {
         pendingCandidates.current.push(data.candidate);
@@ -530,15 +520,31 @@ const Room: React.FC = memo(() => {
       try {
         await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
       } catch (_err: unknown) {}
-    });
+    };
 
-    newSocket.on('chat_message', (data: { text: string; id: number }) => {
+    const handleChatMessage = (data: { text: string; id: number }) => {
       setChatMessages((prev) => [...prev, { id: data.id, sender: 'other', text: data.text }]);
-    });
+    };
+
+    socket.on('match_found', handleMatchFound);
+    socket.on('partner_left', handlePartnerLeft);
+    socket.on('camera_status', handleCameraStatus);
+    socket.on('friend_request_received', handleFriendRequestReceived);
+    socket.on('webrtc_offer', handleWebRTCOffer);
+    socket.on('webrtc_answer', handleWebRTCAnswer);
+    socket.on('webrtc_ice_candidate', handleWebRTCIceCandidate);
+    socket.on('chat_message', handleChatMessage);
 
     return () => {
       stopMediaStream();
-      newSocket.disconnect();
+      socket.off('match_found', handleMatchFound);
+      socket.off('partner_left', handlePartnerLeft);
+      socket.off('camera_status', handleCameraStatus);
+      socket.off('friend_request_received', handleFriendRequestReceived);
+      socket.off('webrtc_offer', handleWebRTCOffer);
+      socket.off('webrtc_answer', handleWebRTCAnswer);
+      socket.off('webrtc_ice_candidate', handleWebRTCIceCandidate);
+      socket.off('chat_message', handleChatMessage);
     };
   }, [topicId, initializeWebRTC, stopMediaStream, showToast, roomId]);
 
@@ -598,8 +604,8 @@ const Room: React.FC = memo(() => {
     }
     setCamActive(nextCamState);
 
-    if (socketRef.current && roomIdRef.current) {
-      socketRef.current.emit('camera_status', { roomId: roomIdRef.current, camActive: nextCamState });
+    if (roomIdRef.current) {
+      socket.emit('camera_status', { roomId: roomIdRef.current, camActive: nextCamState });
     }
   }, [camActive]);
 
@@ -615,8 +621,8 @@ const Room: React.FC = memo(() => {
       });
     } catch (_err: unknown) {}
     
-    if (socketRef.current && roomIdRef.current) {
-      socketRef.current.emit('leave_room', { roomId: roomIdRef.current });
+    if (roomIdRef.current) {
+      socket.emit('leave_room', { roomId: roomIdRef.current });
       roomIdRef.current = null;
     }
 
@@ -637,7 +643,7 @@ const Room: React.FC = memo(() => {
 
   const handleEndCall = useCallback(() => {
     if (isSearchingNextPair) {
-      if (socketRef.current) socketRef.current.emit('cancel_match');
+      socket.emit('cancel_match');
       stopMediaStream();
       setPendingAction('exit');
       
@@ -649,8 +655,8 @@ const Room: React.FC = memo(() => {
   }, [isSearchingNextPair, stopMediaStream, navigate]);
 
   const handleConfirmExit = useCallback(() => {
-    if (socketRef.current && roomIdRef.current) {
-      socketRef.current.emit('leave_room', { roomId: roomIdRef.current });
+    if (roomIdRef.current) {
+      socket.emit('leave_room', { roomId: roomIdRef.current });
       roomIdRef.current = null;
     }
     
@@ -672,8 +678,8 @@ const Room: React.FC = memo(() => {
   }, [roomId, partnerId, partnerName, partnerAvatarUrl, sessionElapsedSeconds, stopMediaStream]);
 
   const handleNextPair = useCallback(() => {
-    if (socketRef.current && roomIdRef.current) {
-      socketRef.current.emit('leave_room', { roomId: roomIdRef.current });
+    if (roomIdRef.current) {
+      socket.emit('leave_room', { roomId: roomIdRef.current });
       roomIdRef.current = null;
     }
 
@@ -701,9 +707,7 @@ const Room: React.FC = memo(() => {
     setCurrentTopic(topicId && TOPICS_CATALOG[topicId] ? TOPICS_CATALOG[topicId] : FREE_TALK_TOPIC);
     setIncomingFriendRequest(null);
     
-    if (socketRef.current) {
-      socketRef.current.emit('find_match', { topicId: topicId || null });
-    }
+    socket.emit('find_match', { topicId: topicId || null });
   }, [stopMediaStream, topicId]);
 
   const handleRatingSubmit = useCallback(async (data: { partnerRating?: number; platformRating: number; comment: string }) => {
@@ -747,9 +751,7 @@ const Room: React.FC = memo(() => {
     const trimmed = chatInput.trim();
     if (!trimmed || !roomIdRef.current) return;
 
-    if (socketRef.current) {
-      socketRef.current.emit('chat_message', { roomId: roomIdRef.current, text: trimmed });
-    }
+    socket.emit('chat_message', { roomId: roomIdRef.current, text: trimmed });
 
     setChatMessages((prev) => [...prev, { id: Date.now(), sender: 'me', text: trimmed }]);
     setChatInput('');

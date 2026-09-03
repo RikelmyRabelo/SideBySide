@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../services/api';
+import {  api } from '../services/api';
 import { Button } from '../components/ui/Button';
 
 export const VerifyCode: React.FC = () => {
