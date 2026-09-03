@@ -6,6 +6,9 @@ import { z } from 'zod';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'seu-segredo-super-seguro';
 
+const ALLOWED_TOPICS = ['general', 'business', 'technology', 'travel', 'daily'] as const;
+const MAX_QUEUE_SIZE_PER_TOPIC = 100;
+
 const queues: Record<string, Socket[]> = {};
 const activeRooms: Map<string, Set<string>> = new Map();
 const socketRoomMap: Map<string, string> = new Map();
@@ -22,7 +25,9 @@ const MAX_EVENTS_PER_WINDOW = 10;
 const MAX_CHAT_EVENTS_PER_WINDOW = 5;
 
 const findMatchSchema = z.object({ 
-  topicId: z.string().nullable().optional() 
+  topicId: z.enum(ALLOWED_TOPICS, {
+    errorMap: () => ({ message: 'Tópico de busca inválido ou não autorizado.' })
+  }).nullable().optional() 
 }).optional();
 
 const webrtcSdpSchema = z.object({ roomId: z.string(), sdp: z.any() });
@@ -104,7 +109,8 @@ export const setupMatchmaking = (io: Server) => {
 
     socket.on('find_match', (data: unknown) => {
       safeParseEvent(findMatchSchema, data, async (parsedData) => {
-        const topicId = (parsedData?.topicId && parsedData.topicId.trim() !== '') ? parsedData.topicId : 'general';
+        const rawTopic = parsedData?.topicId;
+        const topicId = (rawTopic && rawTopic.trim() !== '') ? rawTopic : 'general';
         
         if (!queues[topicId]) queues[topicId] = [];
         
@@ -112,6 +118,12 @@ export const setupMatchmaking = (io: Server) => {
           queues[key] = queues[key].filter(s => s.id !== socket.id);
         }
         
+        if (queues[topicId].length >= MAX_QUEUE_SIZE_PER_TOPIC) {
+          socket.emit('queue_full', { message: 'A fila para este tópico atingiu a capacidade máxima. Tente novamente mais tarde.' });
+          console.warn(`[Queue Overflow Warning] Tópico '${topicId}' atingiu o limite de ${MAX_QUEUE_SIZE_PER_TOPIC} conexões.`);
+          return;
+        }
+
         queues[topicId].push(socket);
         socketTopicMap.set(socket.id, topicId);
 
