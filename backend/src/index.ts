@@ -889,16 +889,51 @@ app.get('/api/notifications', authenticateToken, async (req: Request, res: Respo
 app.get('/api/matches/candidates', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user.id;
-    const me = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, level: true, interests: true, reputation: true, totalSessions: true, totalMinutes: true } });
+    const me = await prisma.user.findUnique({ 
+      where: { id: userId }, 
+      select: { id: true, level: true, interests: true, reputation: true, totalSessions: true, totalMinutes: true } 
+    });
+    
     if (!me) return res.status(404).json({ error: 'Usuário não encontrado.' });
     
-    const allUsers = await prisma.user.findMany({ where: { id: { not: userId }, isBanned: false }, take: 1 });
-     
-    const candidates = allUsers.map((candidate: any) => ({
-      id: candidate.id, name: candidate.name, level: candidate.level, avatar: candidate.avatar,
-      interests: candidate.interests || [], sharedInterests: [], score: 85, reputation: candidate.reputation,
-      totalSessions: candidate.totalSessions || 0, totalMinutes: candidate.totalMinutes || 0, history: null, flagStatus: candidate.flagStatus
-    }));
+    const rawCandidates = await prisma.user.findMany({
+      where: { 
+        id: { not: userId }, 
+        isBanned: false 
+      },
+      take: 10,
+      select: {
+        id: true,
+        name: true,
+        level: true,
+        avatar: true,
+        interests: true,
+        reputation: true,
+        totalSessions: true,
+        totalMinutes: true,
+        flagStatus: true
+      }
+    });
+
+    const selectedCandidate = rawCandidates.length > 0 
+      ? rawCandidates[Math.floor(Math.random() * rawCandidates.length)] 
+      : null;
+
+    const candidates = selectedCandidate ? [{
+      id: selectedCandidate.id, 
+      name: selectedCandidate.name, 
+      level: selectedCandidate.level, 
+      avatar: selectedCandidate.avatar,
+      interests: selectedCandidate.interests || [], 
+      sharedInterests: [], 
+      score: 85, 
+      reputation: selectedCandidate.reputation,
+      totalSessions: selectedCandidate.totalSessions || 0, 
+      totalMinutes: selectedCandidate.totalMinutes || 0, 
+      history: null, 
+      flagStatus: selectedCandidate.flagStatus
+    }] : [];
+
     return res.status(200).json({ candidates, me: { id: me.id, level: me.level, interests: me.interests || [] } });
    
   } catch (error: unknown) { next(error); }
