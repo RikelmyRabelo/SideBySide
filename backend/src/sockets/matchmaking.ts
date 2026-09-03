@@ -53,13 +53,15 @@ export const setupMatchmaking = (io: Server) => {
 
       jwt.verify(token, JWT_SECRET, (err, decoded) => {
         if (err) {
+          console.error(`[WebSocket Auth Error] Falha ao verificar token JWT para socket ID ${socket.id}:`, err);
           return next(new Error('Sessão JWT inválida ou expirada.'));
         }
          
         (socket as any).user = decoded;
         next();
       });
-    } catch (_error) {
+    } catch (error: unknown) {
+      console.error(`[WebSocket Handshake Error] Erro crítico durante autenticação de socket ID ${socket.id}:`, error);
       next(new Error('Erro interno de autenticação WebSocket.'));
     }
   });
@@ -88,6 +90,7 @@ export const setupMatchmaking = (io: Server) => {
             socket.emit('rate_limit_exceeded', {
               message: 'Você está enviando eventos rápido demais. Aguarde um instante.'
             });
+            console.warn(`[Rate Limit Exceeded] Socket ID ${socket.id} excedeu o limite de requisições no evento: ${event}`);
             return next(new Error('Taxa de requisições excedida'));
           }
         }
@@ -145,8 +148,8 @@ export const setupMatchmaking = (io: Server) => {
                 const dbU2 = await prisma.user.findUnique({ where: { id: user2.id } });
                 if (dbU2) { u2Data.name = dbU2.name; u2Data.avatar = dbU2.avatar; }
               }
-            } catch (_err) {
-              // silenciado
+            } catch (err: unknown) {
+              console.error(`[Matchmaking DB Error] Falha ao buscar dados de perfil dos usuários na sala ${roomId}:`, err);
             }
 
             socket1.emit('match_found', { 
@@ -223,7 +226,7 @@ export const setupMatchmaking = (io: Server) => {
         socket.to(parsedData.roomId).emit('webrtc_answer', { sdp: parsedData.sdp });
       });
     });
-
+    
     socket.on('webrtc_ice_candidate', (data: unknown) => {
       safeParseEvent(webrtcIceSchema, data, (parsedData) => {
         socket.to(parsedData.roomId).emit('webrtc_ice_candidate', { candidate: parsedData.candidate });

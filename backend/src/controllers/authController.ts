@@ -37,7 +37,8 @@ export async function loginHandler(req: Request, res: Response, next: NextFuncti
       message: 'Login com sucesso.',
       user: { id: user.id, name: user.name, email: user.email, level: user.level, reputation: user.reputation, tag: user.tag },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    console.error('[AuthController Error] Falha durante a operação de login:', error);
     next(error);
   }
 }
@@ -46,7 +47,8 @@ export async function logoutHandler(req: Request, res: Response, next: NextFunct
   try {
     res.clearCookie('token');
     return res.status(200).json({ message: 'Logout realizado com sucesso.' });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    console.error('[AuthController Error] Falha durante a operação de logout:', error);
     next(error);
   }
 }
