@@ -6,71 +6,103 @@ datasource db {
   provider = "postgresql"
 }
 
+enum UserLevel {
+  A1
+  A2
+  B1
+  B2
+  C1
+  C2
+}
+
+enum FlagStatus {
+  CLEAN
+  WARNING
+  SUSPENDED
+  BANNED
+}
+
+enum ReportStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  DISMISSED
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
 model User {
-  id                  String               @id @default(uuid())
+  id                  String                @id @default(uuid())
   name                String
-  email               String               @unique
+  email               String                @unique
   password            String
-  tag                 String               @unique @default("User#0000")
-  level               String               @default("B1")
-  reputation          Int                  @default(100)
+  tag                 String                @unique @default("User#0000")
+  level               UserLevel             @default(B1)
+  reputation          Int                   @default(100)
   birthDate           String?
-  showAgeInProfile    Boolean              @default(true)
+  showAgeInProfile    Boolean               @default(true)
   gender              String?
   pronouns            String?
   bio                 String?
   interests           String[]
   avatar              String?
-  notifyEmail         Boolean              @default(true)
-  notifyPush          Boolean              @default(true)
-  notifyAdvance       String               @default("15")
-  streak              Int                  @default(0)
-  totalMinutes        Int                  @default(0)
-  totalSessions       Int                  @default(0)
+  notifyEmail         Boolean               @default(true)
+  notifyPush          Boolean               @default(true)
+  notifyAdvance       String                @default("15")
+  streak              Int                   @default(0)
+  totalMinutes        Int                   @default(0)
+  totalSessions       Int                   @default(0)
   lastSession         Json?
   sessionsHistory     ConversationSession[]
   minutesHistory      Json[]
   weeklyGoal          Json?
-  reportCount         Int                  @default(0)
-  flagStatus          String               @default("clean")
+  reportCount         Int                   @default(0)
+  flagStatus          FlagStatus            @default(CLEAN)
   flagReason          String?
   flaggedAt           DateTime?
-  isBanned            Boolean              @default(false)
+  isBanned            Boolean               @default(false)
   bannedUntil         DateTime?
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
   
   notifications       Notification[]
-  sentFriendships     FriendRelation[]     @relation("UserFriendships")
-  receivedFriendships FriendRelation[]     @relation("FriendOfUser")
+  sentFriendships     FriendRelation[]      @relation("UserFriendships")
+  receivedFriendships FriendRelation[]      @relation("FriendOfUser")
   
-  sentMessages        DirectMessage[]      @relation("SentMessages")
-  receivedMessages    DirectMessage[]      @relation("ReceivedMessages")
+  sentMessages        DirectMessage[]       @relation("SentMessages")
+  receivedMessages    DirectMessage[]       @relation("ReceivedMessages")
+
+  sentReports         Report[]              @relation("UserReports")
+  receivedReports     Report[]              @relation("ReportedUserReports")
 }
 
 model ConversationSession {
-  id           String   @id @default(uuid())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  partnerId    String
-  partnerName  String
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  partnerId     String
+  partnerName   String
   partnerAvatar String?
-  duration     String
-  topic        String
-  createdAt    DateTime @default(now())
-  rating       Rating?
+  duration      String
+  topic         String
+  createdAt     DateTime @default(now())
+  rating        Rating?
 
   @@index([userId])
 }
 
 model Rating {
-  id              String              @id @default(uuid())
-  sessionId       String              @unique
-  session         ConversationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  partnerRating   Int?
-  platformRating  Int
-  comment         String?
-  createdAt       DateTime            @default(now())
+  id             String              @id @default(uuid())
+  sessionId      String              @unique
+  session        ConversationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  partnerRating  Int?
+  platformRating Int
+  comment        String?
+  createdAt      DateTime            @default(now())
 
   @@index([sessionId])
 }
@@ -89,16 +121,19 @@ model Notification {
 }
 
 model Report {
-  id              String    @id @default(uuid())
-  reporterId      String
-  reportedUserId  String
-  reason          String
-  description     String?
-  status          String    @default("open")
-  resolvedAt      DateTime?
-  resolution      String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id             String       @id @default(uuid())
+  reporterId     String
+  reportedUserId String
+  reason         String
+  description    String?
+  status         ReportStatus @default(OPEN)
+  resolvedAt     DateTime?
+  resolution     String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  reporter       User         @relation("UserReports", fields: [reporterId], references: [id], onDelete: Cascade)
+  reportedUser   User         @relation("ReportedUserReports", fields: [reportedUserId], references: [id], onDelete: Cascade)
 
   @@index([reporterId])
   @@index([reportedUserId])
@@ -106,14 +141,14 @@ model Report {
 }
 
 model FriendRelation {
-  id        String   @id @default(uuid())
+  id        String           @id @default(uuid())
   userId    String
   friendId  String
-  status    String   @default("pending")
-  createdAt DateTime @default(now())
+  status    FriendshipStatus @default(PENDING)
+  createdAt DateTime         @default(now())
 
-  user   User @relation("UserFriendships", fields: [userId], references: [id], onDelete: Cascade)
-  friend User @relation("FriendOfUser", fields: [friendId], references: [id], onDelete: Cascade)
+  user      User             @relation("UserFriendships", fields: [userId], references: [id], onDelete: Cascade)
+  friend    User             @relation("FriendOfUser", fields: [friendId], references: [id], onDelete: Cascade)
 
   @@unique([userId, friendId])
   @@index([userId])
@@ -128,8 +163,8 @@ model DirectMessage {
   text        String
   createdAt   DateTime @default(now())
 
-  sender    User @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
-  recipient User @relation("ReceivedMessages", fields: [recipientId], references: [id], onDelete: Cascade)
+  sender      User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient   User     @relation("ReceivedMessages", fields: [recipientId], references: [id], onDelete: Cascade)
 
   @@index([senderId])
   @@index([recipientId])
