@@ -58,6 +58,11 @@ const _conversationQuality = new Map<string, Map<string, { duration: number; mes
 const _repeatMatchPreferences = new Map<string, Set<string>>();
 const reports = new Map<string, { reporterId: string; reason: string; timestamp: Date }[]>();
 
+const anonymizeIp = (ip?: string) => {
+  if (!ip) return 'unknown';
+  return ip.replace(/\b(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\b/, '$1.$2.$3.0');
+};
+
 const logger = winston.createLogger({
   level: 'info',
   format: winston.format.combine(
@@ -71,13 +76,25 @@ const logger = winston.createLogger({
         winston.format.simple()
       ),
     }),
-    new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
-    new winston.transports.File({ filename: 'logs/combined.log' }),
+    new winston.transports.File({ 
+      filename: 'logs/error.log', 
+      level: 'error',
+      maxsize: 5242880,
+      maxFiles: 5,
+      tailable: true
+    }),
+    new winston.transports.File({ 
+      filename: 'logs/combined.log',
+      maxsize: 10485760,
+      maxFiles: 7,
+      tailable: true
+    }),
   ],
 });
 
 app.use((req: Request, res: Response, next: NextFunction) => {
-  logger.info(`[${req.method}] ${req.url} - IP: ${req.ip}`);
+  const safeIp = anonymizeIp(req.ip);
+  logger.info(`[${req.method}] ${req.url} - IP: ${safeIp}`);
   next();
 });
 
