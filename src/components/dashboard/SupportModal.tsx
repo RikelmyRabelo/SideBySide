@@ -18,7 +18,6 @@ export const SupportModal: React.FC<SupportModalProps> = ({ isOpen, onClose }) =
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Simulação de envio para a API de Suporte
     setTimeout(() => {
       setIsSubmitting(false);
       setIsRatingSuccess(true);
@@ -35,7 +34,6 @@ export const SupportModal: React.FC<SupportModalProps> = ({ isOpen, onClose }) =
     <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-[100] flex items-center justify-center p-4">
       <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150">
         
-        {/* Header */}
         <div className="flex items-center justify-between border-b-2 border-[#E7E5E4] pb-3">
           <div className="flex flex-col">
             <span className="text-[10px] font-black uppercase tracking-widest text-[#78716C]">
@@ -74,7 +72,7 @@ export const SupportModal: React.FC<SupportModalProps> = ({ isOpen, onClose }) =
               </label>
               <select
                 value={category}
-                onChange={(e) => setCategory(e.target.value as any)}
+                onChange={(e) => setCategory(e.target.value as 'bug' | 'account' | 'moderation' | 'other')}
                 className="px-3.5 py-2.5 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
               >
                 <option value="bug">Reportar Erro / Bug Técnico</option>

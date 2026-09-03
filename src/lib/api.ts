@@ -34,8 +34,12 @@ export const apiFetch = async (endpoint: string, options: FetchOptions = {}): Pr
 
 // Funções utilitárias opcionais de atalho (GET, POST, PUT, DELETE)
 export const api = {
+   
   get: (endpoint: string, options?: FetchOptions) => apiFetch(endpoint, { ...options, method: 'GET' }),
-  post: (endpoint: string, body?: any, options?: FetchOptions) => apiFetch(endpoint, { ...options, method: 'POST', body: JSON.stringify(body) }),
-  put: (endpoint: string, body?: any, options?: FetchOptions) => apiFetch(endpoint, { ...options, method: 'PUT', body: JSON.stringify(body) }),
+   
+  post: (endpoint: string, body?: unknown, options?: FetchOptions) => apiFetch(endpoint, { ...options, method: 'POST', body: JSON.stringify(body) }),
+   
+  put: (endpoint: string, body?: unknown, options?: FetchOptions) => apiFetch(endpoint, { ...options, method: 'PUT', body: JSON.stringify(body) }),
+   
   delete: (endpoint: string, options?: FetchOptions) => apiFetch(endpoint, { ...options, method: 'DELETE' }),
 };

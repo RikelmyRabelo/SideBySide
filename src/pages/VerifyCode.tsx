@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {  api } from '../services/api';
 import { Button } from '../components/ui/Button';
 
 export const VerifyCode: React.FC = () => {
@@ -141,22 +142,9 @@ export const VerifyCode: React.FC = () => {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:3000/api/auth/verify-code', {
-        method: 'POST',
-        credentials: 'include', // <-- CORREÇÃO: Garante que o navegador vai armazenar o cookie JWT de acesso (HTTP-Only)
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: pendingEmail, code: fullCode }),
-      });
+      const response = await api.post('/api/auth/verify-code', { email: pendingEmail, code: fullCode });
+      const data = response.data;
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Código inválido ou expirado.');
-      }
-
-      // Sucesso na verificação e criação da conta!
-      const data = await response.json();
-
-      // Já podemos armazenar os dados no cache local pra não precisar recarregar (o cookie JWT já foi setado silenciosamente pelo navegador)
       if (data.user) {
         localStorage.setItem('user', JSON.stringify(data.user));
       }
@@ -165,8 +153,9 @@ export const VerifyCode: React.FC = () => {
       localStorage.removeItem('sidebyside_pending_name');
 
       navigate('/onboarding');
-    } catch (err: any) {
-      setError(err.message || 'Erro ao conectar com o servidor.');
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { error?: string } }; message?: string };
+      setError(errorObj.response?.data?.error || errorObj.message || 'Erro ao conectar com o servidor.');
     } finally {
       setIsSubmitting(false);
     }
@@ -179,15 +168,7 @@ export const VerifyCode: React.FC = () => {
       const pendingEmail = localStorage.getItem('sidebyside_pending_email');
       if (!pendingEmail) throw new Error('E-mail não encontrado.');
 
-      const response = await fetch('http://localhost:3000/api/auth/resend-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: pendingEmail }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Erro ao reenviar o código.');
-      }
+      await api.post('/api/auth/resend-code', { email: pendingEmail });
 
       setTimer(60);
       setCanResend(false);
@@ -196,8 +177,9 @@ export const VerifyCode: React.FC = () => {
       if (inputRefs.current[0]) {
         inputRefs.current[0].focus();
       }
-    } catch (err: any) {
-      setError(err.message || 'Erro ao reenviar código.');
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { error?: string } }; message?: string };
+      setError(errorObj.response?.data?.error || errorObj.message || 'Erro ao reenviar código.');
     }
   };
 
@@ -240,7 +222,7 @@ export const VerifyCode: React.FC = () => {
               {code.map((digit, index) => (
                 <input
                   key={index}
-                  ref={(el) => (inputRefs.current[index] = el)}
+                  ref={(el) => { inputRefs.current[index] = el; }}
                   type="text"
                   inputMode="numeric"
                   maxLength={1}

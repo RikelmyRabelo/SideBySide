@@ -11,7 +11,6 @@ export const Privacy: React.FC = () => {
   return (
     <div className="min-h-screen w-full bg-[#FAF9F6] text-[#1C1917] font-sans selection:bg-[#1C1917] selection:text-[#FAF9F6] relative">
       
-      {/* Header Fixo */}
       <div className="fixed top-6 left-0 right-0 w-full flex justify-center z-40 px-4">
         <header className="w-full max-w-4xl px-6 py-3.5 flex items-center justify-between bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl shadow-sm">
           <div 
@@ -34,10 +33,8 @@ export const Privacy: React.FC = () => {
         </header>
       </div>
 
-      {/* Conteúdo Principal */}
       <main className="max-w-4xl mx-auto pt-36 pb-24 px-6 lg:px-12 flex flex-col gap-10">
         
-        {/* Cabeçalho */}
         <div className="flex flex-col gap-3 border-b border-[#E7E5E4] pb-8">
           <span className="px-3 py-1 bg-[#F5F5F4] border border-[#E7E5E4] text-[#78716C] text-xs font-bold uppercase tracking-widest rounded-md w-fit">
             Documentação Legal
@@ -50,7 +47,6 @@ export const Privacy: React.FC = () => {
           </p>
         </div>
 
-        {/* Artigo */}
         <article className="flex flex-col gap-8 text-sm sm:text-base text-[#57534E] leading-relaxed">
           
           <p className="font-medium text-[#1C1917]">
@@ -130,7 +126,6 @@ export const Privacy: React.FC = () => {
             </div>
           </section>
 
-          {/* DPO / Encarregado */}
           <div className="bg-[#1C1917] text-[#FAF9F6] p-6 sm:p-8 rounded-2xl flex flex-col gap-2 mt-4">
             <h3 className="text-lg font-black uppercase tracking-tight text-[#FAF9F6]">
               Contato do Encarregado de Dados (DPO)
@@ -143,7 +138,6 @@ export const Privacy: React.FC = () => {
         </article>
       </main>
 
-      {/* Footer */}
       <footer className="w-full bg-[#1C1917] border-t border-[#292524] py-8 px-6 text-center text-xs text-[#A8A29E]">
         <p>© 2026 SideBySide. Todos os direitos reservados.</p>
       </footer>

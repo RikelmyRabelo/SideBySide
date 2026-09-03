@@ -1,0 +1,427 @@
+AUDITORIA TÉCNICA COMPLETA - SIDEBYSIDE
+Data: 02/09/2026
+
+============================================================
+RESUMO EXECUTIVO
+============================================================
+
+Stack:
+React 18, TypeScript, Vite, Express 5, Socket.IO, WebRTC, Prisma 7, PostgreSQL, Redis, JWT, bcrypt e Nodemailer.
+
+Arquitetura:
+Monorepo com frontend e backend parcialmente integrados. O backend concentra rotas, autenticacao e regras de negocio em um unico arquivo, backend/src/index.ts. O estado de matchmaking e sessoes permanece em memoria.
+
+Estado geral:
+MVP funcional em partes, mas nao pronto para producao. Existem falhas de build, CI, autenticacao, autorizacao, persistencia, contratos de API e cobertura de testes.
+
+Seguranca:
+Ha vulnerabilidades confirmadas de autorizacao, exposicao de dados e configuracao insegura de JWT, CORS e cookies.
+
+Performance:
+Consultas sem indices adequados, historico JSON ilimitado, polling frequente e matchmaking com estruturas em memoria.
+
+Qualidade do codigo:
+152 problemas de lint, uso excessivo de any, funcoes extensas, tratamento de erros silencioso e logica duplicada.
+
+Testes:
+45 testes unitarios frontend passam quando isolados. O backend nao executa pelo script atual. O E2E e incluido indevidamente pelo Vitest e falha no carregamento.
+
+Manutenibilidade:
+Baixa a media. O sistema depende de URLs hardcoded, contratos nao centralizados e regras espalhadas entre frontend e backend.
+
+============================================================
+PRINCIPAIS PROBLEMAS
+============================================================
+
+Prioridade | Categoria | Problema | Local | Impacto | Esforco
+CRITICA | Seguranca | Mass assignment no perfil | backend/src/index.ts:901-942 | Manipulacao de reputacao, banimento, senha e identidade | Medio
+CRITICA | Seguranca | Chat direto sem autorizacao de amizade | backend/src/index.ts:724-767; backend/src/sockets/matchmaking.ts:207-216 | Envio e leitura de mensagens entre usuarios arbitrarios | Medio
+ALTA | Seguranca | Exposicao de hash de senha no /api/user/me | backend/src/index.ts:772-793 | Facilita ataque offline caso a resposta seja capturada | Baixo
+ALTA | Seguranca | Endpoint de usuario expoe email e historico completo | backend/src/index.ts:830-855 | Vazamento de dados pessoais e sessoes | Baixo
+ALTA | Seguranca | JWT usa segredo padrao conhecido | backend/src/index.ts:35-36 | Falsificacao completa de sessoes | Baixo
+ALTA | Seguranca | Aceite/recusa de amizade sem validar destinatario | backend/src/index.ts:574-648 | IDOR e alteracao de relacoes de terceiros | Baixo
+ALTA | Integridade | Banimento permanente nunca ocorre apos status suspended | backend/src/index.ts:376-389 | Usuarios com 10+ denuncias continuam nao banidos | Baixo
+ALTA | Operacional | Build raiz falha por script backend inexistente | package.json:8-15; backend/package.json:7-13 | Deploy e CI quebram | Baixo
+ALTA | Operacional | Frontend nao compila por export inexistente | src/routes/AppRoutes.tsx:15; src/pages/ForgotPassword.tsx | Aplicacao nao gera build | Baixo
+ALTA | Operacional | Testes backend configurados com Jest incompativel | backend/package.json; backend/vitest.config.ts | CI nao valida backend | Baixo
+ALTA | Arquitetura | Estado critico somente em memoria | backend/src/index.ts:60-67; backend/src/sockets/matchmaking.ts:8-12 | Perda apos restart e falhas em multiplas replicas | Alto
+MEDIA | Dados | Migracao nao contem indices documentados | backend/prisma/migrations/20260820233216_sidebyside/migration.sql | Degradacao com crescimento de usuarios | Medio
+MEDIA | Seguranca | Ausencia de protecao CSRF com cookies SameSite=None | backend/src/index.ts:54-58 | Requisicoes forgadas via sites externos | Medio
+MEDIA | Integracao | Frontend usa HTTP hardcoded e ignora VITE_API_URL | src/lib/api.ts; vite.config.ts | Falhas de deploy e mixed content | Medio
+MEDIA | Contrato | Frontend chama endpoints inexistentes | src/pages/Dashboard.tsx:228-237; src/lib/supabase.ts | Notificacoes e avatar falham silenciosamente | Baixo
+MEDIA | Qualidade | 152 erros de lint | Multiplos arquivos | Aumenta regressao e reduz confiabilidade | Medio
+MEDIA | Performance | Historico de sessoes armazenado como JSON crescente | backend/prisma/schema.prisma | Updates concorrentes e consultas lentas | Alto
+BAIXA | Observabilidade | Muitos catch vazios | backend/src/sockets/matchmaking.ts; src/pages/Room.tsx | Falhas ficam invisiveis | Baixo
+
+============================================================
+DETALHES DOS PROBLEMAS MAIS IMPORTANTES
+============================================================
+
+[CRITICA] Mass assignment no perfil
+Local: backend/src/index.ts:901-942
+
+Evidencia:
+const { cefrLevel, ...bodyData } = req.body;
+const updateData = {
+  ...bodyData,
+  ...(cefrLevel ? { level: cefrLevel } : {})
+};
+await prisma.user.update({ where: { id: user.id }, data: updateData });
+
+Qualquer usuario autenticado pode tentar enviar campos como reputation, isBanned, reportCount, email, password, flagStatus ou sessionsHistory.
+
+Correcao:
+Usar schema Zod com allowlist explicita somente para campos editaveis: name, level, bio, interests, birthDate, gender e pronouns. Nunca derivar diretamente o objeto Prisma do body da requisicao.
+
+[CRITICA] Chat direto sem autorizacao
+Local: backend/src/index.ts:724-767
+
+O endpoint cria mensagens apenas com senderId autenticado e recipientId enviado pelo cliente. Nao verifica amizade, existencia do destinatario ou bloqueio.
+
+O WebSocket possui o mesmo problema:
+io.to(`user_${parsedData.recipientId}`).emit('direct_message', ...)
+
+Impacto:
+Qualquer usuario autenticado pode ler e enviar mensagens para qualquer outro usuario conhecido.
+
+Correcao:
+Centralizar uma funcao assertCanMessage(senderId, recipientId) e exigir relacao accepted nos endpoints HTTP e Socket.IO.
+
+[CRITICA] Exposicao de hash de senha
+Local: backend/src/index.ts:772-793
+
+Evidencia:
+return res.status(200).json({
+  ...user,
+  reputationScore: `${user.reputation ?? 100}/100`,
+  feedbacks,
+});
+
+O spread inclui password, alem de todos os campos privados.
+
+Correcao:
+Sempre usar select explicito, nunca retornar o objeto Prisma completo.
+
+[ALTA] JWT com segredo padrao
+Local: backend/src/index.ts:35-36
+
+Evidencia:
+const JWT_SECRET = process.env.JWT_SECRET || 'seu-segredo-super-seguro';
+
+Em producao, ausencia de configuracao transforma o segredo em valor publico e previsivel.
+
+Correcao:
+Falhar no startup se JWT_SECRET nao existir e exigir tamanho minimo.
+
+[ALTA] IDOR em amizade
+Local: backend/src/index.ts:574-648
+
+Evidencia:
+await prisma.friendRelation.updateMany({
+  where: { id: String(requestId) },
+  data: { status: 'accepted' }
+});
+
+O codigo nao garante que a relacao tenha friendId igual ao usuario autenticado. Basta conhecer o ID da relacao.
+
+A remocao de amizade tambem aceita o ID da relacao diretamente em backend/src/index.ts:694-719.
+
+Correcao:
+Validar o proprietario da solicitacao:
+where: { id: requestId, friendId: userId, status: 'pending' }
+
+[ALTA] Bug no banimento permanente
+Local: backend/src/index.ts:376-389
+
+Evidencia:
+if (newReportCount >= 3 && flagStatus === 'clean') {
+  flagStatus = 'warning';
+} else if (newReportCount >= 6 && flagStatus === 'warning') {
+  flagStatus = 'suspended';
+} else if (newReportCount >= 10) {
+  flagStatus = 'banned';
+}
+
+Quando chega a 10 denuncias, flagStatus ja e suspended. Nenhuma condicao anterior transforma o status em banned.
+
+Correcao:
+Avaliar o numero primeiro:
+if (newReportCount >= 10) flagStatus = 'banned';
+else if (newReportCount >= 6) flagStatus = 'suspended';
+else if (newReportCount >= 3) flagStatus = 'warning';
+
+O incremento tambem deveria ser atomico ou realizado em transacao.
+
+============================================================
+SEGURANCA
+============================================================
+
+Vulnerabilidades confirmadas:
+
+1. Mass assignment
+Local: backend/src/index.ts:901-942
+Impacto: alteracao de campos privilegiados.
+Correcao: allowlist com schema Zod.
+
+2. BOLA/IDOR em amizade
+Local: backend/src/index.ts:574-648
+Impacto: manipulacao de amizades de terceiros.
+Correcao: validar friendId do usuario autenticado.
+
+3. Falha de autorizacao no chat
+Local: backend/src/index.ts:724-767; backend/src/sockets/matchmaking.ts:207-216
+Impacto: spam e comunicacao indevida.
+Correcao: exigir amizade aceita.
+
+4. Exposicao de credenciais derivadas
+Local: backend/src/index.ts:772-793
+Impacto: hash de senha exposto.
+Correcao: DTO publico minimo.
+
+5. Exposicao de dados pessoais
+Local: backend/src/index.ts:830-855
+Impacto: email e sessionsHistory expostos.
+Correcao: remover dados privados da resposta.
+
+6. Segredo inseguro
+Local: backend/src/index.ts:35-36
+Impacto: falsificacao de JWT.
+Correcao: fail-fast sem fallback.
+
+7. Rate limit incompleto
+Local: backend/src/index.ts:103-116
+Impacto: spam em mensagens, denuncias e sockets.
+Correcao: limites por usuario, IP e rota.
+
+Possiveis riscos:
+
+8. CSRF
+Local: backend/src/index.ts:54-58
+Evidencia: cookie SameSite=None sem token CSRF.
+Correcao: SameSite=Lax/Strict ou token CSRF.
+
+9. DoS de memoria
+Local: backend/src/sockets/matchmaking.ts:96-108
+Evidencia: topicId arbitrario cria filas.
+Correcao: normalizar topicos e limitar cardinalidade.
+
+10. DoS de payload
+Local: backend/src/sockets/matchmaking.ts:27-30
+Evidencia: sdp, candidate e texto usam z.any() ou nao possuem limite.
+Correcao: limites de tamanho e schemas estritos.
+
+Nao foi encontrada evidencia de SQL Injection classico, pois as consultas usam Prisma. Tambem nao foi encontrado uso de dangerouslySetInnerHTML.
+
+============================================================
+CODIGO DUPLICADO
+============================================================
+
+Grupo | Arquivo 1 | Arquivo 2 | Tipo | Recomendacao
+URLs da API | src/pages/Room.tsx | src/pages/Dashboard.tsx | URLs hardcoded repetidas | Cliente HTTP unico
+Socket.IO | src/pages/Room.tsx | src/components/dashboard/DirectChatsModal.tsx | Instancias independentes | Provider ou servico compartilhado
+Autenticacao frontend | src/routes/ProtectedRoute.tsx | src/hooks/useFetchCache.ts | Estrategias cookie/token divergentes | Padronizar cookie HTTP-only
+Validacao backend | backend/src/index.ts | backend/src/sockets/matchmaking.ts | Tratamento separado | Camada de validacao comum
+Matching | backend/src/__tests__/matching.test.ts | backend/src/index.ts | Teste reimplementa logica | Extrair servico real e testa-lo
+
+============================================================
+ARQUITETURA ATUAL
+============================================================
+
+O frontend possui paginas grandes que fazem renderizacao, chamadas HTTP, controle de sessao, WebSocket e regras de negocio simultaneamente. O backend concentra praticamente todas as rotas em index.ts, incluindo autenticacao, amizade, mensagens, denuncias e perfil.
+
+O Socket.IO possui autenticacao duplicada em backend/src/index.ts:148-162 e backend/src/sockets/matchmaking.ts:44-61.
+
+Redis e configurado apenas como adapter do Socket.IO. As filas e sessoes continuam em Map local, portanto Redis nao resolve persistencia ou coordenacao do matchmaking.
+
+A documentacao descreve endpoints e recursos inexistentes, como /api/match/find, /api/admin/*, /api/room/quality e /api/room/want-to-talk-again, conforme docs/ARCHITECTURE.md:70-115.
+
+Problemas arquiteturais:
+- Backend monolitico em um arquivo de quase mil linhas.
+- Regras criticas sem camada de servico.
+- DTOs e schemas nao centralizados.
+- Estado de negocio em memoria.
+- Contrato frontend/backend nao tipado nem gerado.
+- Documentacao divergente da implementacao.
+- Autenticacao HTTP e WebSocket duplicada.
+- Historico de sessoes modelado como JSON em User.
+- Ausencia de health check e graceful shutdown.
+- Ausencia de camada de autorizacao reutilizavel.
+
+Arquitetura recomendada:
+1. Criar modulos auth, users, friends, messages, rooms e moderation.
+2. Extrair schemas Zod e DTOs por dominio.
+3. Criar servicos para autorizacao e regras de negocio.
+4. Persistir sessoes, filas e preferencias no PostgreSQL/Redis.
+5. Criar cliente frontend unico baseado em VITE_API_URL.
+6. Compartilhar uma instancia Socket.IO por sessao autenticada.
+7. Adicionar testes de integracao HTTP e WebSocket.
+8. Gerar contratos compartilhados entre frontend e backend.
+
+============================================================
+BANCO DE DADOS
+============================================================
+
+Problemas encontrados:
+- A migracao cria somente indice unico para email.
+- Nao ha indices para FriendRelation.userId, FriendRelation.friendId e status.
+- Nao ha indices para mensagens por remetente, destinatario e data.
+- Nao ha indices para relatorios por usuario/status.
+- Report nao possui relacoes Prisma com User.
+- Campos status, flagStatus e level sao strings livres.
+- sessionsHistory e minutesHistory sao arrays JSON sem limite.
+- Atualizacoes de reputacao e historico podem perder dados em concorrencia.
+- Relatorios duplicados nao sao controlados.
+- reportCount usa leitura seguida de escrita, vulneravel a race condition.
+
+Recomendacao:
+Criar tabelas normalizadas para ConversationSession, Rating e SessionMetric, adicionar constraints/enums e usar transacoes atomicas.
+
+============================================================
+PERFORMANCE
+============================================================
+
+- /api/room/join busca todos os usuarios para escolher um aleatoriamente: backend/src/index.ts:341-348.
+- /api/matches/candidates busca apenas um candidato e retorna score fixo 85: backend/src/index.ts:873-887.
+- Dashboard faz polling de amizades e notificacoes a cada 8 segundos: src/pages/Dashboard.tsx:106-126 e 216-221.
+- Cada pagina cria conexoes Socket.IO proprias.
+- Historico completo e carregado e regravado no usuario a cada avaliacao.
+- Consultas de mensagens nao possuem paginacao: backend/src/index.ts:751-767.
+- Matchmaking remove o socket de todas as filas a cada tentativa.
+- Nao ha metricas de latencia, queries lentas ou conexoes WebRTC.
+
+============================================================
+TESTES
+============================================================
+
+Validacoes executadas:
+
+- npm run build falha porque backend nao possui script build.
+- npm run build:frontend falha pelo export ForgotPassword inexistente.
+- npm test -- --run src/__tests__ passa: 7 arquivos e 45 testes.
+- npm test inclui e2e/chat.spec.ts e falha porque Vitest tenta carregar teste Playwright.
+- npm test --workspace=backend falha por configuracao Jest invalida.
+- npm run lint falha com 152 problemas.
+- npm audit reporta 7 vulnerabilidades no workspace e 5 no backend.
+
+Lacunas:
+- Nenhum teste real das rotas Express.
+- Nenhum teste real de autorizacao/IDOR.
+- Nenhum teste real de Socket.IO.
+- Nenhum teste de concorrencia ou transacao.
+- Nenhum E2E de login real, onboarding, matchmaking, WebRTC, denuncia ou rating.
+- Testes de matching reimplementam a logica dentro do proprio teste.
+- A suite E2E depende de usuarios pre-existentes e infraestrutura externa.
+
+============================================================
+DEPENDENCIAS
+============================================================
+
+npm audit identificou:
+- nodemailer: vulnerabilidades de alta severidade.
+- deepmerge-ts: vulnerabilidade de alta severidade transitiva.
+- mysql2: vulnerabilidade transitiva de alta severidade.
+- esbuild: vulnerabilidade moderada em servidor de desenvolvimento.
+
+A correcao automatica propoe versoes com breaking changes. Deve ser feita atualizacao controlada, acompanhada de testes e revisao do lockfile.
+
+============================================================
+DEVOPS E INFRAESTRUTURA
+============================================================
+
+- docker-compose.yml usa adminpassword diretamente.
+- PostgreSQL e Redis sao expostos nas portas do host sem autenticacao adicional.
+- Backend inicia migracao e servidor no mesmo comando.
+- Nao ha healthcheck.
+- depends_on nao espera o banco estar pronto.
+- Nao ha graceful shutdown.
+- CI referencia backend/package-lock.json, que nao existe.
+- Workflow frontend chama npm run build, que atualmente falha.
+- Backend Dockerfile usa npm install, nao npm ci.
+- Nao ha imagem de producao compilada para o backend.
+- Logs sao gravados localmente sem rotacao ou retencao definida.
+
+============================================================
+OBSERVABILIDADE E ERROS
+============================================================
+
+- Middleware registra IP de todas as requisicoes: backend/src/index.ts:83-90, sem politica de retencao/redacao.
+- Handler global retorna err.message ao cliente: backend/src/index.ts:947-950.
+- Ha varios catch vazios.
+- Nao ha request ID, metricas, tracing ou alertas.
+- Nao existe endpoint /health.
+- Falhas de rating, denuncia e mensagens sao frequentemente ignoradas no frontend.
+- Nao ha monitoramento de Redis, PostgreSQL ou WebRTC.
+
+============================================================
+ROADMAP
+============================================================
+
+FASE 1 - IMEDIATO
+
+1. Corrigir export de ForgotPassword.
+2. Remover fallback de JWT e validar variaveis obrigatorias.
+3. Corrigir mass assignment.
+4. Remover hashes de senha das respostas.
+5. Implementar autorizacao de amizade no chat.
+6. Corrigir IDOR em aceitar/remover amizade.
+7. Corrigir regra de banimento permanente.
+8. Corrigir scripts e configuracoes de testes/build.
+
+FASE 2 - CURTO PRAZO
+
+1. Centralizar URLs HTTP e WebSocket por ambiente.
+2. Remover mixed content e configurar HTTPS corretamente.
+3. Adicionar schemas Zod para todas as rotas.
+4. Adicionar rate limiting para mensagens, denuncias e sockets.
+5. Adicionar CSRF ou ajustar cookies para SameSite=Lax.
+6. Adicionar testes de integracao para auth, mensagens, amizades e denuncias.
+7. Atualizar dependencias vulneraveis de forma controlada.
+
+FASE 3 - MEDIO PRAZO
+
+1. Extrair servicos e modulos por dominio.
+2. Criar DTOs de entrada e saida.
+3. Adicionar indices e constraints no banco.
+4. Normalizar sessoes, avaliacoes e metricas.
+5. Persistir filas e estado de matchmaking no Redis.
+6. Adicionar paginacao de mensagens e notificacoes.
+7. Criar health checks, graceful shutdown e metricas.
+
+FASE 4 - LONGO PRAZO
+
+1. Contratos compartilhados frontend/backend.
+2. Escalabilidade horizontal real do Socket.IO.
+3. Observabilidade com metricas, tracing e alertas.
+4. Testes de carga para matchmaking e WebRTC.
+5. Pipeline de deploy com migracoes controladas e rollback.
+
+============================================================
+DEZ CORRECOES DE MAIOR IMPACTO
+============================================================
+
+1. Remover mass assignment do perfil.
+2. Bloquear mensagens sem amizade aceita.
+3. Remover hashes de senha das respostas.
+4. Corrigir todos os IDORs de amizade e recursos.
+5. Remover o segredo JWT padrao.
+6. Corrigir o fluxo de build e CI.
+7. Corrigir a regra de banimento permanente.
+8. Persistir matchmaking e estado de sessao.
+9. Adicionar testes de integracao de seguranca.
+10. Centralizar configuracao de API, cookies e WebSocket.
+
+============================================================
+AVALIACAO GERAL
+============================================================
+
+Nota: 3,5/10
+
+Funcionalidade demonstravel: 6/10
+Seguranca: 2/10
+Confiabilidade operacional: 2/10
+Testabilidade: 3/10
+Arquitetura: 4/10
+Manutenibilidade: 3/10
+Documentacao e consistencia: 3/10
+
+O projeto possui uma base de MVP e componentes funcionais, mas as falhas de autorizacao, exposicao de dados, build quebrado, testes nao executaveis e estado nao persistente impedem classifica-lo como pronto para lancamento.

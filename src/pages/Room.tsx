@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { io, Socket } from 'socket.io-client';
+import { socket } from '../services/socket'; // Importando o Socket global em vez de io
+import {  api } from '../services/api';
 import { ReportModal } from '../components/room/ReportModal';
 import { RatingModal } from '../components/room/RatingModal';
 import { TOPICS_CATALOG, FREE_TALK_TOPIC, TopicItem } from '../data/topicsData';
@@ -52,7 +53,7 @@ const Room: React.FC = memo(() => {
 
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [currentTranscript, setCurrentTranscript] = useState('');
-  const [spokenHistory, setSpokenHistory] = useState<string[]>([]);
+  const [_spokenHistory, setSpokenHistory] = useState<string[]>([]);
   const speechRecognitionRef = useRef<any>(null);
 
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
@@ -122,12 +123,10 @@ const Room: React.FC = memo(() => {
   useEffect(() => {
     const fetchUserAvatar = async () => {
       try {
-        const response = await fetch('http://localhost:3000/api/user/me', { credentials: 'include' });
-        if (response.ok) {
-          const data = await response.json();
-          setUserAvatarUrl(data.avatar || getAvatarFallback(data.name || 'Estudante'));
-        }
-      } catch (err) {}
+        const response = await api.get('/api/user/me');
+        const data = response.data;
+        setUserAvatarUrl(data.avatar || getAvatarFallback(data.name || 'Estudante'));
+      } catch (_err: unknown) {}
     };
     fetchUserAvatar();
   }, []);
@@ -135,7 +134,6 @@ const Room: React.FC = memo(() => {
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
-  const socketRef = useRef<Socket | null>(null);
   const pendingCandidates = useRef<RTCIceCandidateInit[]>([]);
   const pendingOfferRef = useRef<RTCSessionDescriptionInit | null>(null);
   const [mediaError, setMediaError] = useState<string | null>(null);
@@ -149,7 +147,7 @@ const Room: React.FC = memo(() => {
 
   const setupAudioAnalyzer = useCallback((stream: MediaStream) => {
     try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (!AudioCtx) return;
 
       const audioCtx = new AudioCtx();
@@ -179,7 +177,7 @@ const Room: React.FC = memo(() => {
       };
 
       checkAudioLevel();
-    } catch (e) {}
+    } catch (_e: unknown) {}
   }, []);
 
   const stopMediaStream = useCallback(() => {
@@ -194,7 +192,7 @@ const Room: React.FC = memo(() => {
     }
 
     if (speechRecognitionRef.current) {
-      try { speechRecognitionRef.current.stop(); } catch (e) {}
+      try { speechRecognitionRef.current.stop(); } catch (_e: unknown) {}
       speechRecognitionRef.current = null;
       setIsTranscribing(false);
     }
@@ -263,7 +261,7 @@ const Room: React.FC = memo(() => {
 
       speechRecognitionRef.current = recognition;
       recognition.start();
-    } catch (err) {
+    } catch (_err: unknown) {
       setIsTranscribing(false);
     }
   }, [isTranscribing]);
@@ -316,19 +314,20 @@ const Room: React.FC = memo(() => {
   }, [isSearchingNextPair]);
 
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | undefined;
+    let timer: number | undefined;
     if (connectionStatus === 'connected' && !partnerDisconnected && !isSearchingNextPair) {
       if (!sessionStartedAtRef.current) sessionStartedAtRef.current = Date.now();
-      const timer = window.setInterval(() => {
+      timer = window.setInterval(() => {
         if (sessionStartedAtRef.current) setSessionElapsedSeconds(Math.floor((Date.now() - sessionStartedAtRef.current) / 1000));
       }, 1000);
-      return () => window.clearInterval(timer);
-    }
-    if (connectionStatus === 'reconnecting' || connectionStatus === 'failed' || partnerDisconnected || isSearchingNextPair) {
+    } else if (connectionStatus === 'reconnecting' || connectionStatus === 'failed' || partnerDisconnected || isSearchingNextPair) {
       sessionStartedAtRef.current = null;
     }
-    return undefined;
-  }, [connectionStatus, partnerDisconnected, isSearchingNextPair]);
+    
+    return () => {
+      if (timer) window.clearInterval(timer);
+    };
+  }, [connectionStatus, partnerDisconnected, isSearchingNextPair, roomId]);
 
   const toggleFullscreen = useCallback(async () => {
     try {
@@ -338,10 +337,10 @@ const Room: React.FC = memo(() => {
         await document.exitFullscreen();
       }
       setIsFullscreen(!document.fullscreenElement);
-    } catch (err) {}
+    } catch (_err: unknown) {}
   }, []);
 
-  const initializeWebRTC = useCallback(async (socket: Socket, currentRoomId: string, isInitiator: boolean) => {
+  const initializeWebRTC = useCallback(async (currentRoomId: string, isInitiator: boolean) => {
     try {
       const preferredAudioId = localStorage.getItem('sbs_preferred_audio_id');
       const preferredVideoId = localStorage.getItem('sbs_preferred_video_id');
@@ -354,7 +353,7 @@ const Room: React.FC = memo(() => {
       let stream: MediaStream;
       try {
         stream = await navigator.mediaDevices.getUserMedia(constraints);
-      } catch (fallbackErr) {
+      } catch (_fallbackErr: unknown) {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
       }
 
@@ -381,7 +380,7 @@ const Room: React.FC = memo(() => {
           }
 
           try {
-            const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+            const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
             const remoteAudioCtx = new AudioCtx();
             const remoteAnalyser = remoteAudioCtx.createAnalyser();
             remoteAnalyser.fftSize = 256;
@@ -401,7 +400,7 @@ const Room: React.FC = memo(() => {
               requestAnimationFrame(checkRemoteAudio);
             };
             checkRemoteAudio();
-          } catch (e) {}
+          } catch (_e: unknown) {}
         }
       };
 
@@ -431,20 +430,15 @@ const Room: React.FC = memo(() => {
         socket.emit('webrtc_answer', { roomId: currentRoomId, sdp: pc.localDescription });
       }
 
-    } catch (err: any) {
+    } catch (_err: unknown) {
       setMediaError('Permita o uso da câmera e do microfone para conversar.');
     }
   }, [setupAudioAnalyzer]);
 
   useEffect(() => {
-    const newSocket = io('http://localhost:3000', { withCredentials: true });
-    socketRef.current = newSocket;
+    socket.emit('find_match', { topicId: topicId || null });
 
-    newSocket.on('connect', () => {
-      newSocket.emit('find_match', { topicId: topicId || null });
-    });
-
-    newSocket.on('match_found', async (data: { roomId: string; partnerId: string; partnerName?: string; partnerAvatar?: string; initiator: boolean }) => {
+    const handleMatchFound = async (data: { roomId: string; partnerId: string; partnerName?: string; partnerAvatar?: string; initiator: boolean }) => {
       hasRatedCurrentSessionRef.current = false;
       setRoomId(data.roomId);
       roomIdRef.current = data.roomId;
@@ -458,10 +452,10 @@ const Room: React.FC = memo(() => {
       setIsSearchingNextPair(false);
       setFriendRequestSent(false);
       setIncomingFriendRequest(null);
-      await initializeWebRTC(newSocket, data.roomId, data.initiator);
-    });
+      await initializeWebRTC(data.roomId, data.initiator);
+    };
 
-    newSocket.on('partner_left', () => {
+    const handlePartnerLeft = () => {
       const state = sessionStateRef.current;
       
       if (state.isSearching || !roomIdRef.current || hasRatedCurrentSessionRef.current) return;
@@ -481,17 +475,17 @@ const Room: React.FC = memo(() => {
       setPendingAction('nextPair');
       showToast('O seu parceiro encerrou a chamada.', 'info');
       setIsRatingOpen(true);
-    });
+    };
 
-    newSocket.on('camera_status', (data: { camActive: boolean }) => {
+    const handleCameraStatus = (data: { camActive: boolean }) => {
       setRemoteCamActiveState(data.camActive);
-    });
+    };
 
-    newSocket.on('friend_request_received', (data: { requestId: string; senderId: string; name: string; avatar: string }) => {
+    const handleFriendRequestReceived = (data: { requestId: string; senderId: string; name: string; avatar: string }) => {
       setIncomingFriendRequest(data);
-    });
+    };
 
-    newSocket.on('webrtc_offer', async (data: { sdp: RTCSessionDescriptionInit }) => {
+    const handleWebRTCOffer = async (data: { sdp: RTCSessionDescriptionInit }) => {
       const pc = peerConnectionRef.current;
       if (!pc) {
         pendingOfferRef.current = data.sdp;
@@ -504,10 +498,10 @@ const Room: React.FC = memo(() => {
       }
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      newSocket.emit('webrtc_answer', { roomId: roomIdRef.current, sdp: pc.localDescription });
-    });
+      socket.emit('webrtc_answer', { roomId: roomIdRef.current, sdp: pc.localDescription });
+    };
 
-    newSocket.on('webrtc_answer', async (data: { sdp: RTCSessionDescriptionInit }) => {
+    const handleWebRTCAnswer = async (data: { sdp: RTCSessionDescriptionInit }) => {
       const pc = peerConnectionRef.current;
       if (!pc) return;
       await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
@@ -515,9 +509,9 @@ const Room: React.FC = memo(() => {
         const candidate = pendingCandidates.current.shift();
         if (candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
       }
-    });
+    };
 
-    newSocket.on('webrtc_ice_candidate', async (data: { candidate: RTCIceCandidateInit }) => {
+    const handleWebRTCIceCandidate = async (data: { candidate: RTCIceCandidateInit }) => {
       const pc = peerConnectionRef.current;
       if (!pc || !pc.remoteDescription || !pc.remoteDescription.type) {
         pendingCandidates.current.push(data.candidate);
@@ -525,55 +519,59 @@ const Room: React.FC = memo(() => {
       }
       try {
         await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-      } catch (err) {}
-    });
+      } catch (_err: unknown) {}
+    };
 
-    newSocket.on('chat_message', (data: { text: string; id: number }) => {
+    const handleChatMessage = (data: { text: string; id: number }) => {
       setChatMessages((prev) => [...prev, { id: data.id, sender: 'other', text: data.text }]);
-    });
+    };
+
+    socket.on('match_found', handleMatchFound);
+    socket.on('partner_left', handlePartnerLeft);
+    socket.on('camera_status', handleCameraStatus);
+    socket.on('friend_request_received', handleFriendRequestReceived);
+    socket.on('webrtc_offer', handleWebRTCOffer);
+    socket.on('webrtc_answer', handleWebRTCAnswer);
+    socket.on('webrtc_ice_candidate', handleWebRTCIceCandidate);
+    socket.on('chat_message', handleChatMessage);
 
     return () => {
       stopMediaStream();
-      newSocket.disconnect();
+      socket.off('match_found', handleMatchFound);
+      socket.off('partner_left', handlePartnerLeft);
+      socket.off('camera_status', handleCameraStatus);
+      socket.off('friend_request_received', handleFriendRequestReceived);
+      socket.off('webrtc_offer', handleWebRTCOffer);
+      socket.off('webrtc_answer', handleWebRTCAnswer);
+      socket.off('webrtc_ice_candidate', handleWebRTCIceCandidate);
+      socket.off('chat_message', handleChatMessage);
     };
-  }, [topicId, initializeWebRTC, stopMediaStream, showToast]);
+  }, [topicId, initializeWebRTC, stopMediaStream, showToast, roomId]);
 
   const handleSendFriendRequest = useCallback(async () => {
     if (!partnerId || friendRequestSent) return;
     try {
-      const response = await fetch('http://localhost:3000/api/friends/request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ targetUserId: partnerId })
-      });
-      if (response.ok) {
+      const response = await api.post('/api/friends/request', { targetUserId: partnerId });
+      if (response.status === 200 || response.status === 201) {
         setFriendRequestSent(true);
         showToast('Solicitação de amizade enviada com sucesso!', 'success');
-      } else {
-        const errData = await response.json().catch(() => ({}));
-        showToast(errData.error || 'Erro ao enviar solicitação de amizade', 'error');
       }
-    } catch (err) {
-      showToast('Erro de rede ao enviar solicitação de amizade.', 'error');
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { error?: string } } };
+      showToast(errorObj.response?.data?.error || 'Erro ao enviar solicitação de amizade', 'error');
     }
   }, [partnerId, friendRequestSent, showToast]);
 
   const handleAcceptOrRejectFriend = useCallback(async (action: 'accept' | 'reject') => {
     if (!incomingFriendRequest) return;
     try {
-      const response = await fetch('http://localhost:3000/api/friends/accept', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          requestId: incomingFriendRequest.requestId,
-          senderId: incomingFriendRequest.senderId,
-          action
-        })
+      const response = await api.post('/api/friends/accept', {
+        requestId: incomingFriendRequest.requestId,
+        senderId: incomingFriendRequest.senderId,
+        action
       });
 
-      if (response.ok) {
+      if (response.status === 200) {
         if (action === 'accept') {
           showToast(`Você e ${incomingFriendRequest.name} agora são amigos! 🤝`, 'success');
           setFriendRequestSent(true);
@@ -583,7 +581,7 @@ const Room: React.FC = memo(() => {
       } else {
         showToast('Erro ao processar a solicitação.', 'error');
       }
-    } catch (err) {
+    } catch (_err: unknown) {
       showToast('Erro de conexão ao responder solicitação.', 'error');
     } finally {
       setIncomingFriendRequest(null);
@@ -606,30 +604,25 @@ const Room: React.FC = memo(() => {
     }
     setCamActive(nextCamState);
 
-    if (socketRef.current && roomIdRef.current) {
-      socketRef.current.emit('camera_status', { roomId: roomIdRef.current, camActive: nextCamState });
+    if (roomIdRef.current) {
+      socket.emit('camera_status', { roomId: roomIdRef.current, camActive: nextCamState });
     }
   }, [camActive]);
 
   const handleConfirmReport = useCallback(async (reason: string) => {
     setIsReportOpen(false);
     try {
-      await fetch('http://localhost:3000/api/room/report', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ 
-          reportedUserId: partnerId, 
-          reason,
-          sessionDuration: sessionElapsedSeconds,
-          messageCount: chatMessages.length,
-          roomId
-        })
+      await api.post('/api/room/report', { 
+        reportedUserId: partnerId, 
+        reason,
+        sessionDuration: sessionElapsedSeconds,
+        messageCount: chatMessages.length,
+        roomId
       });
-    } catch (err) {}
+    } catch (_err: unknown) {}
     
-    if (socketRef.current && roomIdRef.current) {
-      socketRef.current.emit('leave_room', { roomId: roomIdRef.current });
+    if (roomIdRef.current) {
+      socket.emit('leave_room', { roomId: roomIdRef.current });
       roomIdRef.current = null;
     }
 
@@ -650,7 +643,7 @@ const Room: React.FC = memo(() => {
 
   const handleEndCall = useCallback(() => {
     if (isSearchingNextPair) {
-      if (socketRef.current) socketRef.current.emit('cancel_match');
+      socket.emit('cancel_match');
       stopMediaStream();
       setPendingAction('exit');
       
@@ -662,8 +655,8 @@ const Room: React.FC = memo(() => {
   }, [isSearchingNextPair, stopMediaStream, navigate]);
 
   const handleConfirmExit = useCallback(() => {
-    if (socketRef.current && roomIdRef.current) {
-      socketRef.current.emit('leave_room', { roomId: roomIdRef.current });
+    if (roomIdRef.current) {
+      socket.emit('leave_room', { roomId: roomIdRef.current });
       roomIdRef.current = null;
     }
     
@@ -685,8 +678,8 @@ const Room: React.FC = memo(() => {
   }, [roomId, partnerId, partnerName, partnerAvatarUrl, sessionElapsedSeconds, stopMediaStream]);
 
   const handleNextPair = useCallback(() => {
-    if (socketRef.current && roomIdRef.current) {
-      socketRef.current.emit('leave_room', { roomId: roomIdRef.current });
+    if (roomIdRef.current) {
+      socket.emit('leave_room', { roomId: roomIdRef.current });
       roomIdRef.current = null;
     }
 
@@ -714,9 +707,7 @@ const Room: React.FC = memo(() => {
     setCurrentTopic(topicId && TOPICS_CATALOG[topicId] ? TOPICS_CATALOG[topicId] : FREE_TALK_TOPIC);
     setIncomingFriendRequest(null);
     
-    if (socketRef.current) {
-      socketRef.current.emit('find_match', { topicId: topicId || null });
-    }
+    socket.emit('find_match', { topicId: topicId || null });
   }, [stopMediaStream, topicId]);
 
   const handleRatingSubmit = useCallback(async (data: { partnerRating?: number; platformRating: number; comment: string }) => {
@@ -730,24 +721,17 @@ const Room: React.FC = memo(() => {
     const targetDurationSec = sessionContext.duration || sessionElapsedSeconds;
 
     try {
-      await fetch('http://localhost:3000/api/room/rate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          ...data,
-          sessionId: targetRoomId,
-          partnerId: targetPartnerId,
-          partnerName: targetPartnerName,
-          partnerAvatar: targetPartnerAvatar,
-          duration: `${Math.floor(targetDurationSec / 60)} min`,
-          topic: currentTopic.title,
-          vocabLearned: currentTopic.vocabPreview || ['Vocabulary', 'Conversation', 'Fluency']
-        })
+      await api.post('/api/room/rate', {
+        ...data,
+        sessionId: targetRoomId,
+        partnerId: targetPartnerId,
+        partnerName: targetPartnerName,
+        partnerAvatar: targetPartnerAvatar,
+        duration: `${Math.floor(targetDurationSec / 60)} min`,
+        topic: currentTopic.title,
+        vocabLearned: currentTopic.vocabPreview || ['Vocabulary', 'Conversation', 'Fluency']
       });
-
-      localStorage.removeItem('cache_http://localhost:3000/api/user/me');
-    } catch (err) {}
+    } catch (_err: unknown) {}
 
     completedSessionRef.current = { roomId: null, partnerId: null, partnerName: 'Estudante', partnerAvatarUrl: getAvatarFallback('Estudante'), duration: 0 };
     
@@ -767,9 +751,7 @@ const Room: React.FC = memo(() => {
     const trimmed = chatInput.trim();
     if (!trimmed || !roomIdRef.current) return;
 
-    if (socketRef.current) {
-      socketRef.current.emit('chat_message', { roomId: roomIdRef.current, text: trimmed });
-    }
+    socket.emit('chat_message', { roomId: roomIdRef.current, text: trimmed });
 
     setChatMessages((prev) => [...prev, { id: Date.now(), sender: 'me', text: trimmed }]);
     setChatInput('');

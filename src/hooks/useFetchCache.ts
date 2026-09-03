@@ -5,6 +5,7 @@ interface CacheItem<T> {
   timestamp: number;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const globalCache: Record<string, CacheItem<any>> = {};
 const DEFAULT_TTL = 5 * 60 * 1000; // 5 minutos de cache
 
@@ -50,8 +51,12 @@ export function useFetchCache<T>(url: string, options?: RequestInit, ttl: number
       };
       setData(result);
       setError(null);
-    } catch (err: any) {
-      setError(err);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err);
+      } else {
+        setError(new Error('Erro desconhecido na requisição.'));
+      }
     } finally {
       setIsLoading(false);
     }

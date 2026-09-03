@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import api from '../services/api';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 
@@ -99,24 +100,15 @@ export const ResetPassword: React.FC = () => {
     setIsSubmitting(true);
     
     try {
-      const response = await fetch('http://localhost:3000/api/auth/verify-reset-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          email: emailFromState, 
-          code: fullCode 
-        }),
+      await api.post('/api/auth/verify-reset-code', { 
+        email: emailFromState, 
+        code: fullCode 
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Código inválido ou expirado.');
-      }
-
       setIsCodeConfirmed(true);
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Erro ao verificar o código.');
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { error?: string } }; message?: string };
+      setErrorMessage(errorObj.response?.data?.error || errorObj.message || 'Código inválido ou expirado.');
     } finally {
       setIsSubmitting(false);
     }
@@ -145,27 +137,18 @@ export const ResetPassword: React.FC = () => {
 
     try {
       const fullCode = code.join('');
-      const response = await fetch('http://localhost:3000/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          email: emailFromState, 
-          code: fullCode,
-          newPassword: password 
-        }),
+      await api.post('/api/auth/reset-password', { 
+        email: emailFromState, 
+        code: fullCode,
+        newPassword: password 
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Erro ao redefinir a senha.');
-      }
 
       localStorage.removeItem('sidebyside_pending_email');
       alert('Senha alterada com sucesso!');
       navigate('/');
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Erro ao conectar com o servidor.');
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { error?: string } }; message?: string };
+      setErrorMessage(errorObj.response?.data?.error || errorObj.message || 'Erro ao conectar com o servidor.');
     } finally {
       setIsSubmitting(false);
     }
@@ -224,7 +207,7 @@ export const ResetPassword: React.FC = () => {
                   {code.map((digit, index) => (
                     <input
                       key={index}
-                      ref={(el) => (inputRefs.current[index] = el)}
+                      ref={(el) => { inputRefs.current[index] = el; }}
                       type="text"
                       maxLength={1}
                       value={digit}

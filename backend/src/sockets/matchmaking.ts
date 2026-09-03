@@ -6,6 +6,9 @@ import { z } from 'zod';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'seu-segredo-super-seguro';
 
+const ALLOWED_TOPICS = ['general', 'business', 'technology', 'travel', 'daily'] as const;
+const MAX_QUEUE_SIZE_PER_TOPIC = 100;
+
 const queues: Record<string, Socket[]> = {};
 const activeRooms: Map<string, Set<string>> = new Map();
 const socketRoomMap: Map<string, string> = new Map();
@@ -19,16 +22,43 @@ const socketRateLimits = new Map<string, RateLimitTracker>();
 
 const RATE_LIMIT_WINDOW_MS = 1000;
 const MAX_EVENTS_PER_WINDOW = 10;
+const MAX_CHAT_EVENTS_PER_WINDOW = 5;
 
 const findMatchSchema = z.object({ 
-  topicId: z.string().nullable().optional() 
+  topicId: z.enum(ALLOWED_TOPICS, {
+    errorMap: () => ({ message: 'Tópico de busca inválido ou não autorizado.' })
+  }).nullable().optional() 
 }).optional();
 
-const webrtcSdpSchema = z.object({ roomId: z.string(), sdp: z.any() });
-const webrtcIceSchema = z.object({ roomId: z.string(), candidate: z.any() });
+const webrtcSdpSchema = z.object({
+  roomId: z.string().min(1, 'ID da sala é obrigatório.'),
+  sdp: z.object({
+    type: z.enum(['offer', 'answer', 'pranswer', 'rollback']),
+    sdp: z.string().max(50000, 'Payload SDP excede o limite máximo permitido.')
+  })
+});
+
+const webrtcIceSchema = z.object({
+  roomId: z.string().min(1, 'ID da sala é obrigatório.'),
+  candidate: z.object({
+    candidate: z.string().max(2000, 'Candidato ICE excede o limite máximo permitido.'),
+    sdpMid: z.string().nullable().optional(),
+    sdpMLineIndex: z.number().nullable().optional()
+  })
+});
+
 const cameraStatusSchema = z.object({ roomId: z.string(), camActive: z.boolean() });
-const chatSchema = z.object({ roomId: z.string(), text: z.string().min(1) });
-const directMessageSchema = z.object({ recipientId: z.string(), text: z.string().min(1) });
+
+const chatSchema = z.object({
+  roomId: z.string().min(1, 'ID da sala é obrigatório.'),
+  text: z.string().min(1, 'A mensagem não pode estar vazia.').max(1000, 'Mensagem muito longa. O limite é de 1000 caracteres.')
+});
+
+const directMessageSchema = z.object({
+  recipientId: z.string().min(1, 'ID do destinatário é obrigatório.'),
+  text: z.string().min(1, 'A mensagem não pode estar vazia.').max(1000, 'Mensagem muito longa. O limite é de 1000 caracteres.')
+});
+
 const leaveRoomSchema = z.object({ roomId: z.string().optional() }).optional();
 
 const safeParseEvent = <T>(schema: z.ZodType<T>, data: unknown, callback: (parsedData: T) => void) => {
@@ -52,23 +82,28 @@ export const setupMatchmaking = (io: Server) => {
 
       jwt.verify(token, JWT_SECRET, (err, decoded) => {
         if (err) {
+          console.error(`[WebSocket Auth Error] Falha ao verificar token JWT para socket ID ${socket.id}:`, err);
           return next(new Error('Sessão JWT inválida ou expirada.'));
         }
+         
         (socket as any).user = decoded;
         next();
       });
-    } catch (error) {
+    } catch (error: unknown) {
+      console.error(`[WebSocket Handshake Error] Erro crítico durante autenticação de socket ID ${socket.id}:`, error);
       next(new Error('Erro interno de autenticação WebSocket.'));
     }
   });
 
   io.on('connection', (socket: Socket) => {
+     
     const user = (socket as any).user;
     console.log(`🔌 Novo usuário conectado: ${user?.email || socket.id}`);
 
     socketRateLimits.set(socket.id, { count: 0, lastReset: Date.now() });
 
-    socket.use(([event, ...args], next) => {
+     
+    socket.use(([event, ..._args]: [string, ...any[]], next: (err?: Error) => void) => {
       const tracker = socketRateLimits.get(socket.id);
       const now = Date.now();
 
@@ -78,10 +113,13 @@ export const setupMatchmaking = (io: Server) => {
           tracker.lastReset = now;
         } else {
           tracker.count += 1;
-          if (tracker.count > MAX_EVENTS_PER_WINDOW) {
+          const threshold = (event === 'chat_message' || event === 'direct_message') ? MAX_CHAT_EVENTS_PER_WINDOW : MAX_EVENTS_PER_WINDOW;
+          
+          if (tracker.count > threshold) {
             socket.emit('rate_limit_exceeded', {
-              message: 'Você está enviando requisições rápido demais. Aguarde um instante.'
+              message: 'Você está enviando eventos rápido demais. Aguarde um instante.'
             });
+            console.warn(`[Rate Limit Exceeded] Socket ID ${socket.id} excedeu o limite de requisições no evento: ${event}`);
             return next(new Error('Taxa de requisições excedida'));
           }
         }
@@ -95,7 +133,8 @@ export const setupMatchmaking = (io: Server) => {
 
     socket.on('find_match', (data: unknown) => {
       safeParseEvent(findMatchSchema, data, async (parsedData) => {
-        const topicId = (parsedData?.topicId && parsedData.topicId.trim() !== '') ? parsedData.topicId : 'general';
+        const rawTopic = parsedData?.topicId;
+        const topicId = (rawTopic && rawTopic.trim() !== '') ? rawTopic : 'general';
         
         if (!queues[topicId]) queues[topicId] = [];
         
@@ -103,6 +142,12 @@ export const setupMatchmaking = (io: Server) => {
           queues[key] = queues[key].filter(s => s.id !== socket.id);
         }
         
+        if (queues[topicId].length >= MAX_QUEUE_SIZE_PER_TOPIC) {
+          socket.emit('queue_full', { message: 'A fila para este tópico atingiu a capacidade máxima. Tente novamente mais tarde.' });
+          console.warn(`[Queue Overflow Warning] Tópico '${topicId}' atingiu o limite de ${MAX_QUEUE_SIZE_PER_TOPIC} conexões.`);
+          return;
+        }
+
         queues[topicId].push(socket);
         socketTopicMap.set(socket.id, topicId);
 
@@ -111,7 +156,9 @@ export const setupMatchmaking = (io: Server) => {
           const socket2 = queues[topicId].shift();
 
           if (socket1 && socket2) {
+             
             const user1 = (socket1 as any).user;
+             
             const user2 = (socket2 as any).user;
             const roomId = `room_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
             
@@ -125,8 +172,8 @@ export const setupMatchmaking = (io: Server) => {
             socketTopicMap.delete(socket1.id);
             socketTopicMap.delete(socket2.id);
 
-            let u1Data = { name: 'Estudante', avatar: null as string | null };
-            let u2Data = { name: 'Estudante', avatar: null as string | null };
+            const u1Data = { name: 'Estudante', avatar: null as string | null };
+            const u2Data = { name: 'Estudante', avatar: null as string | null };
 
             try {
               if (user1?.id) {
@@ -137,7 +184,9 @@ export const setupMatchmaking = (io: Server) => {
                 const dbU2 = await prisma.user.findUnique({ where: { id: user2.id } });
                 if (dbU2) { u2Data.name = dbU2.name; u2Data.avatar = dbU2.avatar; }
               }
-            } catch (err) {}
+            } catch (err: unknown) {
+              console.error(`[Matchmaking DB Error] Falha ao buscar dados de perfil dos usuários na sala ${roomId}:`, err);
+            }
 
             socket1.emit('match_found', { 
               roomId, 
@@ -213,7 +262,7 @@ export const setupMatchmaking = (io: Server) => {
         socket.to(parsedData.roomId).emit('webrtc_answer', { sdp: parsedData.sdp });
       });
     });
-
+    
     socket.on('webrtc_ice_candidate', (data: unknown) => {
       safeParseEvent(webrtcIceSchema, data, (parsedData) => {
         socket.to(parsedData.roomId).emit('webrtc_ice_candidate', { candidate: parsedData.candidate });

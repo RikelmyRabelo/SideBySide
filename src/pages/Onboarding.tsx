@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import api from '../services/api';
 import { Button } from '../components/ui/Button';
 
 export const Onboarding: React.FC = () => {
-  const navigate = useNavigate();
-
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
   const [cursorOpacity, setCursorOpacity] = useState(1);
@@ -188,7 +186,6 @@ export const Onboarding: React.FC = () => {
             </p>
           </div>
 
-          {/* DIVISÃO 1: FOTO DE PERFIL */}
           <div className="flex flex-col items-center gap-4 border-b border-[#E7E5E4] pb-6">
             <span className="text-xs font-black text-[#1C1917] uppercase tracking-wider flex items-center gap-2">
               <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${photoConfirmed ? 'bg-emerald-600 text-white' : 'bg-[#1C1917] text-[#FAF9F6]'}`}>
@@ -248,7 +245,6 @@ export const Onboarding: React.FC = () => {
             )}
           </div>
 
-          {/* DIVISÃO 2: DADOS PESSOAIS */}
           {photoConfirmed && (
             <div className="flex flex-col gap-4 border-b border-[#E7E5E4] pb-6 animate-in fade-in slide-in-from-top-4 duration-500 ease-out">
               <span className="text-xs font-black text-[#1C1917] uppercase tracking-wider flex items-center gap-2">
@@ -403,7 +399,6 @@ export const Onboarding: React.FC = () => {
             </div>
           )}
 
-          {/* DIVISÃO 3: MINI BIOGRAFIA */}
           {personalConfirmed && (
             <div className="flex flex-col gap-4 border-b border-[#E7E5E4] pb-6 animate-in fade-in slide-in-from-top-4 duration-500 ease-out">
               <span className="text-xs font-black text-[#1C1917] uppercase tracking-wider flex items-center gap-2">
@@ -449,7 +444,6 @@ export const Onboarding: React.FC = () => {
             </div>
           )}
 
-          {/* DIVISÃO 4: TÓPICOS DE INTERESSE */}
           {bioConfirmed && (
             <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-4 duration-500 ease-out">
               <span className="text-xs font-black text-[#1C1917] uppercase tracking-wider flex items-center gap-2">
@@ -493,7 +487,6 @@ export const Onboarding: React.FC = () => {
             </div>
           )}
 
-          {/* DIVISÃO 5: NÍVEL DE INGLÊS */}
           {bioConfirmed && selectedInterests.length > 0 && (
             <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-4 duration-500 ease-out">
               <span className="text-xs font-black text-[#1C1917] uppercase tracking-wider flex items-center gap-2">
@@ -538,40 +531,28 @@ export const Onboarding: React.FC = () => {
             </div>
           )}
 
-          {/* BOTÃO FINALIZAR */}
           {bioConfirmed && selectedInterests.length > 0 && cefrLevel !== '' && (
             <div className="pt-4 border-t border-[#E7E5E4] animate-in fade-in slide-in-from-top-4 duration-500 ease-out">
               <Button
                 variant="primary"
                 onClick={async () => {
                   try {
-                    const response = await fetch('http://localhost:3000/api/user/profile', {
-                      method: 'PUT',
-                      credentials: 'include',
-                      headers: {
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({
-                        name: displayName.trim(),
-                        birthDate,
-                        showAgeInProfile,
-                        gender,
-                        pronouns,
-                        cefrLevel,
-                        bio: bio.trim(),
-                        interests: selectedInterests,
-                        avatar: avatarUrl,
-                      }),
+                    await api.put('/api/user/profile', {
+                      name: displayName.trim(),
+                      birthDate,
+                      showAgeInProfile,
+                      gender,
+                      pronouns,
+                      cefrLevel,
+                      bio: bio.trim(),
+                      interests: selectedInterests,
+                      avatar: avatarUrl,
                     });
 
-                    if (!response.ok) {
-                      const errorData = await response.json().catch(() => ({}));
-                      throw new Error(errorData.error || 'Erro ao salvar dados do onboarding.');
-                    }
-
                     window.location.href = '/auth-success';
-                  } catch (error: any) {
-                    alert(error.message || 'Erro ao salvar o onboarding.');
+                  } catch (error: unknown) {
+                    const err = error as { response?: { data?: { error?: string } }; message?: string };
+                    alert(err.response?.data?.error || err.message || 'Erro ao salvar o onboarding.');
                   }
                 }}
                 className="w-full py-4 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-black text-xs uppercase tracking-widest rounded-xl transition-all border-2 border-[#1C1917] shadow-lg"
@@ -584,7 +565,6 @@ export const Onboarding: React.FC = () => {
         </div>
       </main>
 
-      {/* Modal de Limite de Tópicos Excedido */}
       {showTopicLimitModal && (
         <div className="fixed inset-0 bg-[#1C1917]/80 backdrop-blur-md z-[130] flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-8 max-w-md w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-6 text-center">

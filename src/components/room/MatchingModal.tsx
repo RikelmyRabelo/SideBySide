@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { socket } from '../../services/socket';
 
 interface MatchingModalProps {
   isOpen: boolean;
@@ -7,7 +8,6 @@ interface MatchingModalProps {
   userLevel?: string;
 }
 
-// Movido para fora do componente para evitar recriação a cada segundo (tick do timer)
 const formatTime = (totalSeconds: number) => {
   const mins = Math.floor(totalSeconds / 60);
   const secs = totalSeconds % 60;
@@ -29,9 +29,21 @@ export const MatchingModal: React.FC<MatchingModalProps> = memo(({
       timer = setInterval(() => {
         setSeconds((prev) => prev + 1);
       }, 1000);
+
+      const handleMatchFound = (data: { roomId: string }) => {
+        if (data?.roomId) {
+          navigate(`/room/${data.roomId}`);
+        }
+      };
+
+      socket.on('match_found', handleMatchFound);
+
+      return () => {
+        clearInterval(timer);
+        socket.off('match_found', handleMatchFound);
+      };
     }
-    return () => clearInterval(timer);
-  }, [isOpen]);
+  }, [isOpen, navigate]);
 
   const handleSimulateMatch = useCallback(() => {
     navigate('/room');
@@ -43,7 +55,6 @@ export const MatchingModal: React.FC<MatchingModalProps> = memo(({
     <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-[#111827] border border-slate-800 rounded-3xl p-8 max-w-lg w-full flex flex-col items-center gap-6 shadow-2xl relative overflow-hidden">
         
-        {/* Animação Radar */}
         <div className="relative flex items-center justify-center my-6">
           <div className="absolute w-44 h-44 rounded-full border border-emerald-500/20 animate-ping" />
           <div className="absolute w-32 h-32 rounded-full border border-emerald-500/40 animate-pulse" />
@@ -52,7 +63,6 @@ export const MatchingModal: React.FC<MatchingModalProps> = memo(({
           </div>
         </div>
 
-        {/* Status de Busca */}
         <div className="flex flex-col items-center gap-1 text-center">
           <h2 className="text-xl font-extrabold text-white">
             Buscando um parceiro de nível {userLevel}...
@@ -63,7 +73,6 @@ export const MatchingModal: React.FC<MatchingModalProps> = memo(({
           </div>
         </div>
 
-        {/* Card Dica de Vocabulário */}
         <div className="w-full bg-white rounded-2xl p-5 text-slate-900 flex flex-col gap-2 shadow-lg">
           <div className="flex items-center gap-2 text-amber-500 text-xs font-bold uppercase tracking-wider">
             <span>💡</span> DICA DE VOCABULÁRIO ENQUANTO ESPERA
@@ -79,7 +88,6 @@ export const MatchingModal: React.FC<MatchingModalProps> = memo(({
           </p>
         </div>
 
-        {/* Botão de Ação para Teste de Redirecionamento e Cancelar */}
         <div className="w-full flex flex-col gap-3 mt-2">
           <button
             type="button"

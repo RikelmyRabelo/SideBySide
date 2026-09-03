@@ -4,7 +4,6 @@ import type { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import cors from 'cors';
-import nodemailer from 'nodemailer';
 import { z, ZodError } from 'zod';
 import rateLimit from 'express-rate-limit';
 import winston from 'winston';
@@ -16,6 +15,7 @@ import cookie from 'cookie';
 import { setupMatchmaking } from './sockets/matchmaking.js';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { createClient } from 'redis';
+import { cookieOptions, pendingUsers, verificationCodes, transporter, loginHandler, logoutHandler } from './controllers/authController.js';
 
 const app = express();
 
@@ -52,19 +52,10 @@ Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
   console.error('❌ Erro ao conectar o Redis Adapter:', err);
 });
 
-const cookieOptions = {
-  httpOnly: true, 
-  secure: true, 
-  sameSite: 'none' as const, 
-  maxAge: 7 * 24 * 60 * 60 * 1000 
-};
-
-const pendingUsers = new Map<string, { name: string; email: string; passwordHash: string; level: string; code: string }>();
-const verificationCodes = new Map<string, string>();
 const matchFeedback = new Map<string, Map<string, 'positive' | 'negative' | 'skip'>>();
-const sessionFeedback = new Map<string, { averageRating: number; count: number; lastUpdated: Date }>();
-const conversationQuality = new Map<string, Map<string, { duration: number; messages: number; rating: number; timestamp: Date }>>();
-const repeatMatchPreferences = new Map<string, Set<string>>();
+const _sessionFeedback = new Map<string, { averageRating: number; count: number; lastUpdated: Date }>();
+const _conversationQuality = new Map<string, Map<string, { duration: number; messages: number; rating: number; timestamp: Date }>>();
+const _repeatMatchPreferences = new Map<string, Set<string>>();
 const reports = new Map<string, { reporterId: string; reason: string; timestamp: Date }[]>();
 
 const logger = winston.createLogger({
@@ -90,16 +81,6 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-  logger: false,
-  debug: false,
-});
-
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, 
   max: 100, 
@@ -112,6 +93,22 @@ const passwordResetLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, 
   max: 5, 
   message: { error: 'Muitas tentativas de recuperação de senha deste IP, tente novamente após 1 hora.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const messageLimiter = rateLimit({
+  windowMs: 60 * 1000, 
+  max: 30, 
+  message: { error: 'Muitas mensagens enviadas. Aguarde um minuto.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const reportLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, 
+  max: 3, 
+  message: { error: 'Limite de denúncias excedido. Tente novamente mais tarde.' },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -140,6 +137,7 @@ const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
     if (err) {
       return res.status(403).json({ error: 'Sessão inválida ou expirada.' });
     }
+     
     (req as any).user = decoded;
     next();
   });
@@ -154,11 +152,13 @@ io.use((socket: Socket, next: (err?: Error) => void) => {
 
     jwt.verify(token, JWT_SECRET, (err, decoded: any) => {
       if (err) return next(new Error('Sessão JWT inválida ou expirada.'));
+       
       (socket as any).user = decoded;
       socket.join(`user_${decoded.id}`);
       next();
     });
-  } catch (error) {
+  } catch (error: unknown) {
+    logger.error('[WebSocket Handshake Error] Erro interno de autenticação WebSocket:', error);
     next(new Error('Erro interno de autenticação WebSocket.'));
   }
 });
@@ -209,29 +209,13 @@ app.post('/api/auth/register', authLimiter, validateRequest(registerSchema), asy
       html: `<h2>Bem-vindo!</h2><p>Seu código é: <b>${code}</b></p>`,
     });
     return res.status(201).json({ message: 'Código de verificação enviado.', email });
-  } catch (error: any) { next(error); }
+   
+  } catch (error: unknown) { next(error); }
 });
 
-app.post('/api/auth/login', authLimiter, validateRequest(loginSchema), async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { email, password } = req.body;
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-      return res.status(401).json({ error: 'Credenciais inválidas.' });
-    }
-    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
-    res.cookie('token', token, cookieOptions);
-    return res.status(200).json({
-      message: 'Login com sucesso.',
-      user: { id: user.id, name: user.name, email: user.email, level: user.level, reputation: user.reputation, tag: user.tag },
-    });
-  } catch (error: any) { next(error); }
-});
+app.post('/api/auth/login', authLimiter, validateRequest(loginSchema), loginHandler);
 
-app.post('/api/auth/logout', (req: Request, res: Response) => {
-  res.clearCookie('token');
-  return res.status(200).json({ message: 'Logout realizado com sucesso.' });
-});
+app.post('/api/auth/logout', logoutHandler);
 
 app.post('/api/auth/forgot-password', passwordResetLimiter, validateRequest(emailOnlySchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -247,7 +231,8 @@ app.post('/api/auth/forgot-password', passwordResetLimiter, validateRequest(emai
       html: `<p>Seu código é: <b>${code}</b></p>`,
     });
     return res.status(200).json({ message: 'Código enviado com sucesso.' });
-  } catch (error: any) { next(error); }
+   
+  } catch (error: unknown) { next(error); }
 });
 
 app.post('/api/auth/verify-reset-code', passwordResetLimiter, validateRequest(verifyCodeSchema), async (req: Request, res: Response, next: NextFunction) => {
@@ -256,7 +241,8 @@ app.post('/api/auth/verify-reset-code', passwordResetLimiter, validateRequest(ve
     const storedCode = verificationCodes.get(`reset_${email}`);
     if (!storedCode || storedCode !== code) return res.status(400).json({ error: 'Código inválido.' });
     return res.status(200).json({ message: 'Código verificado com sucesso.' });
-  } catch (error: any) { next(error); }
+   
+  } catch (error: unknown) { next(error); }
 });
 
 app.post('/api/auth/reset-password', passwordResetLimiter, validateRequest(resetPasswordSchema), async (req: Request, res: Response, next: NextFunction) => {
@@ -270,7 +256,8 @@ app.post('/api/auth/reset-password', passwordResetLimiter, validateRequest(reset
     await prisma.user.update({ where: { id: user.id }, data: { password: hashedPassword } });
     verificationCodes.delete(`reset_${email}`);
     return res.status(200).json({ message: 'Senha redefinida.' });
-  } catch (error: any) { next(error); }
+   
+  } catch (error: unknown) { next(error); }
 });
 
 app.post('/api/auth/verify-code', authLimiter, validateRequest(verifyCodeSchema), async (req: Request, res: Response, next: NextFunction) => {
@@ -284,7 +271,7 @@ app.post('/api/auth/verify-code', authLimiter, validateRequest(verifyCodeSchema)
     }
     const pending = targetEmail ? pendingUsers.get(targetEmail) : null;
     if (!pending || pending.code !== code) return res.status(400).json({ error: 'Código inválido.' });
-    pendingUsers.delete(targetEmail);
+    pendingUsers.delete(targetEmail!);
     verificationCodes.delete(`register_${targetEmail}`);
     
     const tempUser = await prisma.user.create({
@@ -312,7 +299,8 @@ app.post('/api/auth/verify-code', authLimiter, validateRequest(verifyCodeSchema)
       message: 'Conta criada.',
       user: { id: newUser.id, name: newUser.name, email: newUser.email, level: newUser.level, reputation: newUser.reputation, tag: newUser.tag }
     });
-  } catch (error: any) { next(error); }
+   
+  } catch (error: unknown) { next(error); }
 });
 
 app.post('/api/auth/resend-code', passwordResetLimiter, validateRequest(emailOnlySchema), async (req: Request, res: Response, next: NextFunction) => {
@@ -331,10 +319,11 @@ app.post('/api/auth/resend-code', passwordResetLimiter, validateRequest(emailOnl
       html: `<p>Seu novo código é: <b>${code}</b></p>`,
     });
     return res.status(200).json({ message: 'Código reenviado com sucesso.' });
-  } catch (error: any) { next(error); }
+   
+  } catch (error: unknown) { next(error); }
 });
 
-app.get('/api/room/status', (req: Request, res: Response) => {
+app.get('/api/room/status', (_req: Request, res: Response) => {
   return res.status(200).json({ hasActiveSession: false, sessionId: null });
 });
 
@@ -345,10 +334,11 @@ app.post('/api/room/join', authenticateToken, async (req: Request, res: Response
     const allUsers = await prisma.user.findMany({ where: { id: { not: userId } }, select: { id: true } });
     const partnerId = allUsers.length > 0 ? allUsers[Math.floor(Math.random() * allUsers.length)].id : null;
     return res.status(200).json({ message: 'Entrada registrada.', topicId: topicId || null, partnerId: partnerId || null });
-  } catch (error: any) { next(error); }
+   
+  } catch (error: unknown) { next(error); }
 });
 
-app.post('/api/room/report', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+app.post('/api/room/report', authenticateToken, reportLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user.id;
     const { reportedUserId, reason, sessionDuration, messageCount, roomId } = req.body || {};
@@ -410,7 +400,8 @@ app.post('/api/room/report', authenticateToken, async (req: Request, res: Respon
       reportId: report.id, 
       userFlagStatus: flagStatus 
     });
-  } catch (error: any) { 
+   
+  } catch (error: unknown) { 
     next(error); 
   }
 });
@@ -419,7 +410,6 @@ app.post('/api/room/rate', authenticateToken, async (req: Request, res: Response
   try {
     const userId = (req as any).user.id;
     const { 
-      sessionId, 
       partnerId, 
       partnerRating, 
       platformRating, 
@@ -427,8 +417,7 @@ app.post('/api/room/rate', authenticateToken, async (req: Request, res: Response
       partnerName, 
       partnerAvatar, 
       duration, 
-      topic, 
-      vocabLearned 
+      topic
     } = req.body || {};
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -439,43 +428,41 @@ app.post('/api/room/rate', authenticateToken, async (req: Request, res: Response
     const ratingDelta = Math.round((safeAverage - 3) * 10);
     const updatedReputation = Math.max(0, Math.min(100, (user.reputation || 0) + ratingDelta));
     
-    const historyEntry = { 
-      id: sessionId || Date.now().toString(),
-      sessionId: sessionId || Date.now().toString(),
-      partnerId: partnerId || null,
-      rating: safeAverage, 
-      partnerRating: Number(partnerRating ?? 3), 
-      platformRating: Number(platformRating ?? 3), 
-      comment: comment || '', 
-      partnerName: partnerName || 'Estudante',
-      partnerAvatar: partnerAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
-      duration: duration || '15 min',
-      topic: topic || 'Bate-Papo Livre',
-      vocabLearned: vocabLearned || ['Vocabulary', 'Practice', 'Fluency'],
-      date: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-      createdAt: new Date().toISOString() 
-    };
+    const totalSessions = (user.totalSessions || 0) + 1;
+    const totalMinutes = (user.totalMinutes || 0) + 15;
 
-    const previousHistory = Array.isArray(user.sessionsHistory) ? (user.sessionsHistory as any[]) : [];
-    const filteredHistory = previousHistory.filter((entry: any) => entry && entry.sessionId !== sessionId);
-    
-    const isNewSession = !previousHistory.some((entry: any) => entry && entry.sessionId === sessionId);
-    const totalSessions = isNewSession ? (user.totalSessions || 0) + 1 : (user.totalSessions || 0);
-    const totalMinutes = isNewSession ? (user.totalMinutes || 0) + 15 : (user.totalMinutes || 0);
+    const newSession = await prisma.conversationSession.create({
+      data: {
+        userId: userId,
+        partnerId: partnerId || 'desconhecido',
+        partnerName: partnerName || 'Estudante',
+        partnerAvatar: partnerAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+        duration: duration || '15 min',
+        topic: topic || 'Bate-Papo Livre',
+        rating: {
+          create: {
+            partnerRating: Number(partnerRating ?? 3),
+            platformRating: Number(platformRating ?? 3),
+            comment: comment || ''
+          }
+        }
+      },
+      include: { rating: true }
+    });
 
     const updatedUser = await prisma.user.update({ 
       where: { id: userId }, 
       data: { 
         reputation: updatedReputation, 
         totalSessions, 
-        totalMinutes, 
-        lastSession: historyEntry as any, 
-        sessionsHistory: [historyEntry, ...filteredHistory] as any 
+        totalMinutes,
+        lastSession: newSession as any
       } 
     });
 
     return res.status(200).json({ message: 'Avaliação salva com sucesso.', reputation: updatedUser.reputation, averageRating: safeAverage });
-  } catch (error: any) { 
+   
+  } catch (error: unknown) { 
     next(error); 
   }
 });
@@ -542,7 +529,8 @@ app.post('/api/friends/request', authenticateToken, async (req: Request, res: Re
     });
 
     return res.status(200).json({ message: 'Solicitação enviada com sucesso.' });
-  } catch (error: any) { 
+   
+  } catch (error: unknown) { 
     next(error); 
   }
 });
@@ -566,7 +554,8 @@ app.get('/api/friends/requests', authenticateToken, async (req: Request, res: Re
     }));
 
     return res.status(200).json(requests);
-  } catch (error: any) {
+   
+  } catch (error: unknown) {
     next(error);
   }
 });
@@ -605,7 +594,9 @@ app.post('/api/friends/accept', authenticateToken, async (req: Request, res: Res
       await prisma.friendRelation.updateMany({
         where: { id: String(requestId) },
         data: { status: 'accepted' }
-      }).catch(() => {});
+      }).catch((err: unknown) => {
+        logger.error('[Friendship Acceptance Error] Falha ao atualizar status da solicitação por ID:', err);
+      });
     }
 
     if (targetRequesterId) {
@@ -645,7 +636,8 @@ app.post('/api/friends/accept', authenticateToken, async (req: Request, res: Res
     }
 
     return res.status(200).json({ message: 'Amizade aceita com sucesso.' });
-  } catch (error: any) {
+   
+  } catch (error: unknown) {
     next(error);
   }
 });
@@ -662,6 +654,7 @@ app.get('/api/friends/list', authenticateToken, async (req: Request, res: Respon
     });
 
     const friendIds = new Set<string>();
+     
     relations.forEach((rel: any) => {
       if (rel.userId === userId) friendIds.add(rel.friendId);
       if (rel.friendId === userId) friendIds.add(rel.userId);
@@ -686,7 +679,8 @@ app.get('/api/friends/list', authenticateToken, async (req: Request, res: Respon
     }));
 
     return res.status(200).json(formatted);
-  } catch (error: any) {
+   
+  } catch (error: unknown) {
     next(error);
   }
 });
@@ -716,12 +710,13 @@ app.delete('/api/friends/:friendId', authenticateToken, async (req: Request, res
     });
 
     return res.status(200).json({ message: 'Amizade e histórico removidos com sucesso.' });
-  } catch (error: any) {
+   
+  } catch (error: unknown) {
     next(error);
   }
 });
 
-app.post('/api/messages/send', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+app.post('/api/messages/send', authenticateToken, messageLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const senderId = (req as any).user.id;
     const recipientId = String(req.body.recipientId);
@@ -743,7 +738,8 @@ app.post('/api/messages/send', authenticateToken, async (req: Request, res: Resp
     });
 
     return res.status(201).json(message);
-  } catch (error: any) {
+   
+  } catch (error: unknown) {
     next(error);
   }
 });
@@ -764,7 +760,8 @@ app.get('/api/messages/:recipientId', authenticateToken, async (req: Request, re
     });
 
     return res.status(200).json(messages);
-  } catch (error: any) {
+   
+  } catch (error: unknown) {
     next(error);
   }
 });
@@ -772,25 +769,35 @@ app.get('/api/messages/:recipientId', authenticateToken, async (req: Request, re
 app.get('/api/user/me', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user.id;
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user = await prisma.user.findUnique({ 
+      where: { id: userId },
+      include: {
+        sessionsHistory: {
+          include: { rating: true },
+          orderBy: { createdAt: 'desc' }
+        }
+      }
+    });
+    
     if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
     
-    const feedbacks = Array.isArray(user.sessionsHistory) 
-      ? (user.sessionsHistory as any[]).filter(s => s && s.comment).map((s, idx) => ({
+    const feedbacks = user.sessionsHistory
+      .filter(s => s.rating?.comment)
+      .map((s, idx) => ({
           id: idx + 1,
           author: 'Parceiro de Conversa',
-          rating: s.rating || 5,
-          date: new Date(s.createdAt).toLocaleDateString() || 'Recentemente',
-          comment: s.comment
-        }))
-      : [];
+          rating: s.rating?.partnerRating || s.rating?.platformRating || 5,
+          date: s.createdAt.toLocaleDateString() || 'Recentemente',
+          comment: s.rating?.comment
+      }));
 
     return res.status(200).json({
       ...user,
       reputationScore: `${user.reputation ?? 100}/100`,
       feedbacks,
     });
-  } catch (error: any) { next(error); }
+   
+  } catch (error: unknown) { next(error); }
 });
 
 app.delete('/api/user/me', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
@@ -808,21 +815,28 @@ app.delete('/api/user/me', authenticateToken, async (req: Request, res: Response
 
     await prisma.friendRelation.deleteMany({
       where: { OR: [{ userId }, { friendId: userId }] }
-    }).catch(() => {});
+    }).catch((err: unknown) => {
+      logger.error('[User Deletion Error] Falha ao limpar relações de amizade:', err);
+    });
 
     await prisma.directMessage.deleteMany({
       where: { OR: [{ senderId: userId }, { recipientId: userId }] }
-    }).catch(() => {});
+    }).catch((err: unknown) => {
+      logger.error('[User Deletion Error] Falha ao limpar mensagens diretas:', err);
+    });
 
     await prisma.notification.deleteMany({
       where: { userId }
-    }).catch(() => {});
+    }).catch((err: unknown) => {
+      logger.error('[User Deletion Error] Falha ao limpar notificações:', err);
+    });
 
     await prisma.user.delete({ where: { id: userId } });
 
     res.clearCookie('token');
     return res.status(200).json({ message: 'Conta excluída com sucesso.' });
-  } catch (error: any) {
+   
+  } catch (error: unknown) {
     next(error);
   }
 });
@@ -852,7 +866,8 @@ app.get('/api/user/:id', authenticateToken, async (req: Request, res: Response, 
 
     if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
     return res.status(200).json(user);
-  } catch (error: any) { 
+   
+  } catch (error: unknown) { 
     next(error); 
   }
 });
@@ -865,7 +880,8 @@ app.get('/api/notifications', authenticateToken, async (req: Request, res: Respo
       orderBy: { createdAt: 'desc' },
     });
     return res.status(200).json(notifications);
-  } catch (error: any) { 
+   
+  } catch (error: unknown) { 
     next(error); 
   }
 });
@@ -873,17 +889,54 @@ app.get('/api/notifications', authenticateToken, async (req: Request, res: Respo
 app.get('/api/matches/candidates', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user.id;
-    const me = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, level: true, interests: true, reputation: true, totalSessions: true, totalMinutes: true } });
+    const me = await prisma.user.findUnique({ 
+      where: { id: userId }, 
+      select: { id: true, level: true, interests: true, reputation: true, totalSessions: true, totalMinutes: true } 
+    });
+    
     if (!me) return res.status(404).json({ error: 'Usuário não encontrado.' });
     
-    const allUsers = await prisma.user.findMany({ where: { id: { not: userId }, isBanned: false }, take: 1 });
-    const candidates = allUsers.map((candidate: any) => ({
-      id: candidate.id, name: candidate.name, level: candidate.level, avatar: candidate.avatar,
-      interests: candidate.interests || [], sharedInterests: [], score: 85, reputation: candidate.reputation,
-      totalSessions: candidate.totalSessions || 0, totalMinutes: candidate.totalMinutes || 0, history: null, flagStatus: candidate.flagStatus
-    }));
+    const rawCandidates = await prisma.user.findMany({
+      where: { 
+        id: { not: userId }, 
+        isBanned: false 
+      },
+      take: 10,
+      select: {
+        id: true,
+        name: true,
+        level: true,
+        avatar: true,
+        interests: true,
+        reputation: true,
+        totalSessions: true,
+        totalMinutes: true,
+        flagStatus: true
+      }
+    });
+
+    const selectedCandidate = rawCandidates.length > 0 
+      ? rawCandidates[Math.floor(Math.random() * rawCandidates.length)] 
+      : null;
+
+    const candidates = selectedCandidate ? [{
+      id: selectedCandidate.id, 
+      name: selectedCandidate.name, 
+      level: selectedCandidate.level, 
+      avatar: selectedCandidate.avatar,
+      interests: selectedCandidate.interests || [], 
+      sharedInterests: [], 
+      score: 85, 
+      reputation: selectedCandidate.reputation,
+      totalSessions: selectedCandidate.totalSessions || 0, 
+      totalMinutes: selectedCandidate.totalMinutes || 0, 
+      history: null, 
+      flagStatus: selectedCandidate.flagStatus
+    }] : [];
+
     return res.status(200).json({ candidates, me: { id: me.id, level: me.level, interests: me.interests || [] } });
-  } catch (error: any) { next(error); }
+   
+  } catch (error: unknown) { next(error); }
 });
 
 app.post('/api/matches/feedback', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
@@ -895,7 +948,8 @@ app.post('/api/matches/feedback', authenticateToken, async (req: Request, res: R
     userMap.set(candidateId, outcome);
     matchFeedback.set(userId, userMap);
     return res.status(200).json({ message: 'Feedback salvo.' });
-  } catch (error: any) { next(error); }
+   
+  } catch (error: unknown) { next(error); }
 });
 
 app.put('/api/user/profile', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
@@ -903,7 +957,7 @@ app.put('/api/user/profile', authenticateToken, async (req: Request, res: Respon
     const tokenUser = (req as any).user;
     const { cefrLevel, ...bodyData } = req.body;
     
-    const updateData = {
+    const updateData: any = {
       ...bodyData,
       ...(cefrLevel ? { level: cefrLevel } : {})
     };
@@ -939,13 +993,14 @@ app.put('/api/user/profile', authenticateToken, async (req: Request, res: Respon
     });
 
     return res.status(200).json({ message: 'Perfil atualizado com sucesso.', user: updatedUser });
-  } catch (error: any) { 
+   
+  } catch (error: unknown) { 
     next(error); 
   }
 });
 
-app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-  logger.error('Erro global:', { message: err.message });
+app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
+  logger.error('Erro global:', { message: err.message, path: req.url });
   return res.status(err.status || 500).json({ error: err.message || 'Erro interno.' });
 });
 
