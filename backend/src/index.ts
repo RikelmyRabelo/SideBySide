@@ -12,6 +12,7 @@ import { prisma } from './lib/prisma.js';
 import http from 'http';
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import cookie from 'cookie';
+import { randomUUID } from 'crypto';
 import { setupMatchmaking } from './sockets/matchmaking.js';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { createClient } from 'redis';
@@ -92,9 +93,28 @@ const logger = winston.createLogger({
   ],
 });
 
+// Middleware de Request ID, Rastreamento e Latência (SBS-35)
 app.use((req: Request, res: Response, next: NextFunction) => {
+  const requestId = (req.headers['x-request-id'] as string) || randomUUID();
+  res.setHeader('X-Request-Id', requestId);
+
+  const start = process.hrtime.bigint();
   const safeIp = anonymizeIp(req.ip);
-  logger.info(`[${req.method}] ${req.url} - IP: ${safeIp}`);
+
+  res.on('finish', () => {
+    const durationNs = process.hrtime.bigint() - start;
+    const durationMs = Number(durationNs) / 1_000_000;
+
+    logger.info(`[${req.method}] ${req.url} - IP: ${safeIp} - Status: ${res.statusCode} - Latência: ${durationMs.toFixed(2)}ms`, {
+      requestId,
+      method: req.method,
+      url: req.url,
+      ip: safeIp,
+      statusCode: res.statusCode,
+      latencyMs: durationMs,
+    });
+  });
+
   next();
 });
 
