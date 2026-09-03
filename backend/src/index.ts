@@ -128,6 +128,10 @@ const passwordResetLimiter = rateLimit({
 const messageLimiter = rateLimit({
   windowMs: 60 * 1000, 
   max: 30, 
+  keyGenerator: (req: Request) => {
+    const userId = (req as any).user?.id;
+    return userId ? `user_${userId}` : (req.ip || 'unknown');
+  },
   message: { error: 'Muitas mensagens enviadas. Aguarde um minuto.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -136,7 +140,23 @@ const messageLimiter = rateLimit({
 const reportLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, 
   max: 3, 
+  keyGenerator: (req: Request) => {
+    const userId = (req as any).user?.id;
+    return userId ? `user_report_${userId}` : (req.ip || 'unknown');
+  },
   message: { error: 'Limite de denúncias excedido. Tente novamente mais tarde.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const matchmakingLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  keyGenerator: (req: Request) => {
+    const userId = (req as any).user?.id;
+    return userId ? `user_match_${userId}` : (req.ip || 'unknown');
+  },
+  message: { error: 'Muitas solicitações de pareamento. Tente novamente em instantes.' },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -189,6 +209,35 @@ io.use((socket: Socket, next: (err?: Error) => void) => {
     logger.error('[WebSocket Handshake Error] Erro interno de autenticação WebSocket:', error);
     next(new Error('Erro interno de autenticação WebSocket.'));
   }
+});
+
+// Socket Rate Limiting Map para eventos em tempo real
+const socketEventLimits = new Map<string, { count: number; resetTime: number }>();
+const checkSocketRateLimit = (socketId: string, eventName: string, limit: number = 20, windowMs: number = 60000): boolean => {
+  const key = `${socketId}_${eventName}`;
+  const now = Date.now();
+  const record = socketEventLimits.get(key);
+
+  if (!record || now > record.resetTime) {
+    socketEventLimits.set(key, { count: 1, resetTime: now + windowMs });
+    return true;
+  }
+
+  if (record.count >= limit) {
+    return false;
+  }
+
+  record.count++;
+  return true;
+};
+
+io.on('connection', (socket: Socket) => {
+  socket.onAny((eventName, ..._args) => {
+    if (!checkSocketRateLimit(socket.id, eventName, 30, 60000)) {
+      socket.emit('error', { message: 'Limite de eventos excedido. Por favor, diminua o ritmo.' });
+      logger.warn(`[Socket Rate Limit] Socket ${socket.id} bloqueado por excesso de eventos no canal ${eventName}`);
+    }
+  });
 });
 
 setupMatchmaking(io);
@@ -355,7 +404,7 @@ app.get('/api/room/status', (_req: Request, res: Response) => {
   return res.status(200).json({ hasActiveSession: false, sessionId: null });
 });
 
-app.post('/api/room/join', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+app.post('/api/room/join', authenticateToken, matchmakingLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user.id;
     const { topicId } = req.body || {};
