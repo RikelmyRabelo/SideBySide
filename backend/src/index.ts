@@ -424,12 +424,64 @@ app.post('/api/room/report', authenticateToken, reportLimiter, async (req: Reque
       return res.status(400).json({ error: 'Dados obrigatórios ausentes.' });
     }
 
-    const reported = await prisma.user.findUnique({ where: { id: reportedUserId } });
-    if (!reported) {
-      return res.status(404).json({ error: 'Usuário denunciado não encontrado.' });
+    if (userId === reportedUserId) {
+      return res.status(400).json({ error: 'Você não pode denunciar a si mesmo.' });
     }
 
-    logger.warn(`🚨 AUDITORIA DE DENÚNCIA: Usuário ${userId} denunciou ${reportedUserId} por "${reason}" na sala ${roomId || 'N/A'}. Duração: ${sessionDuration || 0}s, Mensagens: ${messageCount || 0}`);
+    const result = await prisma.$transaction(async (tx) => {
+      const existingReport = await tx.report.findFirst({
+        where: {
+          reporterId: userId,
+          reportedUserId: reportedUserId
+        }
+      });
+
+      if (existingReport) {
+        throw new Error('DUPLICATE_REPORT');
+      }
+
+      const reported = await tx.user.findUnique({ where: { id: reportedUserId } });
+      if (!reported) {
+        throw new Error('USER_NOT_FOUND');
+      }
+
+      const newReportCount = (reported.reportCount || 0) + 1;
+      let flagStatus = reported.flagStatus || 'CLEAN';
+      let bannedUntil = reported.bannedUntil;
+
+      if (newReportCount >= 3 && flagStatus === 'CLEAN') {
+        flagStatus = 'WARNING';
+      } else if (newReportCount >= 6 && flagStatus === 'WARNING') {
+        flagStatus = 'SUSPENDED';
+        bannedUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      } else if (newReportCount >= 10) {
+        flagStatus = 'BANNED';
+      }
+
+      await tx.user.update({
+        where: { id: reportedUserId },
+        data: {
+          reportCount: newReportCount,
+          flagStatus: flagStatus as any,
+          flagReason: reason,
+          flaggedAt: new Date(),
+          isBanned: flagStatus === 'BANNED',
+          bannedUntil
+        }
+      });
+
+      const report = await tx.report.create({
+        data: {
+          reporterId: userId,
+          reportedUserId,
+          reason: `[Contexto - Sala: ${roomId || 'N/A'}, Duração: ${sessionDuration || 0}s, Msgs: ${messageCount || 0}] ${reason}`
+        }
+      });
+
+      return { reportId: report.id, flagStatus };
+    });
+
+    logger.warn(`🚨 AUDITORIA DE DENÚNCIA: Usuário ${userId} denunciou ${reportedUserId} por "${reason}" na sala ${roomId || 'N/A'}.`);
 
     const userReports = reports.get(reportedUserId) || [];
     userReports.push({ 
@@ -439,46 +491,19 @@ app.post('/api/room/report', authenticateToken, reportLimiter, async (req: Reque
     });
     reports.set(reportedUserId, userReports);
 
-    const newReportCount = (reported.reportCount || 0) + 1;
-    let flagStatus = reported.flagStatus || 'clean';
-    let bannedUntil = reported.bannedUntil;
-
-    if (newReportCount >= 3 && flagStatus === 'clean') {
-      flagStatus = 'warning';
-    } else if (newReportCount >= 6 && flagStatus === 'warning') {
-      flagStatus = 'suspended';
-      bannedUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    } else if (newReportCount >= 10) {
-      flagStatus = 'banned';
-    }
-
-    await prisma.user.update({
-      where: { id: reportedUserId },
-      data: {
-        reportCount: newReportCount,
-        flagStatus,
-        flagReason: reason,
-        flaggedAt: new Date(),
-        isBanned: flagStatus === 'banned',
-        bannedUntil
-      }
-    });
-
-    const report = await prisma.report.create({
-      data: {
-        reporterId: userId,
-        reportedUserId,
-        reason: `[Contexto - Sala: ${roomId || 'N/A'}, Duração: ${sessionDuration || 0}s, Msgs: ${messageCount || 0}] ${reason}`
-      }
-    });
-
     return res.status(201).json({ 
       message: 'Denúncia registrada com sucesso.', 
-      reportId: report.id, 
-      userFlagStatus: flagStatus 
+      reportId: result.reportId, 
+      userFlagStatus: result.flagStatus 
     });
    
-  } catch (error: unknown) { 
+  } catch (error: any) { 
+    if (error.message === 'DUPLICATE_REPORT') {
+      return res.status(400).json({ error: 'Você já denunciou este usuário anteriormente.' });
+    }
+    if (error.message === 'USER_NOT_FOUND') {
+      return res.status(404).json({ error: 'Usuário denunciado não encontrado.' });
+    }
     next(error); 
   }
 });
@@ -594,7 +619,7 @@ app.post('/api/friends/request', authenticateToken, async (req: Request, res: Re
       data: {
         userId: userId,
         friendId: String(resolvedTargetId),
-        status: 'pending'
+        status: 'PENDING'
       }
     });
 
@@ -616,7 +641,7 @@ app.get('/api/friends/requests', authenticateToken, async (req: Request, res: Re
   try {
     const userId = (req as any).user.id;
     const pendingRelations = await prisma.friendRelation.findMany({
-      where: { friendId: userId, status: 'pending' },
+      where: { friendId: userId, status: 'PENDING' },
       include: { user: true }
     });
 
@@ -670,7 +695,7 @@ app.post('/api/friends/accept', authenticateToken, async (req: Request, res: Res
     if (requestId) {
       await prisma.friendRelation.updateMany({
         where: { id: String(requestId) },
-        data: { status: 'accepted' }
+        data: { status: 'ACCEPTED' }
       }).catch((err: unknown) => {
         logger.error('[Friendship Acceptance Error] Falha ao atualizar status da solicitação por ID:', err);
       });
@@ -684,7 +709,7 @@ app.post('/api/friends/accept', authenticateToken, async (req: Request, res: Res
             { userId: userId, friendId: String(targetRequesterId) }
           ]
         },
-        data: { status: 'accepted' }
+        data: { status: 'ACCEPTED' }
       });
 
       const [acceptingUser, requesterUser] = await Promise.all([
@@ -725,7 +750,7 @@ app.get('/api/friends/list', authenticateToken, async (req: Request, res: Respon
     
     const relations = await prisma.friendRelation.findMany({
       where: {
-        status: 'accepted',
+        status: 'ACCEPTED',
         OR: [{ userId: userId }, { friendId: userId }]
       }
     });
