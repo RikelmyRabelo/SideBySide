@@ -30,11 +30,35 @@ const findMatchSchema = z.object({
   }).nullable().optional() 
 }).optional();
 
-const webrtcSdpSchema = z.object({ roomId: z.string(), sdp: z.any() });
-const webrtcIceSchema = z.object({ roomId: z.string(), candidate: z.any() });
+const webrtcSdpSchema = z.object({
+  roomId: z.string().min(1, 'ID da sala é obrigatório.'),
+  sdp: z.object({
+    type: z.enum(['offer', 'answer', 'pranswer', 'rollback']),
+    sdp: z.string().max(50000, 'Payload SDP excede o limite máximo permitido.')
+  })
+});
+
+const webrtcIceSchema = z.object({
+  roomId: z.string().min(1, 'ID da sala é obrigatório.'),
+  candidate: z.object({
+    candidate: z.string().max(2000, 'Candidato ICE excede o limite máximo permitido.'),
+    sdpMid: z.string().nullable().optional(),
+    sdpMLineIndex: z.number().nullable().optional()
+  })
+});
+
 const cameraStatusSchema = z.object({ roomId: z.string(), camActive: z.boolean() });
-const chatSchema = z.object({ roomId: z.string(), text: z.string().min(1) });
-const directMessageSchema = z.object({ recipientId: z.string(), text: z.string().min(1) });
+
+const chatSchema = z.object({
+  roomId: z.string().min(1, 'ID da sala é obrigatório.'),
+  text: z.string().min(1, 'A mensagem não pode estar vazia.').max(1000, 'Mensagem muito longa. O limite é de 1000 caracteres.')
+});
+
+const directMessageSchema = z.object({
+  recipientId: z.string().min(1, 'ID do destinatário é obrigatório.'),
+  text: z.string().min(1, 'A mensagem não pode estar vazia.').max(1000, 'Mensagem muito longa. O limite é de 1000 caracteres.')
+});
+
 const leaveRoomSchema = z.object({ roomId: z.string().optional() }).optional();
 
 const safeParseEvent = <T>(schema: z.ZodType<T>, data: unknown, callback: (parsedData: T) => void) => {
