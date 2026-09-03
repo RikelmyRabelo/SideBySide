@@ -81,6 +81,17 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
+// Healthcheck endpoint
+app.get('/health', async (_req: Request, res: Response) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    return res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
+  } catch (error: unknown) {
+    logger.error('Falha no Healthcheck do Banco de Dados:', error);
+    return res.status(503).json({ status: 'unhealthy', error: 'Database connection failed' });
+  }
+});
+
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, 
   max: 100, 
@@ -1009,6 +1020,32 @@ app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
   logger.error('Erro global:', { message: err.message, path: req.url });
   return res.status(err.status || 500).json({ error: err.message || 'Erro interno.' });
 });
+
+const gracefulShutdown = async (signal: string) => {
+  logger.info(`Recebido sinal ${signal}. Iniciando encerramento gracioso...`);
+  
+  server.close(async () => {
+    logger.info('Servidor HTTP encerrado.');
+    try {
+      await pubClient.quit();
+      await subClient.quit();
+      await prisma.$disconnect();
+      logger.info('Conexões com Redis e Banco de Dados encerradas com sucesso.');
+      process.exit(0);
+    } catch (err) {
+      logger.error('Erro ao desconectar serviços durante o shutdown:', err);
+      process.exit(1);
+    }
+  });
+
+  setTimeout(() => {
+    logger.error('Forçando encerramento devido ao estouro de tempo limite.');
+    process.exit(1);
+  }, 10000);
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 server.listen(PORT, () => {
   logger.info(`Servidor HTTP/Socket rodando na porta ${PORT}`);
