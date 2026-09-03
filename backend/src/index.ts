@@ -748,18 +748,24 @@ app.get('/api/messages/:recipientId', authenticateToken, async (req: Request, re
   try {
     const senderId = (req as any).user.id;
     const recipientId = String(req.params.recipientId);
+    
+    const limit = parseInt(req.query.limit as string, 10) || 50;
+    const cursor = req.query.cursor as string | undefined;
 
     const messages = await prisma.directMessage.findMany({
+      take: limit,
+      skip: cursor ? 1 : 0,
+      cursor: cursor ? { id: cursor } : undefined,
       where: {
         OR: [
           { senderId, recipientId },
           { senderId: recipientId, recipientId: senderId }
         ]
       },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { createdAt: 'desc' }
     });
 
-    return res.status(200).json(messages);
+    return res.status(200).json(messages.reverse());
    
   } catch (error: unknown) {
     next(error);
