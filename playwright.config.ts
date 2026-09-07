@@ -26,11 +26,10 @@ export default defineConfig({
       stderr: 'pipe',
 
       env: {
-  DATABASE_URL: process.env.DATABASE_URL ?? '',
-  JWT_SECRET: process.env.JWT_SECRET ?? '',
-  REDIS_URL: process.env.REDIS_URL ?? '',
-},
-
+        DATABASE_URL: process.env.DATABASE_URL ?? '',
+        JWT_SECRET: process.env.JWT_SECRET ?? '',
+        REDIS_URL: process.env.REDIS_URL ?? '',
+      },
     },
     {
       command: 'npm run dev:frontend -- --host 0.0.0.0',

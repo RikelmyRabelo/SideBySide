@@ -8,7 +8,7 @@ on:
 
 env:
   JWT_SECRET: "FOTsUuFsyFINbN7GvPW1nL7fdOsONGlLa3N1d1I36MU="
-  DATABASE_URL: "postgresql://postgres:tK2qtC33TRx0X2j9@db.qkeykngnurwniwdyegmp.supabase.co:5432/postgres"
+  DATABASE_URL: "postgresql://postgres.qkeykngnurwniwdyegmp:tK2qtC33TRx0X2j9@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
   REDIS_URL: "redis://localhost:6379"
 
 jobs:
@@ -65,7 +65,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      DATABASE_URL: "postgresql://postgres:tK2qtC33TRx0X2j9@db.qkeykngnurwniwdyegmp.supabase.co:5432/postgres"
+      DATABASE_URL: "postgresql://postgres.qkeykngnurwniwdyegmp:tK2qtC33TRx0X2j9@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
       JWT_SECRET: "FOTsUuFsyFINbN7GvPW1nL7fdOsONGlLa3N1d1I36MU="
       REDIS_URL: "redis://redis:6379"
 
