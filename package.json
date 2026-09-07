@@ -7,7 +7,7 @@
     "backend"
   ],
   "scripts": {
-    "dev": "npm run dev:backend & npm run dev:frontend",
+    "dev": "npx prisma generate --schema=backend/prisma/schema.prisma && (npm run dev:backend & npm run dev:frontend)",
     "dev:frontend": "vite",
     "dev:backend": "npm run dev --workspace=backend",
     "build:frontend": "tsc -b && vite build",
