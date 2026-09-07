@@ -10,10 +10,9 @@ jobs:
   backend-ci:
     name: Backend CI & Test
     runs-on: ubuntu-latest
-    environment: JWT_SECRET
     env:
-      JWT_SECRET: ${{ secrets.JWT_SECRET }}
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      JWT_SECRET: "sua_chave_secreta_super_segura_com_mais_de_32_caracteres"
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/sidebyside_test?schema=public"
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
