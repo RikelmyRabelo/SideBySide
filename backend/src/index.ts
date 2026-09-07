@@ -13,7 +13,7 @@ import helmet from 'helmet';
 import { prisma } from './lib/prisma.js';
 import type { Prisma, UserLevel } from '@prisma/client';
 import http from 'http';
-import { randomUUID } from 'crypto';
+import { randomUUID, randomBytes } from 'crypto';
 import { createClient } from 'redis';
 import { Emitter } from '@socket.io/redis-emitter';
 import { cookieOptions, pendingUsers, verificationCodes, transporter, loginHandler, logoutHandler } from './controllers/authController.js';
@@ -162,6 +162,7 @@ const metrics = {
   requestsTotal: 0,
   requestsByStatus: new Map<string, number>(),
   latencyTotalMs: 0,
+  recentLatencies: [] as number[],
 };
 
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -169,7 +170,24 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   const requestId = typeof incomingRequestId === 'string' && /^[A-Za-z0-9._:-]{1,100}$/.test(incomingRequestId)
     ? incomingRequestId
     : randomUUID();
+
+  const traceparent = req.headers['traceparent'] as string;
+  let traceId = '';
+  let parentSpanId = '';
+
+  if (traceparent && /^00-[0-9a-f]{32}-[0-9a-f]{16}-01$/.test(traceparent)) {
+    const parts = traceparent.split('-');
+    traceId = parts[1];
+    parentSpanId = parts[2];
+  } else {
+    traceId = randomBytes(16).toString('hex');
+  }
+
+  const spanId = randomBytes(8).toString('hex');
+  const newTraceparent = `00-${traceId}-${spanId}-01`;
+
   res.setHeader('X-Request-Id', requestId);
+  res.setHeader('Traceparent', newTraceparent);
 
   const start = process.hrtime.bigint();
   const safeIp = anonymizeIp(req.ip);
@@ -177,13 +195,23 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   res.on('finish', () => {
     const durationNs = process.hrtime.bigint() - start;
     const durationMs = Number(durationNs) / 1_000_000;
+    
     metrics.requestsTotal += 1;
     metrics.latencyTotalMs += durationMs;
+    metrics.recentLatencies.push(durationMs);
+    
+    if (metrics.recentLatencies.length > 1000) {
+      metrics.recentLatencies.shift();
+    }
+
     const statusKey = String(res.statusCode);
     metrics.requestsByStatus.set(statusKey, (metrics.requestsByStatus.get(statusKey) || 0) + 1);
 
     logger.info(`[${req.method}] ${req.url} - IP: ${safeIp} - Status: ${res.statusCode} - Latência: ${durationMs.toFixed(2)}ms`, {
       requestId,
+      traceId,
+      spanId,
+      parentSpanId: parentSpanId || undefined,
       method: req.method,
       url: req.url,
       ip: safeIp,
@@ -197,10 +225,22 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
 app.get('/metrics', (_req: Request, res: Response) => {
   const averageLatencyMs = metrics.requestsTotal === 0 ? 0 : metrics.latencyTotalMs / metrics.requestsTotal;
+  
+  let p95LatencyMs = 0;
+  let p99LatencyMs = 0;
+
+  if (metrics.recentLatencies.length > 0) {
+    const sorted = [...metrics.recentLatencies].sort((a, b) => a - b);
+    p95LatencyMs = sorted[Math.floor(sorted.length * 0.95)];
+    p99LatencyMs = sorted[Math.floor(sorted.length * 0.99)];
+  }
+
   return res.status(200).json({
     requestsTotal: metrics.requestsTotal,
     requestsByStatus: Object.fromEntries(metrics.requestsByStatus),
     averageLatencyMs: Number(averageLatencyMs.toFixed(2)),
+    p95LatencyMs: Number(p95LatencyMs.toFixed(2)),
+    p99LatencyMs: Number(p99LatencyMs.toFixed(2)),
     uptimeSeconds: Math.round(process.uptime()),
   });
 });
@@ -1318,4 +1358,4 @@ app.get('/health/ready', async (_req: Request, res: Response) => {
   } catch (_error: unknown) {
     return res.status(503).json({ status: 'not_ready' });
   }
-});
+}); 
