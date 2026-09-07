@@ -478,9 +478,21 @@ app.post('/api/room/join', authenticateToken, matchmakingLimiter, async (req: Re
   try {
     const userId = req.user!.id;
     const { topicId } = req.body || {};
-    const allUsers = await prisma.user.findMany({ where: { id: { not: userId } }, select: { id: true } });
-    const partnerId = allUsers.length > 0 ? allUsers[Math.floor(Math.random() * allUsers.length)].id : null;
-    return res.status(200).json({ message: 'Entrada registrada.', topicId: topicId || null, partnerId: partnerId || null });
+    
+    const count = await prisma.user.count({ where: { id: { not: userId }, isBanned: false } });
+    let partnerId = null;
+    
+    if (count > 0) {
+      const skip = Math.floor(Math.random() * count);
+      const randomUser = await prisma.user.findFirst({
+        where: { id: { not: userId }, isBanned: false },
+        skip,
+        select: { id: true }
+      });
+      if (randomUser) partnerId = randomUser.id;
+    }
+    
+    return res.status(200).json({ message: 'Entrada registrada.', topicId: topicId || null, partnerId });
    
   } catch (error: unknown) { next(error); }
 });
@@ -1141,12 +1153,17 @@ app.get('/api/matches/candidates', authenticateToken, async (req: Request, res: 
     
     const parsedLimit = Number.parseInt(String(req.query.limit || '10'), 10);
     const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 50) : 10;
+    
     const rawCandidates: CandidateUser[] = await prisma.user.findMany({
       where: { 
         id: { not: userId }, 
         isBanned: false 
       },
-      take: limit,
+      orderBy: [
+        { reputation: 'desc' },
+        { totalSessions: 'desc' }
+      ],
+      take: limit * 5,
       select: {
         id: true,
         name: true,
@@ -1171,7 +1188,9 @@ app.get('/api/matches/candidates', authenticateToken, async (req: Request, res: 
         Math.min(20, candidate.totalSessions * 2 + candidate.totalMinutes / 30)
       ));
       return { ...candidate, sharedInterests, score, history: null };
-    }).sort((left: ScoredCandidate, right: ScoredCandidate) => right.score - left.score);
+    })
+    .sort((left: ScoredCandidate, right: ScoredCandidate) => right.score - left.score)
+    .slice(0, limit);
 
     return res.status(200).json({ candidates, me: { id: me.id, level: me.level, interests: me.interests || [] } });
    

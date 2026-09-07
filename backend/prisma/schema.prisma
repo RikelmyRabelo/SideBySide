@@ -78,6 +78,8 @@ model User {
 
   sentReports         Report[]              @relation("UserReports")
   receivedReports     Report[]              @relation("ReportedUserReports")
+
+  @@index([isBanned, level, reputation])
 }
 
 model ConversationSession {
