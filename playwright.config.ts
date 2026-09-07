@@ -11,7 +11,7 @@ export default defineConfig({
   reporter: 'html',
   webServer: [
     {
-      command: 'npx prisma generate --schema=prisma/schema.prisma && npm run dev',
+      command: 'export DATABASE_URL="postgresql://postgres:tK2qtC33TRx0X2j9@db.qkeykngnurwniwdyegmp.supabase.co:5432/postgres" && export JWT_SECRET="FOTsUuFsyFINbN7GvPW1nL7fdOsONGlLa3N1d1I36MU=" && npx prisma generate --schema=prisma/schema.prisma && npm run dev',
       cwd: './backend',
       url: 'http://localhost:3000/health',
       reuseExistingServer: true,
