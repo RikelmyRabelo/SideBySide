@@ -1,12 +1,8 @@
-// backend/src/utils/authorization.ts
 import { prisma } from '../lib/prisma.js';
+import { evaluateDirectMessageEligibility } from './moderationEngine.js';
 
 export async function assertCanMessage(userId: string, targetUserId: string): Promise<void> {
-  if (userId === targetUserId) {
-    return;
-  }
-
-  const friendship = await prisma.friendRelation.findFirst({
+  const friendship = userId === targetUserId ? null : await prisma.friendRelation.findFirst({
     where: {
       status: 'ACCEPTED',
       OR: [
@@ -16,7 +12,5 @@ export async function assertCanMessage(userId: string, targetUserId: string): Pr
     },
   });
 
-  if (!friendship) {
-    throw new Error('UNAUTHORIZED_DIRECT_MESSAGE: É necessário possuir uma amizade aceita para trocar mensagens diretas.');
-  }
+  evaluateDirectMessageEligibility(userId, targetUserId, !!friendship);
 }
