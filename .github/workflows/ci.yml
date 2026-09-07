@@ -6,13 +6,14 @@ on:
   pull_request:
     branches: [ "main", "master" ]
 
+env:
+  JWT_SECRET: "FOTsUuFsyFINbN7GvPW1nL7fdOsONGlLa3N1d1I36MU="
+  DATABASE_URL: "postgresql://postgres:tK2qtC33TRx0X2j9@db.qkeykngnurwniwdyegmp.supabase.co:5432/postgres"
+
 jobs:
   backend-ci:
     name: Backend CI & Test
     runs-on: ubuntu-latest
-    env:
-      JWT_SECRET: "sua_chave_secreta_super_segura_com_mais_de_32_caracteres"
-      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/sidebyside_test?schema=public"
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -76,4 +77,4 @@ jobs:
         run: npx playwright install --with-deps
 
       - name: Run Playwright E2E Tests
-        run: npx playwright test  
+        run: npx playwright test
