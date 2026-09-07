@@ -13,26 +13,26 @@ export default defineConfig({
   reporter: 'html',
 
   webServer: [
-    {
-      command:
-        'export DATABASE_URL="..." && export JWT_SECRET="..." && export REDIS_URL="${REDIS_URL:-redis://localhost:6379}" && npx prisma generate --schema=prisma/schema.prisma && npm run dev',
-      cwd: './backend',
-      url: 'http://localhost:3000/health',
-      reuseExistingServer: true,
-      timeout: 120000,
-      stdout: 'pipe',
-      stderr: 'pipe',
-    },
-    {
-      command: 'npm run dev:frontend -- --host 0.0.0.0',
-      cwd: '.',
-      url: 'http://localhost:5173',
-      reuseExistingServer: true,
-      timeout: 120000,
-      stdout: 'pipe',
-      stderr: 'pipe',
-    },
-  ],
+  {
+    command:
+      'npx prisma generate --schema=prisma/schema.prisma && npm run dev',
+    cwd: './backend',
+    url: 'http://localhost:3000/health',
+    reuseExistingServer: true,
+    timeout: 120000,
+    stdout: 'pipe',
+    stderr: 'pipe',
+  },
+  {
+    command: 'npm run dev:frontend -- --host 0.0.0.0',
+    cwd: '.',
+    url: 'http://localhost:5173',
+    reuseExistingServer: true,
+    timeout: 120000,
+    stdout: 'pipe',
+    stderr: 'pipe',
+  },
+],
 
   use: {
     trace: 'on-first-retry',
