@@ -12,9 +12,19 @@ interface NotificationsModalProps {
   isOpen: boolean;
   onClose: () => void;
   notifications: NotificationItem[];
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
+  onLoadMore?: () => void;
 }
 
-export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose, notifications }) => {
+export const NotificationsModal: React.FC<NotificationsModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  notifications,
+  hasMore = false,
+  isLoadingMore = false,
+  onLoadMore
+}) => {
   if (!isOpen) return null;
 
   return (
@@ -52,27 +62,40 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
               <p className="text-xs font-bold text-[#78716C] uppercase tracking-widest">Caixa vazia</p>
             </div>
           ) : (
-            notifications.map((item) => (
-              <div 
-                key={item.id} 
-                className={`p-4 rounded-xl border-2 transition-all flex flex-col gap-2 ${
-                  item.read ? 'bg-[#FAF9F6] border-[#E7E5E4]' : 'bg-[#FFFFFF] border-[#1C1917] shadow-sm'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black uppercase tracking-wider text-[#1C1917]">
-                    {item.title}
+            <>
+              {notifications.map((item) => (
+                <div 
+                  key={item.id} 
+                  className={`p-4 rounded-xl border-2 transition-all flex flex-col gap-2 ${
+                    item.read ? 'bg-[#FAF9F6] border-[#E7E5E4]' : 'bg-[#FFFFFF] border-[#1C1917] shadow-sm'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black uppercase tracking-wider text-[#1C1917]">
+                      {item.title}
+                    </span>
+                    {!item.read && <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm" />}
+                  </div>
+                  <p className="text-xs text-[#57534E] leading-relaxed font-medium">
+                    {item.message}
+                  </p>
+                  <span className="text-[10px] font-bold text-[#A8A29E] uppercase tracking-wider mt-1">
+                    {new Date(item.createdAt).toLocaleDateString('pt-BR')}
                   </span>
-                  {!item.read && <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm" />}
                 </div>
-                <p className="text-xs text-[#57534E] leading-relaxed font-medium">
-                  {item.message}
-                </p>
-                <span className="text-[10px] font-bold text-[#A8A29E] uppercase tracking-wider mt-1">
-                  {new Date(item.createdAt).toLocaleDateString('pt-BR')}
-                </span>
-              </div>
-            ))
+              ))}
+
+              {hasMore && (
+                <button
+                  type="button"
+                  onClick={onLoadMore}
+                  disabled={isLoadingMore}
+                  className="mt-2 w-full py-3 bg-[#E7E5E4] hover:bg-[#D6D3D1] text-[#1C1917] text-[10px] font-black uppercase tracking-widest rounded-xl transition-all disabled:opacity-50"
+                >
+                  {isLoadingMore ? 'Carregando...' : 'Carregar Mais'}
+                </button>
+              )}
+            </>
           )}
         </div>
 

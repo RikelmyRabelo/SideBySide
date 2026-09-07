@@ -1106,14 +1106,23 @@ app.get('/api/notifications', authenticateToken, async (req: Request, res: Respo
     const parsedLimit = Number.parseInt(String(req.query.limit || '20'), 10);
     const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 100) : 20;
     const cursor = typeof req.query.cursor === 'string' ? req.query.cursor : undefined;
+    
+    // Busca "limit + 1" para verificar se existe uma próxima página de registros
     const notifications = await prisma.notification.findMany({
       where: { userId },
-      take: limit,
+      take: limit + 1,
       skip: cursor ? 1 : 0,
       cursor: cursor ? { id: cursor } : undefined,
       orderBy: { createdAt: 'desc' },
     });
-    return res.status(200).json({ items: notifications, nextCursor: notifications.length === limit ? notifications.at(-1)?.id || null : null });
+
+    let nextCursor: string | null = null;
+    if (notifications.length > limit) {
+      notifications.pop(); // Remove o item extra da resposta devolvida
+      nextCursor = notifications[notifications.length - 1].id;
+    }
+
+    return res.status(200).json({ items: notifications, nextCursor });
    
   } catch (error: unknown) { 
     next(error); 
