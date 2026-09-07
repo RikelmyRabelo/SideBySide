@@ -9,6 +9,22 @@ export default defineConfig({
   retries: 0,
   workers: undefined,
   reporter: 'html',
+  webServer: [
+    {
+      command: 'npm run dev',
+      cwd: './backend',
+      url: 'http://localhost:3000/health',
+      reuseExistingServer: true,
+      timeout: 120000,
+    },
+    {
+      command: 'npm run dev -- --host 0.0.0.0',
+      cwd: '.',
+      url: 'http://localhost:5173',
+      reuseExistingServer: true,
+      timeout: 120000,
+    },
+  ],
   use: {
     trace: 'on-first-retry',
   },

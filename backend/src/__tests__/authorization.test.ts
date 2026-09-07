@@ -3,14 +3,12 @@ import { assertCanMessage } from '../utils/authorization.js';
 
 const mFindValue = vi.fn();
 
-vi.mock('@prisma/client', () => {
+vi.mock('../lib/prisma.js', () => {
   return {
-    PrismaClient: function() {
-      return {
-        friendship: {
-          findFirst: (...args: any[]) => mFindValue(...args),
-        },
-      };
+    prisma: {
+      friendRelation: {
+        findFirst: (...args: any[]) => mFindValue(...args),
+      },
     },
   };
 });

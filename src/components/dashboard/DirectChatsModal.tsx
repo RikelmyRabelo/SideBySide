@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, memo } from 'react';
-import { io, Socket } from 'socket.io-client';
+import type { Socket } from 'socket.io-client';
 import { Friend } from './FriendsManagerModal';
+import { api } from '../../services/api';
+import { socket } from '../../services/socket';
 
 interface Message {
   id: string | number;
@@ -45,29 +47,29 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
 
   useEffect(() => {
     if (isOpen) {
-      const newSocket = io('http://localhost:3000', { withCredentials: true });
-      socketRef.current = newSocket;
+      socketRef.current = socket;
 
-      newSocket.on('direct_message', (data: { id: string; senderId: string; text: string; timestamp: number }) => {
+      const handleDirectMessage = (data: { id: string; senderId: string; text: string; timestamp: number }) => {
         if (activeContactRef.current && data.senderId === activeContactRef.current.id) {
           const d = new Date(data.timestamp);
           const timeString = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
           setMessages((prev) => [...prev, { id: data.id || data.timestamp, text: data.text, sender: 'them', time: timeString }]);
           onClearUnread(data.senderId);
         }
-      });
+      };
+      socket.on('direct_message', handleDirectMessage);
 
       return () => {
-        newSocket.disconnect();
+        socket.off('direct_message', handleDirectMessage);
       };
     }
   }, [isOpen, onClearUnread]);
 
   useEffect(() => {
     if (isOpen && activeContact) {
-      fetch(`http://localhost:3000/api/messages/${activeContact.id}`, { credentials: 'include' })
-        .then(res => res.json())
-        .then(data => {
+      api.get(`/api/messages/${activeContact.id}`)
+        .then(response => {
+          const data = response.data;
           if (Array.isArray(data)) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const formatted: Message[] = data.map((m: any) => {
@@ -107,9 +109,9 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
 
   const handleOpenProfile = async (contact: Friend) => {
     try {
-      const response = await fetch(`http://localhost:3000/api/user/${contact.id}`, { credentials: 'include' });
-      if (response.ok) {
-        const fullData = await response.json();
+      const response = await api.get(`/api/user/${contact.id}`);
+      if (response.status === 200) {
+        const fullData = response.data;
         setViewingProfile({ ...contact, ...fullData });
       } else {
         setViewingProfile(contact);
@@ -125,14 +127,7 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
     const targetId = (viewingProfile as any).id;
 
     try {
-      const response = await fetch(`http://localhost:3000/api/friends/${targetId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error('Erro ao remover amizade.');
-      }
+      await api.delete(`/api/friends/${targetId}`);
 
       setShowRemoveConfirmModal(false);
       setViewingProfile(null);
@@ -167,14 +162,9 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
     setMessages((prev) => [...prev, newMessage]);
     setInputMessage('');
 
-    fetch('http://localhost:3000/api/messages/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        recipientId: activeContact.id,
-        text: newMessage.text
-      })
+    api.post('/api/messages/send', {
+      recipientId: activeContact.id,
+      text: newMessage.text
     }).catch(console.error);
   };
 

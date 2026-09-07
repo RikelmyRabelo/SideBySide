@@ -4,7 +4,7 @@ import { ProtectedRoute } from './ProtectedRoute';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 
 const Login = lazy(() => import('../pages/Login').then(module => ({ default: module.Login })));
-const Dashboard = lazy(() => import('../pages/Dashboard').then(module => ({ default: module.Dashboard })));
+const Dashboard = lazy(() => import('../pages/Dashboard'));
 const Room = lazy(() => import('../pages/Room')); // <-- IMPORTAÇÃO CORRIGIDA
 const Profile = lazy(() => import('../pages/Profile').then(module => ({ default: module.Profile })));
 const VerifyCode = lazy(() => import('../pages/VerifyCode').then(module => ({ default: module.VerifyCode })));

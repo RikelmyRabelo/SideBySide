@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { api } from '../services/api';
 
 export interface RoomStatus {
   hasActiveSession: boolean;
@@ -12,16 +13,9 @@ export const useRoomStatus = () => {
 
   useEffect(() => {
     const checkStatus = async () => {
-      const token = localStorage.getItem('token');
       try {
-        const response = await fetch('http://localhost:3000/api/room/status', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setStatus(data);
-        }
+        const response = await api.get('/api/room/status');
+        setStatus(response.data);
       } catch (_err) {
         // Silenciado para evitar warning de unused var
       } finally {

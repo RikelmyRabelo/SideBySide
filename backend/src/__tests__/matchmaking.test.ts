@@ -9,25 +9,24 @@ describe('Matchmaking Security & Validation Tests (SBS-19)', () => {
   let port: number;
   let clientSocket: Socket;
 
-  beforeEach((done: (err?: any) => void) => {
+  beforeEach(async () => {
     server = http.createServer();
     ioServer = new Server(server);
     setupMatchmaking(ioServer);
 
-    server.listen(0, () => {
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    {
       const address = server.address() as import('net').AddressInfo;
       port = address.port;
-      done();
-    });
+    }
   });
 
-  afterEach((done: (err?: any) => void) => {
+  afterEach(async () => {
     if (clientSocket && clientSocket.connected) {
       clientSocket.disconnect();
     }
-    ioServer.close(() => {
-      server.close(() => done());
-    });
+    await new Promise<void>((resolve) => ioServer.close(() => resolve()));
+    await new Promise<void>((resolve) => server.close(() => resolve()));
   });
 
   test('Deve rejeitar tópico inválido via Zod enum e manter estabilidade', (done: (err?: any) => void) => {

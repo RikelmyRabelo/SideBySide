@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
+import { api } from '../services/api';
 
 interface ProtectedRouteProps {
   redirectPath?: string;
@@ -16,12 +17,10 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
     const verifySessionAndSyncUser = async () => {
       try {
-        const response = await fetch('http://localhost:3000/api/user/me', {
-          credentials: 'include', 
-        });
+        const response = await api.get('/api/user/me');
 
-        if (response.ok) {
-          const userData = await response.json();
+        if (response.status === 200) {
+          const userData = response.data;
           const currentLocalUser = localStorage.getItem('user');
           const newLocalUser = JSON.stringify(userData);
 
@@ -36,9 +35,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
           localStorage.removeItem('user');
           if (isMounted) setIsAuthenticated(false);
         }
-      } catch (error) {
-        console.error('Erro ao verificar sessão:', error);
-        if (isMounted) setIsAuthenticated(!!localStorage.getItem('token'));
+      } catch (_error: unknown) {
+        if (isMounted) setIsAuthenticated(false);
       } finally {
         if (isMounted) setIsVerifying(false);
       }

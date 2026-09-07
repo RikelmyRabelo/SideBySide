@@ -2,7 +2,7 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-COPY --chown=node:node package*.json ./
+COPY --chown=node:node package.json package-lock.json ./
 RUN npm ci
 
 COPY --chown=node:node prisma ./prisma/

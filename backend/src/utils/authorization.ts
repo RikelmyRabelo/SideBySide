@@ -1,19 +1,17 @@
 // backend/src/utils/authorization.ts
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '../lib/prisma.js';
 
 export async function assertCanMessage(userId: string, targetUserId: string): Promise<void> {
   if (userId === targetUserId) {
     return;
   }
 
-  const friendship = await (prisma as any).friendship.findFirst({
+  const friendship = await prisma.friendRelation.findFirst({
     where: {
       status: 'ACCEPTED',
       OR: [
-        { senderId: userId, receiverId: targetUserId },
-        { senderId: targetUserId, receiverId: userId },
+        { userId, friendId: targetUserId },
+        { userId: targetUserId, friendId: userId },
       ],
     },
   });

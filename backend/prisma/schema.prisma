@@ -89,6 +89,7 @@ model ConversationSession {
   partnerAvatar String?
   duration      String
   topic         String
+  clientSessionId String?  @unique
   createdAt     DateTime @default(now())
   rating        Rating?
 
@@ -138,6 +139,7 @@ model Report {
   @@index([reporterId])
   @@index([reportedUserId])
   @@index([status])
+  @@unique([reporterId, reportedUserId])
 }
 
 model FriendRelation {

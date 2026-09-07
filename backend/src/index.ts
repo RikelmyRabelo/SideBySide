@@ -8,6 +8,7 @@ import { z, ZodError } from 'zod';
 import rateLimit from 'express-rate-limit';
 import winston from 'winston';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
 import { prisma } from './lib/prisma.js';
 import http from 'http';
 import { Server as SocketIOServer, Socket } from 'socket.io';
@@ -17,24 +18,44 @@ import { setupMatchmaking } from './sockets/matchmaking.js';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { createClient } from 'redis';
 import { cookieOptions, pendingUsers, verificationCodes, transporter, loginHandler, logoutHandler } from './controllers/authController.js';
+import { assertCanMessage } from './utils/authorization.js';
 
 const app = express();
 
+const allowedOrigins = (process.env.CORS_ORIGIN || (process.env.NODE_ENV === 'production'
+  ? 'https://seusiteoficial.com'
+  : 'http://localhost:5173,https://localhost:5173,http://localhost:4173'))
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 const corsOptions = {
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://seusiteoficial.com'] 
-    : ['http://localhost:5173', 'https://localhost:5173', 'http://localhost:4173'], 
+  origin: allowedOrigins,
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true
 };
 
 app.use(cors(corsOptions));
+app.use(helmet());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(cookieParser());
 
+app.use((req: Request, res: Response, next: NextFunction) => {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+  const origin = req.get('origin');
+  if (origin && !allowedOrigins.includes(origin)) {
+    return res.status(403).json({ error: 'Origem não autorizada.' });
+  }
+  next();
+});
+
 const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'seu-segredo-super-seguro';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  throw new Error('JWT_SECRET must be configured with at least 32 characters.');
+}
+const signingSecret = JWT_SECRET;
 
 const server = http.createServer(app);
 
@@ -46,12 +67,14 @@ const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 const pubClient = createClient({ url: redisUrl });
 const subClient = pubClient.duplicate();
 
-Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
-  io.adapter(createAdapter(pubClient, subClient));
-  console.log(`📡 Redis Adapter conectado com sucesso em ${redisUrl}`);
-}).catch(err => {
-  console.error('❌ Erro ao conectar o Redis Adapter:', err);
-});
+if (process.env.NODE_ENV !== 'test') {
+  Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
+    io.adapter(createAdapter(pubClient, subClient));
+    console.log(`📡 Redis Adapter conectado com sucesso em ${redisUrl}`);
+  }).catch(err => {
+    console.error('❌ Erro ao conectar o Redis Adapter:', err);
+  });
+}
 
 const matchFeedback = new Map<string, Map<string, 'positive' | 'negative' | 'skip'>>();
 const _sessionFeedback = new Map<string, { averageRating: number; count: number; lastUpdated: Date }>();
@@ -93,9 +116,18 @@ const logger = winston.createLogger({
   ],
 });
 
+const metrics = {
+  requestsTotal: 0,
+  requestsByStatus: new Map<string, number>(),
+  latencyTotalMs: 0,
+};
+
 // Middleware de Request ID, Rastreamento e Latência (SBS-35)
 app.use((req: Request, res: Response, next: NextFunction) => {
-  const requestId = (req.headers['x-request-id'] as string) || randomUUID();
+  const incomingRequestId = req.headers['x-request-id'];
+  const requestId = typeof incomingRequestId === 'string' && /^[A-Za-z0-9._:-]{1,100}$/.test(incomingRequestId)
+    ? incomingRequestId
+    : randomUUID();
   res.setHeader('X-Request-Id', requestId);
 
   const start = process.hrtime.bigint();
@@ -104,6 +136,10 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   res.on('finish', () => {
     const durationNs = process.hrtime.bigint() - start;
     const durationMs = Number(durationNs) / 1_000_000;
+    metrics.requestsTotal += 1;
+    metrics.latencyTotalMs += durationMs;
+    const statusKey = String(res.statusCode);
+    metrics.requestsByStatus.set(statusKey, (metrics.requestsByStatus.get(statusKey) || 0) + 1);
 
     logger.info(`[${req.method}] ${req.url} - IP: ${safeIp} - Status: ${res.statusCode} - Latência: ${durationMs.toFixed(2)}ms`, {
       requestId,
@@ -116,6 +152,16 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   });
 
   next();
+});
+
+app.get('/metrics', (_req: Request, res: Response) => {
+  const averageLatencyMs = metrics.requestsTotal === 0 ? 0 : metrics.latencyTotalMs / metrics.requestsTotal;
+  return res.status(200).json({
+    requestsTotal: metrics.requestsTotal,
+    requestsByStatus: Object.fromEntries(metrics.requestsByStatus),
+    averageLatencyMs: Number(averageLatencyMs.toFixed(2)),
+    uptimeSeconds: Math.round(process.uptime()),
+  });
 });
 
 // Healthcheck endpoint
@@ -201,7 +247,7 @@ const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
     return res.status(401).json({ error: 'Acesso negado. Sessão não encontrada.' });
   }
 
-  jwt.verify(token, JWT_SECRET, (err: any, decoded: any) => {
+  jwt.verify(token, signingSecret, (err: any, decoded: any) => {
     if (err) {
       return res.status(403).json({ error: 'Sessão inválida ou expirada.' });
     }
@@ -218,7 +264,7 @@ io.use((socket: Socket, next: (err?: Error) => void) => {
 
     if (!token) return next(new Error('Autenticação não encontrada no handshake.'));
 
-    jwt.verify(token, JWT_SECRET, (err, decoded: any) => {
+    jwt.verify(token, signingSecret, (err, decoded: any) => {
       if (err) return next(new Error('Sessão JWT inválida ou expirada.'));
        
       (socket as any).user = decoded;
@@ -266,7 +312,7 @@ const registerSchema = z.object({
   name: z.string().trim().min(1, 'Nome não pode estar vazio.').optional().default('Usuário'),
   email: z.string().email('E-mail inválido.'),
   password: z.string().min(6, 'A senha deve ter no mínimo 6 caracteres.'),
-  level: z.string().optional(),
+  level: z.enum(['A1', 'A2', 'B1', 'B2', 'C1', 'C2']).optional(),
 });
 const loginSchema = z.object({
   email: z.string().email('E-mail inválido.'),
@@ -390,7 +436,7 @@ app.post('/api/auth/verify-code', authLimiter, validateRequest(verifyCodeSchema)
       },
     });
 
-    const token = jwt.sign({ id: newUser.id, email: newUser.email }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: newUser.id, email: newUser.email }, signingSecret, { expiresIn: '7d' });
     res.cookie('token', token, cookieOptions);
     return res.status(200).json({
       message: 'Conta criada.',
@@ -469,13 +515,13 @@ app.post('/api/room/report', authenticateToken, reportLimiter, async (req: Reque
       let flagStatus = reported.flagStatus || 'CLEAN';
       let bannedUntil = reported.bannedUntil;
 
-      if (newReportCount >= 3 && flagStatus === 'CLEAN') {
-        flagStatus = 'WARNING';
-      } else if (newReportCount >= 6 && flagStatus === 'WARNING') {
+      if (newReportCount >= 10) {
+        flagStatus = 'BANNED';
+      } else if (newReportCount >= 6) {
         flagStatus = 'SUSPENDED';
         bannedUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-      } else if (newReportCount >= 10) {
-        flagStatus = 'BANNED';
+      } else if (newReportCount >= 3) {
+        flagStatus = 'WARNING';
       }
 
       await tx.user.update({
@@ -539,50 +585,75 @@ app.post('/api/room/rate', authenticateToken, async (req: Request, res: Response
       partnerName, 
       partnerAvatar, 
       duration, 
-      topic
+      topic,
+      sessionId
     } = req.body || {};
 
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
-    
     const rawAverage = Number(partnerRating ?? platformRating ?? 0);
     const safeAverage = Number.isFinite(rawAverage) ? Math.max(1, Math.min(5, rawAverage)) : 3;
     const ratingDelta = Math.round((safeAverage - 3) * 10);
-    const updatedReputation = Math.max(0, Math.min(100, (user.reputation || 0) + ratingDelta));
-    
-    const totalSessions = (user.totalSessions || 0) + 1;
-    const totalMinutes = (user.totalMinutes || 0) + 15;
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        const user = await tx.user.findUnique({ where: { id: userId } });
+        if (!user) throw new Error('USER_NOT_FOUND');
 
-    const newSession = await prisma.conversationSession.create({
-      data: {
-        userId: userId,
-        partnerId: partnerId || 'desconhecido',
-        partnerName: partnerName || 'Estudante',
-        partnerAvatar: partnerAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
-        duration: duration || '15 min',
-        topic: topic || 'Bate-Papo Livre',
-        rating: {
-          create: {
-            partnerRating: Number(partnerRating ?? 3),
-            platformRating: Number(platformRating ?? 3),
-            comment: comment || ''
+        if (sessionId) {
+          const existingSession = await tx.conversationSession.findUnique({
+            where: { clientSessionId: sessionId },
+            include: { rating: true }
+          });
+          if (existingSession) {
+            return { alreadyRated: true, reputation: user.reputation, averageRating: existingSession.rating?.partnerRating ?? 3 };
           }
         }
-      },
-      include: { rating: true }
-    });
 
-    const updatedUser = await prisma.user.update({ 
-      where: { id: userId }, 
-      data: { 
-        reputation: updatedReputation, 
-        totalSessions, 
-        totalMinutes,
-        lastSession: newSession as any
-      } 
-    });
+        const updatedReputation = Math.max(0, Math.min(100, (user.reputation || 0) + ratingDelta));
+        const newSession = await tx.conversationSession.create({
+          data: {
+            userId,
+            partnerId: partnerId || 'desconhecido',
+            partnerName: partnerName || 'Estudante',
+            partnerAvatar: partnerAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+            duration: duration || '15 min',
+            topic: topic || 'Bate-Papo Livre',
+            clientSessionId: sessionId || undefined,
+            rating: {
+              create: {
+                partnerRating: Number(partnerRating ?? 3),
+                platformRating: Number(platformRating ?? 3),
+                comment: comment || ''
+              }
+            }
+          },
+          include: { rating: true }
+        });
 
-    return res.status(200).json({ message: 'Avaliação salva com sucesso.', reputation: updatedUser.reputation, averageRating: safeAverage });
+        const updatedUser = await tx.user.update({
+          where: { id: userId },
+          data: {
+            reputation: updatedReputation,
+            totalSessions: { increment: 1 },
+            totalMinutes: { increment: 15 },
+            lastSession: newSession as any
+          }
+        });
+        return { alreadyRated: false, reputation: updatedUser.reputation, averageRating: safeAverage };
+      });
+
+      return res.status(200).json({
+        message: result.alreadyRated ? 'Avaliação já registrada.' : 'Avaliação salva com sucesso.',
+        reputation: result.reputation,
+        averageRating: result.averageRating
+      });
+    } catch (error: any) {
+      if (error.message === 'USER_NOT_FOUND') return res.status(404).json({ error: 'Usuário não encontrado.' });
+      if (error.code === 'P2002' && sessionId) {
+        const existingSession = await prisma.conversationSession.findUnique({ where: { clientSessionId: sessionId }, include: { rating: true } });
+        const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { reputation: true } });
+        if (existingSession && currentUser) return res.status(200).json({ message: 'Avaliação já registrada.', reputation: currentUser.reputation, averageRating: existingSession.rating?.partnerRating ?? 3 });
+      }
+      throw error;
+    }
    
   } catch (error: unknown) { 
     next(error); 
@@ -687,51 +758,26 @@ app.post('/api/friends/accept', authenticateToken, async (req: Request, res: Res
     const userId = (req as any).user.id;
     const { requestId, senderId, action } = req.body;
     
-    let targetRequesterId = senderId;
+    const relation = requestId
+      ? await prisma.friendRelation.findFirst({ where: { id: String(requestId), friendId: userId, status: 'PENDING' } })
+      : senderId
+        ? await prisma.friendRelation.findFirst({ where: { userId: String(senderId), friendId: userId, status: 'PENDING' } })
+        : null;
 
-    if (requestId) {
-      const rel = await prisma.friendRelation.findUnique({ where: { id: String(requestId) } });
-      if (rel) {
-        targetRequesterId = targetRequesterId || rel.userId;
-      }
-    }
+    if (!relation) return res.status(404).json({ error: 'Solicitação de amizade não encontrada.' });
+    const targetRequesterId = relation.userId;
 
     if (action === 'reject') {
-      if (requestId) {
-        await prisma.friendRelation.deleteMany({ where: { id: String(requestId) } });
-      } else if (targetRequesterId) {
-        await prisma.friendRelation.deleteMany({
-          where: {
-            OR: [
-              { userId: String(targetRequesterId), friendId: userId },
-              { userId: userId, friendId: String(targetRequesterId) }
-            ]
-          }
-        });
-      }
+      await prisma.friendRelation.delete({ where: { id: relation.id } });
       return res.status(200).json({ message: 'Solicitação de amizade recusada e removida com sucesso.' });
     }
 
-    if (requestId) {
-      await prisma.friendRelation.updateMany({
-        where: { id: String(requestId) },
-        data: { status: 'ACCEPTED' }
-      }).catch((err: unknown) => {
-        logger.error('[Friendship Acceptance Error] Falha ao atualizar status da solicitação por ID:', err);
-      });
-    }
+    await prisma.friendRelation.update({
+      where: { id: relation.id },
+      data: { status: 'ACCEPTED' }
+    });
 
-    if (targetRequesterId) {
-      await prisma.friendRelation.updateMany({
-        where: {
-          OR: [
-            { userId: String(targetRequesterId), friendId: userId },
-            { userId: userId, friendId: String(targetRequesterId) }
-          ]
-        },
-        data: { status: 'ACCEPTED' }
-      });
-
+    {
       const [acceptingUser, requesterUser] = await Promise.all([
         prisma.user.findUnique({ where: { id: userId } }),
         prisma.user.findUnique({ where: { id: String(targetRequesterId) } })
@@ -815,7 +861,6 @@ app.delete('/api/friends/:friendId', authenticateToken, async (req: Request, res
     await prisma.friendRelation.deleteMany({
       where: {
         OR: [
-          { id: targetId },
           { AND: { userId: userId, friendId: targetId } },
           { AND: { userId: targetId, friendId: userId } }
         ]
@@ -841,8 +886,11 @@ app.delete('/api/friends/:friendId', authenticateToken, async (req: Request, res
 app.post('/api/messages/send', authenticateToken, messageLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const senderId = (req as any).user.id;
-    const recipientId = String(req.body.recipientId);
-    const text = String(req.body.text);
+    const parsedMessage = directMessageHttpSchema.safeParse(req.body);
+    if (!parsedMessage.success) return res.status(400).json({ error: 'Mensagem inválida.' });
+    const { recipientId, text } = parsedMessage.data;
+
+    await assertCanMessage(senderId, recipientId);
 
     const message = await prisma.directMessage.create({
       data: {
@@ -862,6 +910,9 @@ app.post('/api/messages/send', authenticateToken, messageLimiter, async (req: Re
     return res.status(201).json(message);
    
   } catch (error: unknown) {
+    if (error instanceof Error && error.message.startsWith('UNAUTHORIZED_DIRECT_MESSAGE:')) {
+      return res.status(403).json({ error: 'Você não pode enviar mensagens para este usuário.' });
+    }
     next(error);
   }
 });
@@ -870,8 +921,10 @@ app.get('/api/messages/:recipientId', authenticateToken, async (req: Request, re
   try {
     const senderId = (req as any).user.id;
     const recipientId = String(req.params.recipientId);
+    await assertCanMessage(senderId, recipientId);
     
-    const limit = parseInt(req.query.limit as string, 10) || 50;
+    const requestedLimit = parseInt(req.query.limit as string, 10);
+    const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 100) : 50;
     const cursor = req.query.cursor as string | undefined;
 
     const messages = await prisma.directMessage.findMany({
@@ -890,6 +943,9 @@ app.get('/api/messages/:recipientId', authenticateToken, async (req: Request, re
     return res.status(200).json(messages.reverse());
    
   } catch (error: unknown) {
+    if (error instanceof Error && error.message.startsWith('UNAUTHORIZED_DIRECT_MESSAGE:')) {
+      return res.status(403).json({ error: 'Você não pode acessar mensagens deste usuário.' });
+    }
     next(error);
   }
 });
@@ -899,17 +955,20 @@ app.get('/api/user/me', authenticateToken, async (req: Request, res: Response, n
     const userId = (req as any).user.id;
     const user = await prisma.user.findUnique({ 
       where: { id: userId },
-      include: {
-        sessionsHistory: {
-          include: { rating: true },
-          orderBy: { createdAt: 'desc' }
-        }
+      select: {
+        id: true, name: true, email: true, tag: true, level: true, reputation: true,
+        birthDate: true, showAgeInProfile: true, gender: true, pronouns: true, bio: true,
+        interests: true, avatar: true, notifyEmail: true, notifyPush: true, notifyAdvance: true,
+        streak: true, totalMinutes: true, totalSessions: true, weeklyGoal: true,
+        reportCount: true, flagStatus: true, flaggedAt: true, bannedUntil: true,
+        createdAt: true, updatedAt: true,
+        sessionsHistory: { include: { rating: true }, orderBy: { createdAt: 'desc' }, take: 100 }
       }
     });
     
     if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
     
-    const feedbacks = user.sessionsHistory
+    const feedbacks = (user.sessionsHistory || [])
       .filter(s => s.rating?.comment)
       .map((s, idx) => ({
           id: idx + 1,
@@ -919,8 +978,12 @@ app.get('/api/user/me', authenticateToken, async (req: Request, res: Response, n
           comment: s.rating?.comment
       }));
 
+    const safeUser = { ...user } as Record<string, unknown>;
+    delete safeUser.password;
+    delete safeUser.passwordHash;
+
     return res.status(200).json({
-      ...user,
+      ...safeUser,
       reputationScore: `${user.reputation ?? 100}/100`,
       feedbacks,
     });
@@ -977,7 +1040,7 @@ app.get('/api/user/:id', authenticateToken, async (req: Request, res: Response, 
       select: {
         id: true,
         name: true,
-        email: true,
+        email: false,
         level: true,
         avatar: true,
         bio: true,
@@ -988,7 +1051,7 @@ app.get('/api/user/:id', authenticateToken, async (req: Request, res: Response, 
         reputation: true,
         streak: true,
         interests: true,
-        sessionsHistory: true
+        sessionsHistory: false
       }
     });
 
@@ -1003,11 +1066,17 @@ app.get('/api/user/:id', authenticateToken, async (req: Request, res: Response, 
 app.get('/api/notifications', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user.id;
+    const parsedLimit = Number.parseInt(String(req.query.limit || '20'), 10);
+    const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 100) : 20;
+    const cursor = typeof req.query.cursor === 'string' ? req.query.cursor : undefined;
     const notifications = await prisma.notification.findMany({
       where: { userId },
+      take: limit,
+      skip: cursor ? 1 : 0,
+      cursor: cursor ? { id: cursor } : undefined,
       orderBy: { createdAt: 'desc' },
     });
-    return res.status(200).json(notifications);
+    return res.status(200).json({ items: notifications, nextCursor: notifications.length === limit ? notifications.at(-1)?.id || null : null });
    
   } catch (error: unknown) { 
     next(error); 
@@ -1024,12 +1093,14 @@ app.get('/api/matches/candidates', authenticateToken, async (req: Request, res: 
     
     if (!me) return res.status(404).json({ error: 'Usuário não encontrado.' });
     
+    const parsedLimit = Number.parseInt(String(req.query.limit || '10'), 10);
+    const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 50) : 10;
     const rawCandidates = await prisma.user.findMany({
       where: { 
         id: { not: userId }, 
         isBanned: false 
       },
-      take: 10,
+      take: limit,
       select: {
         id: true,
         name: true,
@@ -1043,24 +1114,18 @@ app.get('/api/matches/candidates', authenticateToken, async (req: Request, res: 
       }
     });
 
-    const selectedCandidate = rawCandidates.length > 0 
-      ? rawCandidates[Math.floor(Math.random() * rawCandidates.length)] 
-      : null;
-
-    const candidates = selectedCandidate ? [{
-      id: selectedCandidate.id, 
-      name: selectedCandidate.name, 
-      level: selectedCandidate.level, 
-      avatar: selectedCandidate.avatar,
-      interests: selectedCandidate.interests || [], 
-      sharedInterests: [], 
-      score: 85, 
-      reputation: selectedCandidate.reputation,
-      totalSessions: selectedCandidate.totalSessions || 0, 
-      totalMinutes: selectedCandidate.totalMinutes || 0, 
-      history: null, 
-      flagStatus: selectedCandidate.flagStatus
-    }] : [];
+    const levelWeight: Record<string, number> = { A1: 1, A2: 2, B1: 3, B2: 4, C1: 5, C2: 6 };
+    const candidates = rawCandidates.map((candidate) => {
+      const sharedInterests = (me.interests || []).filter((interest) => candidate.interests.includes(interest));
+      const distance = Math.abs((levelWeight[candidate.level] || 3) - (levelWeight[me.level] || 3));
+      const score = Math.min(100, Math.round(
+        (distance === 0 ? 50 : distance === 1 ? 25 : 0) +
+        sharedInterests.length * 15 +
+        Math.min(25, candidate.reputation / 10) +
+        Math.min(20, candidate.totalSessions * 2 + candidate.totalMinutes / 30)
+      ));
+      return { ...candidate, sharedInterests, score, history: null };
+    }).sort((left, right) => right.score - left.score);
 
     return res.status(200).json({ candidates, me: { id: me.id, level: me.level, interests: me.interests || [] } });
    
@@ -1083,12 +1148,12 @@ app.post('/api/matches/feedback', authenticateToken, async (req: Request, res: R
 app.put('/api/user/profile', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tokenUser = (req as any).user;
-    const { cefrLevel, ...bodyData } = req.body;
-    
-    const updateData: any = {
-      ...bodyData,
-      ...(cefrLevel ? { level: cefrLevel } : {})
-    };
+    const parsedProfile = profileUpdateSchema.safeParse(req.body);
+    if (!parsedProfile.success) {
+      return res.status(400).json({ error: 'Dados de perfil inválidos.', details: parsedProfile.error.issues });
+    }
+    const { cefrLevel, ...profileData } = parsedProfile.data;
+    const updateData = { ...profileData, ...(cefrLevel ? { level: cefrLevel } : {}) };
 
     let user = await prisma.user.findUnique({ where: { id: tokenUser.id } });
 
@@ -1111,13 +1176,21 @@ app.put('/api/user/profile', authenticateToken, async (req: Request, res: Respon
       }
     }
 
-    if (updateData.name && updateData.name !== user.name) {
-      updateData.tag = `${updateData.name.replace(/\s+/g, '').toLowerCase()}#${user.id.slice(0, 4)}`;
-    }
+    const tag = updateData.name && updateData.name !== user.name
+      ? `${updateData.name.replace(/\s+/g, '').toLowerCase()}#${user.id.slice(0, 4)}`
+      : undefined;
 
     const updatedUser = await prisma.user.update({ 
       where: { id: user.id }, 
-      data: updateData 
+      data: { ...updateData, ...(tag ? { tag } : {}) },
+      select: {
+        id: true, name: true, email: true, tag: true, level: true, reputation: true,
+        birthDate: true, showAgeInProfile: true, gender: true, pronouns: true, bio: true,
+        interests: true, avatar: true, notifyEmail: true, notifyPush: true, notifyAdvance: true,
+        streak: true, totalMinutes: true, totalSessions: true, weeklyGoal: true,
+        reportCount: true, flagStatus: true, flaggedAt: true, bannedUntil: true,
+        createdAt: true, updatedAt: true
+      }
     });
 
     return res.status(200).json({ message: 'Perfil atualizado com sucesso.', user: updatedUser });
@@ -1158,6 +1231,41 @@ const gracefulShutdown = async (signal: string) => {
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-server.listen(PORT, () => {
-  logger.info(`Servidor HTTP/Socket rodando na porta ${PORT}`);
+export { app, server, io };
+
+if (process.env.NODE_ENV !== 'test') {
+  server.listen(PORT, () => {
+    logger.info(`Servidor HTTP/Socket rodando na porta ${PORT}`);
+  });
+}
+const profileUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(100).optional(),
+  birthDate: z.string().max(30).optional(),
+  showAgeInProfile: z.boolean().optional(),
+  gender: z.string().max(50).optional(),
+  pronouns: z.string().max(50).optional(),
+  cefrLevel: z.enum(['A1', 'A2', 'B1', 'B2', 'C1', 'C2']).optional(),
+  bio: z.string().max(1000).optional(),
+  interests: z.array(z.string().max(50)).max(20).optional(),
+  avatar: z.string().url().max(2048).optional(),
+});
+const directMessageHttpSchema = z.object({
+  recipientId: z.string().min(1),
+  text: z.string().trim().min(1).max(1000),
+});
+
+app.get('/health/live', (_req: Request, res: Response) => {
+  return res.status(200).json({ status: 'alive', timestamp: new Date().toISOString() });
+});
+
+app.get('/health/ready', async (_req: Request, res: Response) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    if (!pubClient.isOpen || !subClient.isOpen) {
+      return res.status(503).json({ status: 'not_ready', dependencies: { database: 'ready', redis: 'not_ready' } });
+    }
+    return res.status(200).json({ status: 'ready', dependencies: { database: 'ready', redis: 'ready' } });
+  } catch (_error: unknown) {
+    return res.status(503).json({ status: 'not_ready' });
+  }
 });

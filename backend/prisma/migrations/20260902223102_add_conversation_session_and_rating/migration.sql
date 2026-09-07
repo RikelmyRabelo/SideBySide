@@ -5,10 +5,6 @@
   - A unique constraint covering the columns `[tag]` on the table `User` will be added. If there are existing duplicate values, this will fail.
 
 */
--- AlterTable
-ALTER TABLE "User" DROP COLUMN "sessionsHistory",
-ADD COLUMN     "tag" TEXT NOT NULL DEFAULT 'User#0000';
-
 -- CreateTable
 CREATE TABLE "ConversationSession" (
     "id" TEXT NOT NULL,
@@ -34,6 +30,39 @@ CREATE TABLE "Rating" (
 
     CONSTRAINT "Rating_pkey" PRIMARY KEY ("id")
 );
+
+-- Preserve legacy JSON session history before removing the old column.
+INSERT INTO "ConversationSession" ("id", "userId", "partnerId", "partnerName", "partnerAvatar", "duration", "topic", "createdAt")
+SELECT
+    md5(u."id" || ':' || ordinality::text) AS "id",
+    u."id",
+    COALESCE(NULLIF(entry->>'partnerId', ''), 'desconhecido'),
+    COALESCE(NULLIF(entry->>'partnerName', ''), 'Estudante'),
+    NULLIF(entry->>'partnerAvatar', ''),
+    COALESCE(NULLIF(entry->>'duration', ''), '15 min'),
+    COALESCE(NULLIF(entry->>'topic', ''), 'Bate-Papo Livre'),
+    CURRENT_TIMESTAMP
+FROM "User" u
+CROSS JOIN LATERAL unnest(u."sessionsHistory") WITH ORDINALITY AS history(entry, ordinality)
+WHERE u."sessionsHistory" IS NOT NULL;
+
+INSERT INTO "Rating" ("id", "sessionId", "partnerRating", "platformRating", "comment", "createdAt")
+SELECT
+    md5(session."id" || ':rating'),
+    session."id",
+    CASE WHEN entry->>'partnerRating' ~ '^[0-9]+$' THEN (entry->>'partnerRating')::integer ELSE NULL END,
+    CASE WHEN entry->>'platformRating' ~ '^[0-9]+$' THEN (entry->>'platformRating')::integer ELSE 3 END,
+    NULLIF(entry->>'comment', ''),
+    session."createdAt"
+FROM "User" u
+CROSS JOIN LATERAL unnest(u."sessionsHistory") WITH ORDINALITY AS history(entry, ordinality)
+JOIN "ConversationSession" session
+    ON session."id" = md5(u."id" || ':' || ordinality::text)
+WHERE u."sessionsHistory" IS NOT NULL;
+
+-- Remove the legacy representation only after the data has been copied.
+ALTER TABLE "User" DROP COLUMN "sessionsHistory",
+ADD COLUMN     "tag" TEXT NOT NULL DEFAULT 'User#0000';
 
 -- CreateTable
 CREATE TABLE "Notification" (

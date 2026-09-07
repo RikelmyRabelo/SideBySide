@@ -1,15 +1,29 @@
+import 'dotenv/config';
 import { Server, Socket } from 'socket.io';
 import { prisma } from '../lib/prisma.js';
 import jwt from 'jsonwebtoken';
 import cookie from 'cookie';
 import { z } from 'zod';
+import { assertCanMessage } from '../utils/authorization.js';
+import {
+  enqueueMatch,
+  dequeueMatchPair,
+  removeMatch,
+  setActiveSession,
+  getActiveSession,
+  removeActiveSession,
+  setUserSocketMapping,
+  removeUserSocketMapping,
+} from '../services/sessionRedis.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'seu-segredo-super-seguro';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  throw new Error('JWT_SECRET must be configured with at least 32 characters.');
+}
+const signingSecret = JWT_SECRET;
 
 const ALLOWED_TOPICS = ['general', 'business', 'technology', 'travel', 'daily'] as const;
-const MAX_QUEUE_SIZE_PER_TOPIC = 100;
 
-const queues: Record<string, Socket[]> = {};
 const activeRooms: Map<string, Set<string>> = new Map();
 const socketRoomMap: Map<string, string> = new Map();
 const socketTopicMap: Map<string, string> = new Map();
@@ -71,6 +85,12 @@ const safeParseEvent = <T>(schema: z.ZodType<T>, data: unknown, callback: (parse
 };
 
 export const setupMatchmaking = (io: Server) => {
+  const isRoomMember = async (roomId: string, userId: string, socketId: string): Promise<boolean> => {
+    if (activeRooms.get(roomId)?.has(socketId)) return true;
+    const session = await getActiveSession(roomId);
+    return Boolean(session && (session.userA === userId || session.userB === userId));
+  };
+
   io.use((socket, next) => {
     try {
       const cookies = cookie.parse(socket.request.headers.cookie || '');
@@ -80,7 +100,7 @@ export const setupMatchmaking = (io: Server) => {
         return next(new Error('Autenticação não encontrada no handshake.'));
       }
 
-      jwt.verify(token, JWT_SECRET, (err, decoded) => {
+      jwt.verify(token, signingSecret, (err, decoded) => {
         if (err) {
           console.error(`[WebSocket Auth Error] Falha ao verificar token JWT para socket ID ${socket.id}:`, err);
           return next(new Error('Sessão JWT inválida ou expirada.'));
@@ -129,6 +149,9 @@ export const setupMatchmaking = (io: Server) => {
 
     if (user?.id) {
       socket.join(`user_${user.id}`);
+      void setUserSocketMapping(user.id, socket.id).catch((error: unknown) => {
+        console.error(`[Matchmaking Redis Error] Falha ao mapear socket ${socket.id}:`, error);
+      });
     }
 
     socket.on('find_match', (data: unknown) => {
@@ -136,69 +159,59 @@ export const setupMatchmaking = (io: Server) => {
         const rawTopic = parsedData?.topicId;
         const topicId = (rawTopic && rawTopic.trim() !== '') ? rawTopic : 'general';
         
-        if (!queues[topicId]) queues[topicId] = [];
-        
-        for (const key in queues) {
-          queues[key] = queues[key].filter(s => s.id !== socket.id);
-        }
-        
-        if (queues[topicId].length >= MAX_QUEUE_SIZE_PER_TOPIC) {
-          socket.emit('queue_full', { message: 'A fila para este tópico atingiu a capacidade máxima. Tente novamente mais tarde.' });
-          console.warn(`[Queue Overflow Warning] Tópico '${topicId}' atingiu o limite de ${MAX_QUEUE_SIZE_PER_TOPIC} conexões.`);
-          return;
-        }
-
-        queues[topicId].push(socket);
+        await removeMatch(topicId, user.id, socket.id);
+        await enqueueMatch(topicId, user.id, socket.id);
         socketTopicMap.set(socket.id, topicId);
 
-        if (queues[topicId].length >= 2) {
-          const socket1 = queues[topicId].shift();
-          const socket2 = queues[topicId].shift();
+        const pair = await dequeueMatchPair(topicId);
+        if (pair.length === 2 && pair[0] && pair[1]) {
+          const socket1 = io.sockets.sockets.get(pair[0].socketId);
+          const socket2 = io.sockets.sockets.get(pair[1].socketId);
+          const user1 = pair[0];
+          const user2 = pair[1];
 
-          if (socket1 && socket2) {
+          if (socket1 || socket2) {
              
-            const user1 = (socket1 as any).user;
-             
-            const user2 = (socket2 as any).user;
             const roomId = `room_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
             
-            socket1.join(roomId);
-            socket2.join(roomId);
+            void io.in(`user_${user1.userId}`).socketsJoin(roomId);
+            void io.in(`user_${user2.userId}`).socketsJoin(roomId);
 
-            activeRooms.set(roomId, new Set([socket1.id, socket2.id]));
-            socketRoomMap.set(socket1.id, roomId);
-            socketRoomMap.set(socket2.id, roomId);
+            activeRooms.set(roomId, new Set([user1.socketId, user2.socketId]));
+            if (socket1) socketRoomMap.set(socket1.id, roomId);
+            if (socket2) socketRoomMap.set(socket2.id, roomId);
+            void setActiveSession(roomId, { userA: user1.userId, userB: user2.userId, topicId });
             
-            socketTopicMap.delete(socket1.id);
-            socketTopicMap.delete(socket2.id);
+            socketTopicMap.delete(user1.socketId);
+            socketTopicMap.delete(user2.socketId);
 
             const u1Data = { name: 'Estudante', avatar: null as string | null };
             const u2Data = { name: 'Estudante', avatar: null as string | null };
 
             try {
-              if (user1?.id) {
-                const dbU1 = await prisma.user.findUnique({ where: { id: user1.id } });
+              if (user1.userId) {
+                const dbU1 = await prisma.user.findUnique({ where: { id: user1.userId } });
                 if (dbU1) { u1Data.name = dbU1.name; u1Data.avatar = dbU1.avatar; }
               }
-              if (user2?.id) {
-                const dbU2 = await prisma.user.findUnique({ where: { id: user2.id } });
+              if (user2.userId) {
+                const dbU2 = await prisma.user.findUnique({ where: { id: user2.userId } });
                 if (dbU2) { u2Data.name = dbU2.name; u2Data.avatar = dbU2.avatar; }
               }
             } catch (err: unknown) {
               console.error(`[Matchmaking DB Error] Falha ao buscar dados de perfil dos usuários na sala ${roomId}:`, err);
             }
 
-            socket1.emit('match_found', { 
+            io.to(`user_${user1.userId}`).emit('match_found', { 
               roomId, 
-              partnerId: user2?.id || socket2.id, 
+              partnerId: user2.userId, 
               partnerName: u2Data.name, 
               partnerAvatar: u2Data.avatar, 
               initiator: true 
             });
             
-            socket2.emit('match_found', { 
+            io.to(`user_${user2.userId}`).emit('match_found', { 
               roomId, 
-              partnerId: user1?.id || socket1.id, 
+              partnerId: user1.userId, 
               partnerName: u1Data.name, 
               partnerAvatar: u1Data.avatar, 
               initiator: false 
@@ -210,22 +223,23 @@ export const setupMatchmaking = (io: Server) => {
 
     socket.on('cancel_match', () => {
       const topicId = socketTopicMap.get(socket.id);
-      if (topicId && queues[topicId]) {
-        queues[topicId] = queues[topicId].filter(s => s.id !== socket.id);
+      if (topicId && user?.id) {
+        void removeMatch(topicId, user.id, socket.id);
         socketTopicMap.delete(socket.id);
       }
     });
 
     const handlePartnerLeave = (data?: unknown) => {
-      safeParseEvent(leaveRoomSchema, data, (parsedData) => {
+      safeParseEvent(leaveRoomSchema, data, async (parsedData) => {
         const targetRoomId = parsedData?.roomId || socketRoomMap.get(socket.id);
         
-        if (targetRoomId) {
+        if (targetRoomId && user?.id && await isRoomMember(targetRoomId, user.id, socket.id)) {
           socket.to(targetRoomId).emit('partner_left');
           const room = activeRooms.get(targetRoomId);
           if (room) {
             room.delete(socket.id);
             if (room.size === 0) activeRooms.delete(targetRoomId);
+            void removeActiveSession(targetRoomId);
           }
           socket.leave(targetRoomId);
         }
@@ -237,9 +251,8 @@ export const setupMatchmaking = (io: Server) => {
 
     socket.on('disconnect', () => {
       const topicId = socketTopicMap.get(socket.id);
-      if (topicId && queues[topicId]) {
-        queues[topicId] = queues[topicId].filter(s => s.id !== socket.id);
-      }
+      if (topicId && user?.id) void removeMatch(topicId, user.id, socket.id);
+      if (user?.id) void removeUserSocketMapping(user.id);
       handlePartnerLeave();
       socketTopicMap.delete(socket.id);
       socketRateLimits.delete(socket.id);
@@ -247,41 +260,61 @@ export const setupMatchmaking = (io: Server) => {
 
     socket.on('camera_status', (data: unknown) => {
       safeParseEvent(cameraStatusSchema, data, (parsedData) => {
-        socket.to(parsedData.roomId).emit('camera_status', { camActive: parsedData.camActive });
+        void isRoomMember(parsedData.roomId, user?.id, socket.id).then((isMember) => {
+          if (isMember) socket.to(parsedData.roomId).emit('camera_status', { camActive: parsedData.camActive });
+        });
       });
     });
 
     socket.on('webrtc_offer', (data: unknown) => {
       safeParseEvent(webrtcSdpSchema, data, (parsedData) => {
-        socket.to(parsedData.roomId).emit('webrtc_offer', { sdp: parsedData.sdp });
+        void isRoomMember(parsedData.roomId, user?.id, socket.id).then((isMember) => {
+          if (isMember) socket.to(parsedData.roomId).emit('webrtc_offer', { sdp: parsedData.sdp });
+        });
       });
     });
 
     socket.on('webrtc_answer', (data: unknown) => {
       safeParseEvent(webrtcSdpSchema, data, (parsedData) => {
-        socket.to(parsedData.roomId).emit('webrtc_answer', { sdp: parsedData.sdp });
+        void isRoomMember(parsedData.roomId, user?.id, socket.id).then((isMember) => {
+          if (isMember) socket.to(parsedData.roomId).emit('webrtc_answer', { sdp: parsedData.sdp });
+        });
       });
     });
     
     socket.on('webrtc_ice_candidate', (data: unknown) => {
       safeParseEvent(webrtcIceSchema, data, (parsedData) => {
-        socket.to(parsedData.roomId).emit('webrtc_ice_candidate', { candidate: parsedData.candidate });
+        void isRoomMember(parsedData.roomId, user?.id, socket.id).then((isMember) => {
+          if (isMember) socket.to(parsedData.roomId).emit('webrtc_ice_candidate', { candidate: parsedData.candidate });
+        });
       });
     });
     
     socket.on('chat_message', (data: unknown) => {
       safeParseEvent(chatSchema, data, (parsedData) => {
-        socket.to(parsedData.roomId).emit('chat_message', { text: parsedData.text, id: Date.now() });
+        void isRoomMember(parsedData.roomId, user?.id, socket.id).then((isMember) => {
+          if (isMember) socket.to(parsedData.roomId).emit('chat_message', { text: parsedData.text, id: Date.now() });
+        });
       });
     });
 
     socket.on('direct_message', (data: unknown) => {
       safeParseEvent(directMessageSchema, data, (parsedData) => {
-        io.to(`user_${parsedData.recipientId}`).emit('direct_message', {
-          senderId: user?.id,
-          text: parsedData.text,
-          timestamp: Date.now()
-        });
+        if (!user?.id) return;
+        if (!user?.id) return;
+        void assertCanMessage(user.id, parsedData.recipientId)
+          .then(async () => {
+            const message = await prisma.directMessage.create({
+              data: { senderId: user.id, recipientId: parsedData.recipientId, text: parsedData.text }
+            });
+            io.to(`user_${parsedData.recipientId}`).emit('direct_message', {
+              id: message.id,
+              senderId: user.id,
+              text: message.text,
+              timestamp: message.createdAt.getTime()
+            });
+          })
+          .catch(() => socket.emit('error', { message: 'Você não pode enviar mensagens para este usuário.' }));
       });
     });
   });

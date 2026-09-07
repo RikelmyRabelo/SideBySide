@@ -1,4 +1,5 @@
 import React, { useState, useCallback, memo } from 'react';
+import { api } from '../../services/api';
 
 export interface Friend {
   id: string;
@@ -49,9 +50,9 @@ export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = memo(({
 
   const handleOpenProfile = async (contact: { id: string; name: string; tag: string; avatar: string; level: string }) => {
     try {
-      const response = await fetch(`http://localhost:3000/api/user/${contact.id}`, { credentials: 'include' });
-      if (response.ok) {
-        const fullData = await response.json();
+      const response = await api.get(`/api/user/${contact.id}`);
+      if (response.status === 200) {
+        const fullData = response.data;
         setSelectedUserProfile({ ...contact, ...fullData });
       } else {
         setSelectedUserProfile(contact);
@@ -75,14 +76,9 @@ export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = memo(({
 
   const handleAcceptRequest = useCallback(async (req: FriendRequest) => {
     try {
-      const response = await fetch('http://localhost:3000/api/friends/accept', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ requestId: req.id, senderId: req.senderId })
-      });
+      const response = await api.post('/api/friends/accept', { requestId: req.id, senderId: req.senderId });
 
-      if (response.ok) {
+      if (response.status === 200) {
         setFriendsList((prev) => [
           ...prev,
           { id: req.senderId || req.id, name: req.name, tag: req.tag, avatar: req.avatar, level: req.level, isOnline: true },
@@ -101,12 +97,7 @@ export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = memo(({
 
   const handleDeclineRequest = useCallback(async (id: string, senderId?: string) => {
     try {
-      await fetch('http://localhost:3000/api/friends/accept', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ requestId: id, senderId, action: 'reject' })
-      });
+      await api.post('/api/friends/accept', { requestId: id, senderId, action: 'reject' });
       setRequestsList((prev) => prev.filter((r) => r.id !== id));
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if ((selectedUserProfile as any)?.id === id) {
@@ -120,12 +111,9 @@ export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = memo(({
 
   const handleRemoveFriend = useCallback(async (id: string) => {
     try {
-      const response = await fetch(`http://localhost:3000/api/friends/${id}`, {
-        method: 'DELETE',
-        credentials: 'include'
-      });
+      const response = await api.delete(`/api/friends/${id}`);
 
-      if (response.ok) {
+      if (response.status === 200) {
         setFriendsList((prev) => prev.filter((f) => f.id !== id));
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if ((selectedUserProfile as any)?.id === id) {
@@ -146,14 +134,9 @@ export const FriendsManagerModal: React.FC<FriendsManagerModalProps> = memo(({
     }
     
     try {
-      const response = await fetch('http://localhost:3000/api/friends/request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ tag: searchTag }) 
-      });
+      const response = await api.post('/api/friends/request', { tag: searchTag });
 
-      if (response.ok) {
+      if (response.status === 200) {
         setSearchResult({ type: 'success', message: 'Solicitação enviada com sucesso!' });
         setSearchTag('');
       } else {

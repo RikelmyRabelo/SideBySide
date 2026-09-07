@@ -3,8 +3,13 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../lib/prisma.js';
 import nodemailer from 'nodemailer';
+import type { UserLevel } from '@prisma/client';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'seu-segredo-super-seguro';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  throw new Error('JWT_SECRET must be configured with at least 32 characters.');
+}
+const signingSecret = JWT_SECRET;
 
 export const cookieOptions = {
   httpOnly: true,
@@ -21,7 +26,7 @@ export const transporter = nodemailer.createTransport({
   },
 });
 
-export const pendingUsers = new Map<string, { name: string; email: string; passwordHash: string; level: string; code: string }>();
+export const pendingUsers = new Map<string, { name: string; email: string; passwordHash: string; level: UserLevel; code: string }>();
 export const verificationCodes = new Map<string, string>();
 
 export async function loginHandler(req: Request, res: Response, next: NextFunction) {
@@ -31,7 +36,7 @@ export async function loginHandler(req: Request, res: Response, next: NextFuncti
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return res.status(401).json({ error: 'Credenciais inválidas.' });
     }
-    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: user.id, email: user.email }, signingSecret, { expiresIn: '7d' });
     res.cookie('token', token, cookieOptions);
     return res.status(200).json({
       message: 'Login com sucesso.',
