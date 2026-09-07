@@ -11,7 +11,7 @@ export default defineConfig({
   reporter: 'html',
   webServer: [
     {
-      command: 'npm run dev',
+      command: 'npx prisma generate --schema=prisma/schema.prisma && npm run dev',
       cwd: './backend',
       url: 'http://localhost:3000/health',
       reuseExistingServer: true,
