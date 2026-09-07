@@ -1,7 +1,6 @@
-import { describe, test, expect, beforeEach, vi, Mock } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
-import express from 'express';
-import cookieParser from 'cookie-parser';
+import { app } from '../index.js';
 import { prisma } from '../lib/prisma.js';
 import jwt from 'jsonwebtoken';
 
@@ -14,89 +13,70 @@ vi.mock('../lib/prisma.js', () => ({
   },
 }));
 
-const mockFindUnique = prisma.user.findUnique as Mock;
-const mockFindMany = prisma.user.findMany as Mock;
+vi.mock('jsonwebtoken', () => ({
+  default: {
+    verify: vi.fn(),
+  }
+}));
 
-const JWT_SECRET = process.env.JWT_SECRET || 'seu-segredo-super-seguro';
-
-const app = express();
-app.use(express.json());
-app.use(cookieParser());
-
-const authenticateToken = (req: any, res: any, next: any) => {
-  const token = req.cookies?.token;
-  if (!token) return res.status(401).json({ error: 'Acesso negado.' });
-  jwt.verify(token, JWT_SECRET, (err: any, decoded: any) => {
-    if (err) return res.status(403).json({ error: 'Sessão inválida.' });
-    req.user = decoded;
-    next();
-  });
-};
-
-app.get('/api/matches/candidates', authenticateToken, async (req: any, res: any, next: any) => {
-  try {
-    const userId = req.user.id;
-    const me = await prisma.user.findUnique({ 
-      where: { id: userId }, 
-      select: { id: true, level: true, interests: true, reputation: true, totalSessions: true, totalMinutes: true } 
-    });
-    
-    if (!me) return res.status(404).json({ error: 'Usuário não encontrado.' });
-    
-    const rawCandidates = await prisma.user.findMany({
-      where: { id: { not: userId }, isBanned: false },
-      take: 10,
-      select: { id: true, name: true, level: true, avatar: true, interests: true, reputation: true, totalSessions: true, totalMinutes: true, flagStatus: true }
-    });
-
-    const selectedCandidate = rawCandidates.length > 0 ? rawCandidates[0] : null;
-    const candidates = selectedCandidate ? [{ ...selectedCandidate, sharedInterests: [], score: 85, history: null }] : [];
-
-    return res.status(200).json({ candidates, me: { id: me.id, level: me.level, interests: me.interests || [] } });
-  } catch (error) { next(error); }
-});
-
-describe('Matches Candidates Optimization Test (SBS-22)', () => {
-  let validToken: string;
-
+describe('GET /api/matches/candidates', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    validToken = jwt.sign({ id: 'user_123', email: 'test@sidebyside.com' }, JWT_SECRET);
   });
 
-  test('Deve retornar candidatos usando busca otimizada com take no banco', async () => {
-    mockFindUnique.mockResolvedValueOnce({
-      id: 'user_123',
-      level: 'B1',
-      interests: ['Tech'],
-      reputation: 100,
-      totalSessions: 5,
-      totalMinutes: 75
+  it('deve retornar candidatos ordenados corretamente aplicando a nova heurística de streak e experiência', async () => {
+    const mockUserId = 'user-1';
+    
+    (jwt.verify as any).mockImplementation((token: string, secret: string, cb: any) => {
+      cb(null, { id: mockUserId, email: 'test@sidebyside.com' });
     });
 
-    mockFindMany.mockResolvedValueOnce([
+    (prisma.user.findUnique as any).mockResolvedValue({
+      id: mockUserId,
+      level: 'B1',
+      interests: ['music', 'tech'],
+      reputation: 100,
+      totalSessions: 10,
+      totalMinutes: 150,
+      streak: 5
+    });
+
+    (prisma.user.findMany as any).mockResolvedValue([
       {
-        id: 'user_456',
-        name: 'Parceiro Teste',
-        level: 'B2',
-        avatar: null,
-        interests: ['Tech'],
-        reputation: 95,
-        totalSessions: 2,
-        totalMinutes: 30,
-        flagStatus: 'clean'
+        id: 'user-2',
+        name: 'Alice',
+        level: 'B1', 
+        interests: ['music', 'tech'],
+        reputation: 100,
+        totalSessions: 20,
+        totalMinutes: 300,
+        streak: 10,
+        flagStatus: 'CLEAN'
+      },
+      {
+        id: 'user-3',
+        name: 'Bob',
+        level: 'C2', 
+        interests: ['sports'],
+        reputation: 50,
+        totalSessions: 1,
+        totalMinutes: 15,
+        streak: 0,
+        flagStatus: 'CLEAN'
       }
     ]);
 
-    const res = await request(app)
+    const response = await request(app)
       .get('/api/matches/candidates')
-      .set('Cookie', [`token=${validToken}`]);
+      .set('Cookie', ['token=valid-token']);
 
-    expect(res.status).toBe(200);
-    expect(res.body.candidates).toHaveLength(1);
-    expect(res.body.candidates[0].id).toBe('user_456');
-    expect(prisma.user.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ take: 10, where: { id: { not: 'user_123' }, isBanned: false } })
-    );
+    expect(response.status).toBe(200);
+    expect(response.body.candidates).toHaveLength(2);
+    
+    const aliceScore = response.body.candidates.find((c: any) => c.id === 'user-2').score;
+    const bobScore = response.body.candidates.find((c: any) => c.id === 'user-3').score;
+
+    expect(aliceScore).toBeGreaterThan(bobScore);
+    expect(aliceScore).toBeLessThanOrEqual(100);
   });
 });

@@ -1213,7 +1213,7 @@ app.get('/api/matches/candidates', authenticateToken, async (req: Request, res: 
     const userId = req.user!.id;
     const me = await prisma.user.findUnique({ 
       where: { id: userId }, 
-      select: { id: true, level: true, interests: true, reputation: true, totalSessions: true, totalMinutes: true } 
+      select: { id: true, level: true, interests: true, reputation: true, totalSessions: true, totalMinutes: true, streak: true } 
     });
     
     if (!me) return res.status(404).json({ error: 'Usuário não encontrado.' });
@@ -1221,13 +1221,14 @@ app.get('/api/matches/candidates', authenticateToken, async (req: Request, res: 
     const parsedLimit = Number.parseInt(String(req.query.limit || '10'), 10);
     const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 50) : 10;
     
-    const rawCandidates: CandidateUser[] = await prisma.user.findMany({
+    const rawCandidates = await prisma.user.findMany({
       where: { 
         id: { not: userId }, 
         isBanned: false 
       },
       orderBy: [
         { reputation: 'desc' },
+        { streak: 'desc' },
         { totalSessions: 'desc' }
       ],
       take: limit * 5,
@@ -1240,23 +1241,34 @@ app.get('/api/matches/candidates', authenticateToken, async (req: Request, res: 
         reputation: true,
         totalSessions: true,
         totalMinutes: true,
+        streak: true,
         flagStatus: true
       }
     });
 
     const levelWeight: Record<string, number> = { A1: 1, A2: 2, B1: 3, B2: 4, C1: 5, C2: 6 };
-    const candidates: ScoredCandidate[] = rawCandidates.map((candidate: CandidateUser) => {
+    const candidates = rawCandidates.map((candidate) => {
       const sharedInterests = (me.interests || []).filter((interest: string) => candidate.interests.includes(interest));
       const distance = Math.abs((levelWeight[candidate.level] || 3) - (levelWeight[me.level] || 3));
+      
+      // Heurística aprimorada com pesos para streak, reputação e nível verificado/compatível
+      const levelScore = distance === 0 ? 40 : distance === 1 ? 20 : 5;
+      const interestScore = sharedInterests.length * 15;
+      const reputationScore = Math.min(20, (candidate.reputation / 100) * 20);
+      const streakScore = Math.min(15, (candidate.streak || 0) * 3);
+      const experienceScore = Math.min(10, candidate.totalSessions * 1 + candidate.totalMinutes / 60);
+
       const score = Math.min(100, Math.round(
-        (distance === 0 ? 50 : distance === 1 ? 25 : 0) +
-        sharedInterests.length * 15 +
-        Math.min(25, candidate.reputation / 10) +
-        Math.min(20, candidate.totalSessions * 2 + candidate.totalMinutes / 30)
+        levelScore +
+        interestScore +
+        reputationScore +
+        streakScore +
+        experienceScore
       ));
+
       return { ...candidate, sharedInterests, score, history: null };
     })
-    .sort((left: ScoredCandidate, right: ScoredCandidate) => right.score - left.score)
+    .sort((left, right) => right.score - left.score)
     .slice(0, limit);
 
     return res.status(200).json({ candidates, me: { id: me.id, level: me.level, interests: me.interests || [] } });
