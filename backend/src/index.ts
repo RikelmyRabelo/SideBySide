@@ -75,13 +75,13 @@ const allowedOrigins = (process.env.CORS_ORIGIN || (process.env.NODE_ENV === 'pr
   .map((origin) => origin.trim())
   .filter(Boolean);
 
-const corsOptions = {
+const corsOptionsApp = {
   origin: allowedOrigins,
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   credentials: true
 };
 
-app.use(cors(corsOptions));
+app.use(cors(corsOptionsApp));
 app.use(helmet());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
@@ -95,34 +95,6 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   }
   next();
 });
-
-const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET || JWT_SECRET.length < 32) {
-  throw new Error('JWT_SECRET must be configured with at least 32 characters.');
-}
-const signingSecret = JWT_SECRET;
-
-const server = http.createServer(app);
-
-const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-const pubClient = createClient({ url: redisUrl });
-const subClient = pubClient.duplicate();
-const ioEmitter = new Emitter(pubClient);
-
-if (process.env.NODE_ENV !== 'test') {
-  Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
-    console.log(`📡 Redis conectado com sucesso em ${redisUrl} (API REST)`);
-  }).catch((err: unknown) => {
-    console.error('❌ Erro ao conectar o Redis:', err);
-  });
-}
-
-const matchFeedback = new Map<string, Map<string, 'positive' | 'negative' | 'skip'>>();
-const _sessionFeedback = new Map<string, { averageRating: number; count: number; lastUpdated: Date }>();
-const _conversationQuality = new Map<string, Map<string, { duration: number; messages: number; rating: number; timestamp: Date }>>();
-const _repeatMatchPreferences = new Map<string, Set<string>>();
-const reports = new Map<string, { reporterId: string; reason: string; timestamp: Date }[]>();
 
 const anonymizeIp = (ip?: string) => {
   if (!ip) return 'unknown';
@@ -157,6 +129,50 @@ const logger = winston.createLogger({
     }),
   ],
 });
+
+// CSRF Protection Middleware (Double-Submit Cookie)
+app.use((req: Request, res: Response, next: NextFunction) => {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method) || process.env.NODE_ENV === 'test') {
+    return next();
+  }
+
+  const cookieToken = req.cookies?.csrfToken;
+  const headerToken = req.headers['x-csrf-token'];
+
+  if (!cookieToken || !headerToken || cookieToken !== headerToken) {
+    logger.warn(`Falha de validação CSRF detectada. IP: ${anonymizeIp(req.ip)}`);
+    return res.status(403).json({ error: 'Token CSRF ausente ou inválido.' });
+  }
+  next();
+});
+
+const PORT = process.env.PORT || 3000;
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  throw new Error('JWT_SECRET must be configured with at least 32 characters.');
+}
+const signingSecret = JWT_SECRET;
+
+const server = http.createServer(app);
+
+const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+const pubClient = createClient({ url: redisUrl });
+const subClient = pubClient.duplicate();
+const ioEmitter = new Emitter(pubClient);
+
+if (process.env.NODE_ENV !== 'test') {
+  Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
+    console.log(`📡 Redis conectado com sucesso em ${redisUrl} (API REST)`);
+  }).catch((err: unknown) => {
+    console.error('❌ Erro ao conectar o Redis:', err);
+  });
+}
+
+const matchFeedback = new Map<string, Map<string, 'positive' | 'negative' | 'skip'>>();
+const _sessionFeedback = new Map<string, { averageRating: number; count: number; lastUpdated: Date }>();
+const _conversationQuality = new Map<string, Map<string, { duration: number; messages: number; rating: number; timestamp: Date }>>();
+const _repeatMatchPreferences = new Map<string, Set<string>>();
+const reports = new Map<string, { reporterId: string; reason: string; timestamp: Date }[]>();
 
 const metrics = {
   requestsTotal: 0,
@@ -221,6 +237,17 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   });
 
   next();
+});
+
+app.get('/api/csrf-token', (req: Request, res: Response) => {
+  const token = randomBytes(32).toString('hex');
+  res.cookie('csrfToken', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 12 * 60 * 60 * 1000
+  });
+  return res.status(200).json({ csrfToken: token });
 });
 
 app.get('/metrics', (_req: Request, res: Response) => {
@@ -1358,4 +1385,4 @@ app.get('/health/ready', async (_req: Request, res: Response) => {
   } catch (_error: unknown) {
     return res.status(503).json({ status: 'not_ready' });
   }
-}); 
+});
