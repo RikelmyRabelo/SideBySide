@@ -4,7 +4,6 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import nodemailer from 'nodemailer';
-import type { UserLevel } from '@prisma/client';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET || JWT_SECRET.length < 32) {
@@ -31,6 +30,8 @@ export const transporter = nodemailer.createTransport({
     pass: process.env.EMAIL_PASS,
   },
 });
+
+type UserLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2' | string;
 
 export const pendingUsers = new Map<string, { name: string; email: string; passwordHash: string; level: UserLevel; code: string }>();
 export const verificationCodes = new Map<string, string>();

@@ -11,6 +11,31 @@ interface Message {
   time: string;
 }
 
+interface RawMessage {
+  id: string | number;
+  text: string;
+  senderId: string;
+  createdAt: string;
+}
+
+interface SessionFeedback {
+  partnerName?: string;
+  rating?: number;
+  comment?: string;
+}
+
+interface ProfileData extends Friend {
+  birthDate?: string;
+  showAgeInProfile?: boolean;
+  gender?: string;
+  pronouns?: string;
+  reputation?: number;
+  streak?: number;
+  bio?: string;
+  sessionsHistory?: SessionFeedback[];
+  interests?: string[];
+}
+
 export interface DirectChatsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -22,7 +47,7 @@ export interface DirectChatsModalProps {
 
 export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen, onClose, selectedContact, friendsList, unreadCounts, onClearUnread }) => {
   const [activeContact, setActiveContact] = useState<Friend | null>(null);
-  const [viewingProfile, setViewingProfile] = useState<unknown | null>(null);
+  const [viewingProfile, setViewingProfile] = useState<ProfileData | null>(null);
   const [showRemoveConfirmModal, setShowRemoveConfirmModal] = useState(false);
   const [inputMessage, setInputMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -71,8 +96,7 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
         .then(response => {
           const data = response.data;
           if (Array.isArray(data)) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const formatted: Message[] = data.map((m: any) => {
+            const formatted: Message[] = data.map((m: RawMessage) => {
               const d = new Date(m.createdAt);
               const timeString = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
               return {
@@ -123,8 +147,7 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
 
   const handleConfirmRemoveFriend = async () => {
     if (!viewingProfile) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const targetId = (viewingProfile as any).id;
+    const targetId = viewingProfile.id;
 
     try {
       await api.delete(`/api/friends/${targetId}`);
@@ -139,7 +162,7 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
     }
   };
 
-  const calculateAge = (dob: string) => {
+  const calculateAge = (dob: string | undefined) => {
     if (!dob) return '';
     const birthDateObj = new Date(dob);
     const today = new Date();
@@ -170,8 +193,6 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
 
   const hasFriends = friendsList && friendsList.length > 0;
   const totalSendersWithUnread = Object.keys(unreadCounts).length;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const safeProfile = viewingProfile as any;
 
   return (
     <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-[100] flex items-center justify-center p-4">
@@ -322,7 +343,7 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
         )}
       </div>
 
-      {viewingProfile && safeProfile && (
+      {viewingProfile && (
         <div className="fixed inset-0 bg-[#1C1917]/80 backdrop-blur-md z-[110] flex items-center justify-center p-4">
           <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto text-center">
             
@@ -341,40 +362,40 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
 
             <div className="flex flex-col items-center text-center gap-3">
               <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-[#1C1917] bg-[#F5F5F4] shadow-sm shrink-0">
-                <img src={safeProfile.avatar || activeContact?.avatar} alt={safeProfile.name} className="w-full h-full object-cover" />
+                <img src={viewingProfile.avatar || activeContact?.avatar} alt={viewingProfile.name} className="w-full h-full object-cover" />
               </div>
 
               <div className="flex flex-col items-center gap-1">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-lg font-black uppercase text-[#1C1917]">{safeProfile.name}</h3>
+                  <h3 className="text-lg font-black uppercase text-[#1C1917]">{viewingProfile.name}</h3>
                   <span className="px-2 py-0.5 bg-[#1C1917] text-[#FAF9F6] font-black text-[10px] rounded uppercase">
-                    {safeProfile.level || activeContact?.level}
+                    {viewingProfile.level || activeContact?.level}
                   </span>
                 </div>
 
                 <div className="flex items-center gap-2 text-xs font-bold text-[#78716C]">
-                  {safeProfile.showAgeInProfile !== false && safeProfile.birthDate && (
-                    <span>{calculateAge(safeProfile.birthDate)} anos</span>
+                  {viewingProfile.showAgeInProfile !== false && viewingProfile.birthDate && (
+                    <span>{calculateAge(viewingProfile.birthDate)} anos</span>
                   )}
-                  {safeProfile.showAgeInProfile !== false && safeProfile.birthDate && <span>•</span>}
-                  {safeProfile.gender && <span>{safeProfile.gender}</span>}
-                  {safeProfile.pronouns && <span>•</span>}
-                  {safeProfile.pronouns && <span className="italic">{safeProfile.pronouns}</span>}
+                  {viewingProfile.showAgeInProfile !== false && viewingProfile.birthDate && <span>•</span>}
+                  {viewingProfile.gender && <span>{viewingProfile.gender}</span>}
+                  {viewingProfile.pronouns && <span>•</span>}
+                  {viewingProfile.pronouns && <span className="italic">{viewingProfile.pronouns}</span>}
                 </div>
                 
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                    Reputação: {safeProfile.reputation ?? 100}/100
+                    Reputação: {viewingProfile.reputation ?? 100}/100
                   </span>
                   <span className="text-[11px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                    🔥 {safeProfile.streak ?? 0} Dias de Ofensiva
+                    🔥 {viewingProfile.streak ?? 0} Dias de Ofensiva
                   </span>
                 </div>
               </div>
 
-              {safeProfile.bio ? (
+              {viewingProfile.bio ? (
                 <p className="text-xs text-[#57534E] font-medium leading-relaxed italic bg-[#FAF9F6] p-3 rounded-2xl border-2 border-[#E7E5E4] w-full text-left">
-                  "{safeProfile.bio}"
+                  "{viewingProfile.bio}"
                 </p>
               ) : (
                 <div className="rounded-2xl border-2 border-dashed border-[#E7E5E4] bg-[#FAF9F6] p-3 text-center text-[10px] font-black uppercase tracking-wider text-[#78716C] w-full">
@@ -384,16 +405,15 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
 
               <div className="flex flex-col gap-2 w-full pt-1 text-left border-t-2 border-[#E7E5E4] mt-1">
                 <span className="text-[10px] font-black uppercase text-[#78716C] tracking-wider">
-                  Avaliações e Comentários da Comunidade ({safeProfile.sessionsHistory?.length || 0}):
+                  Avaliações e Comentários da Comunidade ({viewingProfile.sessionsHistory?.length || 0}):
                 </span>
-                {!safeProfile.sessionsHistory || safeProfile.sessionsHistory.length === 0 ? (
+                {!viewingProfile.sessionsHistory || viewingProfile.sessionsHistory.length === 0 ? (
                   <div className="rounded-2xl border-2 border-dashed border-[#E7E5E4] bg-[#FAF9F6] p-3 text-center text-[10px] font-black uppercase tracking-wider text-[#78716C]">
                     Ainda não há avaliações registradas.
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2 max-h-40 overflow-y-auto">
-                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    {safeProfile.sessionsHistory.map((fb: any, idx: number) => (
+                    {viewingProfile.sessionsHistory.map((fb: SessionFeedback, idx: number) => (
                       <div key={idx} className="bg-[#FAF9F6] p-3 rounded-2xl border-2 border-[#E7E5E4] flex flex-col gap-1.5">
                         <div className="flex justify-between items-center">
                           <span className="text-[11px] font-black text-[#1C1917]">{fb.partnerName || 'Parceiro'}</span>
@@ -415,13 +435,13 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
                 </div>
               </div>
 
-              {safeProfile.interests && safeProfile.interests.length > 0 && (
+              {viewingProfile.interests && viewingProfile.interests.length > 0 && (
                 <div className="flex flex-col gap-1.5 w-full pt-1 text-left">
                   <span className="text-[10px] font-black uppercase text-[#78716C]">
                     Interesses de Conversa:
                   </span>
                   <div className="flex flex-wrap gap-1.5">
-                    {safeProfile.interests.map((interest: string) => (
+                    {viewingProfile.interests.map((interest: string) => (
                       <span
                         key={interest}
                         className="text-[10px] font-black px-2.5 py-1 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] rounded-lg"
@@ -455,8 +475,7 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
         </div>
       )}
 
-      {/* Modal de Confirmação de Exclusão de Amizade */}
-      {showRemoveConfirmModal && viewingProfile && safeProfile && (
+      {showRemoveConfirmModal && viewingProfile && (
         <div className="fixed inset-0 bg-[#1C1917]/80 backdrop-blur-md z-[130] flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-8 max-w-md w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-6 text-center">
             <div className="w-16 h-16 rounded-2xl bg-red-50 border-2 border-red-200 text-red-600 flex items-center justify-center mx-auto shadow-sm">
@@ -469,7 +488,7 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
                 DESFAZER VÍNCULO
               </span>
               <h3 className="text-lg font-black uppercase text-[#1C1917]">
-                Remover {safeProfile.name} dos amigos?
+                Remover {viewingProfile.name} dos amigos?
               </h3>
               <p className="text-xs text-[#57534E] font-medium leading-relaxed">
                 Esta ação apagará o vínculo de amizade e todo o histórico de mensagens trocadas entre vocês de forma permanente.

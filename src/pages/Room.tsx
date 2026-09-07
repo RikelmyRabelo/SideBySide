@@ -1,11 +1,42 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { socket } from '../services/socket'; // Importando o Socket global em vez de io
-import {  api } from '../services/api';
+import { socket } from '../services/socket';
+import { api } from '../services/api';
 import { ReportModal } from '../components/room/ReportModal';
 import { RatingModal } from '../components/room/RatingModal';
 import { TOPICS_CATALOG, FREE_TALK_TOPIC, TopicItem } from '../data/topicsData';
 import { useToast } from '../components/ui/ToastContext';
+
+// Interfaces estritas para substituir os "any" da Web Speech API
+interface ISpeechRecognitionEvent {
+  resultIndex: number;
+  results: {
+    length: number;
+    [index: number]: {
+      isFinal: boolean;
+      [index: number]: {
+        transcript: string;
+      };
+    };
+  };
+}
+
+interface ISpeechRecognition {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onstart: (() => void) | null;
+  onresult: ((event: ISpeechRecognitionEvent) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+}
+
+interface WindowWithSpeech extends Window {
+  SpeechRecognition?: new () => ISpeechRecognition;
+  webkitSpeechRecognition?: new () => ISpeechRecognition;
+}
 
 const formatSessionTimer = (seconds: number) => {
   const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -58,7 +89,7 @@ const Room: React.FC = memo(() => {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [currentTranscript, setCurrentTranscript] = useState('');
   const [_spokenHistory, setSpokenHistory] = useState<string[]>([]);
-  const speechRecognitionRef = useRef<any>(null);
+  const speechRecognitionRef = useRef<ISpeechRecognition | null>(null);
 
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
   const [isPartnerSpeaking, setIsPartnerSpeaking] = useState(false);
@@ -224,7 +255,9 @@ const Room: React.FC = memo(() => {
   }, []);
 
   const toggleSpeechTranscription = useCallback(() => {
-    const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const win = window as unknown as WindowWithSpeech;
+    const SpeechRecognitionAPI = win.SpeechRecognition || win.webkitSpeechRecognition;
+    
     if (!SpeechRecognitionAPI) {
       alert('Seu navegador não suporta a Web Speech API para transcrição em tempo real.');
       return;
@@ -243,7 +276,7 @@ const Room: React.FC = memo(() => {
       recognition.lang = 'en-US';
       recognition.onstart = () => setIsTranscribing(true);
 
-      recognition.onresult = (event: any) => {
+      recognition.onresult = (event: ISpeechRecognitionEvent) => {
         let interimText = '';
         let finalText = '';
 

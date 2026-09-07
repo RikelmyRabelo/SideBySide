@@ -3,6 +3,7 @@ import express from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import type { VerifyErrors, JwtPayload } from 'jsonwebtoken';
 import cors from 'cors';
 import { z, ZodError } from 'zod';
 import rateLimit from 'express-rate-limit';
@@ -10,12 +11,60 @@ import winston from 'winston';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { prisma } from './lib/prisma.js';
+import type { Prisma, UserLevel } from '@prisma/client';
 import http from 'http';
 import { randomUUID } from 'crypto';
 import { createClient } from 'redis';
 import { Emitter } from '@socket.io/redis-emitter';
 import { cookieOptions, pendingUsers, verificationCodes, transporter, loginHandler, logoutHandler } from './controllers/authController.js';
 import { assertCanMessage } from './utils/authorization.js';
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: {
+        id: string;
+        email: string;
+        [key: string]: unknown;
+      };
+    }
+  }
+}
+
+type UserUpdateData = Parameters<typeof prisma.user.update>[0]['data'];
+
+interface HttpError extends Error {
+  status?: number;
+  statusCode?: number;
+}
+
+interface CandidateUser {
+  id: string;
+  name: string;
+  level: string;
+  avatar: string | null;
+  interests: string[];
+  reputation: number;
+  totalSessions: number;
+  totalMinutes: number;
+  flagStatus: string | null;
+}
+
+interface ScoredCandidate extends CandidateUser {
+  sharedInterests: string[];
+  score: number;
+  history: null;
+}
+
+interface SessionWithRating {
+  id: string;
+  createdAt: Date;
+  rating: {
+    partnerRating: number | null;
+    platformRating: number | null;
+    comment: string | null;
+  } | null;
+}
 
 const app = express();
 
@@ -64,7 +113,7 @@ const ioEmitter = new Emitter(pubClient);
 if (process.env.NODE_ENV !== 'test') {
   Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
     console.log(`📡 Redis conectado com sucesso em ${redisUrl} (API REST)`);
-  }).catch(err => {
+  }).catch((err: unknown) => {
     console.error('❌ Erro ao conectar o Redis:', err);
   });
 }
@@ -186,7 +235,7 @@ const messageLimiter = rateLimit({
   windowMs: 60 * 1000, 
   max: 30, 
   keyGenerator: (req: Request) => {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     return userId ? `user_${userId}` : (req.ip || 'unknown');
   },
   message: { error: 'Muitas mensagens enviadas. Aguarde um minuto.' },
@@ -198,7 +247,7 @@ const reportLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, 
   max: 3, 
   keyGenerator: (req: Request) => {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     return userId ? `user_report_${userId}` : (req.ip || 'unknown');
   },
   message: { error: 'Limite de denúncias excedido. Tente novamente mais tarde.' },
@@ -210,7 +259,7 @@ const matchmakingLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
   keyGenerator: (req: Request) => {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     return userId ? `user_match_${userId}` : (req.ip || 'unknown');
   },
   message: { error: 'Muitas solicitações de pareamento. Tente novamente em instantes.' },
@@ -238,12 +287,12 @@ const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
     return res.status(401).json({ error: 'Acesso negado. Sessão não encontrada.' });
   }
 
-  jwt.verify(token, signingSecret, (err: any, decoded: any) => {
-    if (err) {
+  jwt.verify(token, signingSecret, (err: VerifyErrors | null, decoded: string | JwtPayload | undefined) => {
+    if (err || !decoded || typeof decoded === 'string') {
       return res.status(403).json({ error: 'Sessão inválida ou expirada.' });
     }
      
-    (req as any).user = decoded;
+    req.user = decoded as { id: string; email: string; [key: string]: unknown };
     next();
   });
 };
@@ -269,6 +318,21 @@ const resetPasswordSchema = z.object({
   email: z.string().email('E-mail inválido.'),
   code: z.string().min(1, 'Código é obrigatório.'),
   newPassword: z.string().min(6, 'A nova senha deve ter no mínimo 6 caracteres.'),
+});
+const profileUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(100).optional(),
+  birthDate: z.string().max(30).optional(),
+  showAgeInProfile: z.boolean().optional(),
+  gender: z.string().max(50).optional(),
+  pronouns: z.string().max(50).optional(),
+  cefrLevel: z.enum(['A1', 'A2', 'B1', 'B2', 'C1', 'C2']).optional(),
+  bio: z.string().max(1000).optional(),
+  interests: z.array(z.string().max(50)).max(20).optional(),
+  avatar: z.string().url().max(2048).optional(),
+});
+const directMessageHttpSchema = z.object({
+  recipientId: z.string().min(1),
+  text: z.string().trim().min(1).max(1000),
 });
 
 app.post('/api/auth/register', authLimiter, validateRequest(registerSchema), async (req: Request, res: Response, next: NextFunction) => {
@@ -358,7 +422,7 @@ app.post('/api/auth/verify-code', authLimiter, validateRequest(verifyCodeSchema)
     verificationCodes.delete(`register_${targetEmail}`);
     
     const tempUser = await prisma.user.create({
-      data: { name: pending.name, email: pending.email, password: pending.passwordHash, level: pending.level, reputation: 100 },
+      data: { name: pending.name, email: pending.email, password: pending.passwordHash, level: pending.level as UserLevel, reputation: 100 },
     });
 
     const generatedTag = `${pending.name.replace(/\s+/g, '').toLowerCase()}#${tempUser.id.slice(0, 4)}`;
@@ -412,7 +476,7 @@ app.get('/api/room/status', (_req: Request, res: Response) => {
 
 app.post('/api/room/join', authenticateToken, matchmakingLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = (req as any).user.id;
+    const userId = req.user!.id;
     const { topicId } = req.body || {};
     const allUsers = await prisma.user.findMany({ where: { id: { not: userId } }, select: { id: true } });
     const partnerId = allUsers.length > 0 ? allUsers[Math.floor(Math.random() * allUsers.length)].id : null;
@@ -423,7 +487,7 @@ app.post('/api/room/join', authenticateToken, matchmakingLimiter, async (req: Re
 
 app.post('/api/room/report', authenticateToken, reportLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = (req as any).user.id;
+    const userId = req.user!.id;
     const { reportedUserId, reason, sessionDuration, messageCount, roomId } = req.body || {};
     
     if (!reportedUserId || !reason) {
@@ -434,7 +498,7 @@ app.post('/api/room/report', authenticateToken, reportLimiter, async (req: Reque
       return res.status(400).json({ error: 'Você não pode denunciar a si mesmo.' });
     }
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const existingReport = await tx.report.findFirst({
         where: {
           reporterId: userId,
@@ -468,7 +532,7 @@ app.post('/api/room/report', authenticateToken, reportLimiter, async (req: Reque
         where: { id: reportedUserId },
         data: {
           reportCount: newReportCount,
-          flagStatus: flagStatus as any,
+          flagStatus: flagStatus as UserUpdateData['flagStatus'],
           flagReason: reason,
           flaggedAt: new Date(),
           isBanned: flagStatus === 'BANNED',
@@ -503,12 +567,14 @@ app.post('/api/room/report', authenticateToken, reportLimiter, async (req: Reque
       userFlagStatus: result.flagStatus 
     });
    
-  } catch (error: any) { 
-    if (error.message === 'DUPLICATE_REPORT') {
-      return res.status(400).json({ error: 'Você já denunciou este usuário anteriormente.' });
-    }
-    if (error.message === 'USER_NOT_FOUND') {
-      return res.status(404).json({ error: 'Usuário denunciado não encontrado.' });
+  } catch (error: unknown) { 
+    if (error instanceof Error) {
+      if (error.message === 'DUPLICATE_REPORT') {
+        return res.status(400).json({ error: 'Você já denunciou este usuário anteriormente.' });
+      }
+      if (error.message === 'USER_NOT_FOUND') {
+        return res.status(404).json({ error: 'Usuário denunciado não encontrado.' });
+      }
     }
     next(error); 
   }
@@ -516,7 +582,7 @@ app.post('/api/room/report', authenticateToken, reportLimiter, async (req: Reque
 
 app.post('/api/room/rate', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = (req as any).user.id;
+    const userId = req.user!.id;
     const { 
       partnerId, 
       partnerRating, 
@@ -533,7 +599,7 @@ app.post('/api/room/rate', authenticateToken, async (req: Request, res: Response
     const safeAverage = Number.isFinite(rawAverage) ? Math.max(1, Math.min(5, rawAverage)) : 3;
     const ratingDelta = Math.round((safeAverage - 3) * 10);
     try {
-      const result = await prisma.$transaction(async (tx) => {
+      const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         const user = await tx.user.findUnique({ where: { id: userId } });
         if (!user) throw new Error('USER_NOT_FOUND');
 
@@ -574,7 +640,7 @@ app.post('/api/room/rate', authenticateToken, async (req: Request, res: Response
             reputation: updatedReputation,
             totalSessions: { increment: 1 },
             totalMinutes: { increment: 15 },
-            lastSession: newSession as any
+            lastSession: newSession as unknown as UserUpdateData['lastSession']
           }
         });
         return { alreadyRated: false, reputation: updatedUser.reputation, averageRating: safeAverage };
@@ -585,12 +651,16 @@ app.post('/api/room/rate', authenticateToken, async (req: Request, res: Response
         reputation: result.reputation,
         averageRating: result.averageRating
       });
-    } catch (error: any) {
-      if (error.message === 'USER_NOT_FOUND') return res.status(404).json({ error: 'Usuário não encontrado.' });
-      if (error.code === 'P2002' && sessionId) {
+    } catch (error: unknown) {
+      if (error instanceof Error && error.message === 'USER_NOT_FOUND') {
+        return res.status(404).json({ error: 'Usuário não encontrado.' });
+      }
+      if (typeof error === 'object' && error !== null && 'code' in error && (error as { code: unknown }).code === 'P2002' && sessionId) {
         const existingSession = await prisma.conversationSession.findUnique({ where: { clientSessionId: sessionId }, include: { rating: true } });
         const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { reputation: true } });
-        if (existingSession && currentUser) return res.status(200).json({ message: 'Avaliação já registrada.', reputation: currentUser.reputation, averageRating: existingSession.rating?.partnerRating ?? 3 });
+        if (existingSession && currentUser) {
+          return res.status(200).json({ message: 'Avaliação já registrada.', reputation: currentUser.reputation, averageRating: existingSession.rating?.partnerRating ?? 3 });
+        }
       }
       throw error;
     }
@@ -602,7 +672,7 @@ app.post('/api/room/rate', authenticateToken, async (req: Request, res: Response
 
 app.post('/api/friends/request', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = (req as any).user.id;
+    const userId = req.user!.id;
     const { targetUserId, tag } = req.body || {};
     
     let resolvedTargetId = targetUserId;
@@ -670,13 +740,13 @@ app.post('/api/friends/request', authenticateToken, async (req: Request, res: Re
 
 app.get('/api/friends/requests', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = (req as any).user.id;
+    const userId = req.user!.id;
     const pendingRelations = await prisma.friendRelation.findMany({
       where: { friendId: userId, status: 'PENDING' },
       include: { user: true }
     });
 
-    const requests = pendingRelations.map((rel: any) => ({
+    const requests = pendingRelations.map((rel) => ({
       id: rel.id,
       senderId: rel.userId,
       name: rel.user.name,
@@ -695,7 +765,7 @@ app.get('/api/friends/requests', authenticateToken, async (req: Request, res: Re
 
 app.post('/api/friends/accept', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = (req as any).user.id;
+    const userId = req.user!.id;
     const { requestId, senderId, action } = req.body;
     
     const relation = requestId
@@ -752,7 +822,7 @@ app.post('/api/friends/accept', authenticateToken, async (req: Request, res: Res
 
 app.get('/api/friends/list', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = (req as any).user.id;
+    const userId = req.user!.id;
     
     const relations = await prisma.friendRelation.findMany({
       where: {
@@ -763,7 +833,7 @@ app.get('/api/friends/list', authenticateToken, async (req: Request, res: Respon
 
     const friendIds = new Set<string>();
      
-    relations.forEach((rel: any) => {
+    relations.forEach((rel) => {
       if (rel.userId === userId) friendIds.add(rel.friendId);
       if (rel.friendId === userId) friendIds.add(rel.userId);
     });
@@ -777,7 +847,7 @@ app.get('/api/friends/list', authenticateToken, async (req: Request, res: Respon
       select: { id: true, name: true, level: true, avatar: true, tag: true }
     });
 
-    const formatted = friendsData.map((f: any) => ({
+    const formatted = friendsData.map((f) => ({
       id: f.id,
       name: f.name,
       tag: f.tag || `${f.name.replace(/\s+/g, '')}#${f.id.slice(0, 4)}`,
@@ -795,7 +865,7 @@ app.get('/api/friends/list', authenticateToken, async (req: Request, res: Respon
 
 app.delete('/api/friends/:friendId', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = (req as any).user.id;
+    const userId = req.user!.id;
     const targetId = String(req.params.friendId);
 
     await prisma.friendRelation.deleteMany({
@@ -825,7 +895,7 @@ app.delete('/api/friends/:friendId', authenticateToken, async (req: Request, res
 
 app.post('/api/messages/send', authenticateToken, messageLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const senderId = (req as any).user.id;
+    const senderId = req.user!.id;
     const parsedMessage = directMessageHttpSchema.safeParse(req.body);
     if (!parsedMessage.success) return res.status(400).json({ error: 'Mensagem inválida.' });
     const { recipientId, text } = parsedMessage.data;
@@ -861,17 +931,16 @@ app.post('/api/observability/frontend-error', (req: Request, res: Response) => {
   try {
     const errorData = req.body;
     logger.error(' [Frontend Error Boundary Report]', {
-      ...errorData,
+      ...(typeof errorData === 'object' && errorData !== null ? errorData : { data: errorData }),
       userAgent: req.headers['user-agent'],
       ip: anonymizeIp(req.ip),
     });
     return res.status(202).json({ status: 'logged' });
-  } catch (err) {
+  } catch (_err: unknown) {
     return res.status(500).json({ error: 'Falha ao registrar log de erro.' });
   }
 });
 
-// Captura global de exceções não tratadas no processo Node.js
 process.on('uncaughtException', (err: Error) => {
   logger.error(' UNCAUGHT EXCEPTION - Exceção síncrona não tratada:', {
     message: err.message,
@@ -887,7 +956,7 @@ process.on('unhandledRejection', (reason: unknown) => {
 
 app.get('/api/messages/:recipientId', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const senderId = (req as any).user.id;
+    const senderId = req.user!.id;
     const recipientId = String(req.params.recipientId);
     await assertCanMessage(senderId, recipientId);
     
@@ -920,7 +989,7 @@ app.get('/api/messages/:recipientId', authenticateToken, async (req: Request, re
 
 app.get('/api/user/me', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = (req as any).user.id;
+    const userId = req.user!.id;
     const user = await prisma.user.findUnique({ 
       where: { id: userId },
       select: {
@@ -936,14 +1005,14 @@ app.get('/api/user/me', authenticateToken, async (req: Request, res: Response, n
     
     if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
     
-    const feedbacks = (user.sessionsHistory || [])
-      .filter(s => s.rating?.comment)
-      .map((s, idx) => ({
-          id: idx + 1,
-          author: 'Parceiro de Conversa',
-          rating: s.rating?.partnerRating || s.rating?.platformRating || 5,
-          date: s.createdAt.toLocaleDateString() || 'Recentemente',
-          comment: s.rating?.comment
+    const feedbacks = ((user.sessionsHistory || []) as SessionWithRating[])
+      .filter((s: SessionWithRating) => Boolean(s.rating?.comment))
+      .map((s: SessionWithRating, idx: number) => ({
+        id: idx + 1,
+        author: 'Parceiro de Conversa',
+        rating: s.rating?.partnerRating || s.rating?.platformRating || 5,
+        date: s.createdAt.toLocaleDateString() || 'Recentemente',
+        comment: s.rating?.comment
       }));
 
     const safeUser = { ...user } as Record<string, unknown>;
@@ -961,7 +1030,7 @@ app.get('/api/user/me', authenticateToken, async (req: Request, res: Response, n
 
 app.delete('/api/user/me', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = (req as any).user.id;
+    const userId = req.user!.id;
     const { password } = req.body;
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -1033,7 +1102,7 @@ app.get('/api/user/:id', authenticateToken, async (req: Request, res: Response, 
 
 app.get('/api/notifications', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = (req as any).user.id;
+    const userId = req.user!.id;
     const parsedLimit = Number.parseInt(String(req.query.limit || '20'), 10);
     const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 100) : 20;
     const cursor = typeof req.query.cursor === 'string' ? req.query.cursor : undefined;
@@ -1053,7 +1122,7 @@ app.get('/api/notifications', authenticateToken, async (req: Request, res: Respo
 
 app.get('/api/matches/candidates', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = (req as any).user.id;
+    const userId = req.user!.id;
     const me = await prisma.user.findUnique({ 
       where: { id: userId }, 
       select: { id: true, level: true, interests: true, reputation: true, totalSessions: true, totalMinutes: true } 
@@ -1063,7 +1132,7 @@ app.get('/api/matches/candidates', authenticateToken, async (req: Request, res: 
     
     const parsedLimit = Number.parseInt(String(req.query.limit || '10'), 10);
     const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 50) : 10;
-    const rawCandidates = await prisma.user.findMany({
+    const rawCandidates: CandidateUser[] = await prisma.user.findMany({
       where: { 
         id: { not: userId }, 
         isBanned: false 
@@ -1083,8 +1152,8 @@ app.get('/api/matches/candidates', authenticateToken, async (req: Request, res: 
     });
 
     const levelWeight: Record<string, number> = { A1: 1, A2: 2, B1: 3, B2: 4, C1: 5, C2: 6 };
-    const candidates = rawCandidates.map((candidate) => {
-      const sharedInterests = (me.interests || []).filter((interest) => candidate.interests.includes(interest));
+    const candidates: ScoredCandidate[] = rawCandidates.map((candidate: CandidateUser) => {
+      const sharedInterests = (me.interests || []).filter((interest: string) => candidate.interests.includes(interest));
       const distance = Math.abs((levelWeight[candidate.level] || 3) - (levelWeight[me.level] || 3));
       const score = Math.min(100, Math.round(
         (distance === 0 ? 50 : distance === 1 ? 25 : 0) +
@@ -1093,7 +1162,7 @@ app.get('/api/matches/candidates', authenticateToken, async (req: Request, res: 
         Math.min(20, candidate.totalSessions * 2 + candidate.totalMinutes / 30)
       ));
       return { ...candidate, sharedInterests, score, history: null };
-    }).sort((left, right) => right.score - left.score);
+    }).sort((left: ScoredCandidate, right: ScoredCandidate) => right.score - left.score);
 
     return res.status(200).json({ candidates, me: { id: me.id, level: me.level, interests: me.interests || [] } });
    
@@ -1102,7 +1171,7 @@ app.get('/api/matches/candidates', authenticateToken, async (req: Request, res: 
 
 app.post('/api/matches/feedback', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = (req as any).user.id;
+    const userId = req.user!.id;
     const { candidateId, outcome } = req.body;
     if (!candidateId || !['positive', 'negative', 'skip'].includes(outcome)) return res.status(400).json({ error: 'Dados inválidos.' });
     const userMap = matchFeedback.get(userId) || new Map();
@@ -1115,13 +1184,13 @@ app.post('/api/matches/feedback', authenticateToken, async (req: Request, res: R
 
 app.put('/api/user/profile', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const tokenUser = (req as any).user;
+    const tokenUser = req.user!;
     const parsedProfile = profileUpdateSchema.safeParse(req.body);
     if (!parsedProfile.success) {
       return res.status(400).json({ error: 'Dados de perfil inválidos.', details: parsedProfile.error.issues });
     }
     const { cefrLevel, ...profileData } = parsedProfile.data;
-    const updateData = { ...profileData, ...(cefrLevel ? { level: cefrLevel } : {}) };
+    const updateData = { ...profileData, ...(cefrLevel ? { level: cefrLevel as UserLevel } : {}) };
 
     let user = await prisma.user.findUnique({ where: { id: tokenUser.id } });
 
@@ -1135,7 +1204,7 @@ app.put('/api/user/profile', authenticateToken, async (req: Request, res: Respon
             email: tokenUser.email,
             name: updateData.name || 'Usuário',
             password: '$2b$10$placeholder_hash_auto_created_on_profile_update',
-            level: updateData.level || 'B1',
+            level: (updateData.level as UserLevel) || ('B1' as UserLevel),
             reputation: 100,
             tag: `${(updateData.name || 'Usuário').replace(/\s+/g, '').toLowerCase()}#${tokenUser.id.slice(0, 4)}`,
             ...updateData
@@ -1168,9 +1237,9 @@ app.put('/api/user/profile', authenticateToken, async (req: Request, res: Respon
   }
 });
 
-app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
+app.use((err: HttpError, req: Request, res: Response, _next: NextFunction) => {
   logger.error('Erro global:', { message: err.message, path: req.url });
-  return res.status(err.status || 500).json({ error: err.message || 'Erro interno.' });
+  return res.status(err.status || err.statusCode || 500).json({ error: err.message || 'Erro interno.' });
 });
 
 const gracefulShutdown = async (signal: string) => {
@@ -1184,7 +1253,7 @@ const gracefulShutdown = async (signal: string) => {
       await prisma.$disconnect();
       logger.info('Conexões com Redis e Banco de Dados encerradas com sucesso.');
       process.exit(0);
-    } catch (err) {
+    } catch (err: unknown) {
       logger.error('Erro ao desconectar serviços durante o shutdown:', err);
       process.exit(1);
     }
@@ -1206,21 +1275,6 @@ if (process.env.NODE_ENV !== 'test') {
     logger.info(`Servidor HTTP rodando na porta ${PORT}`);
   });
 }
-const profileUpdateSchema = z.object({
-  name: z.string().trim().min(1).max(100).optional(),
-  birthDate: z.string().max(30).optional(),
-  showAgeInProfile: z.boolean().optional(),
-  gender: z.string().max(50).optional(),
-  pronouns: z.string().max(50).optional(),
-  cefrLevel: z.enum(['A1', 'A2', 'B1', 'B2', 'C1', 'C2']).optional(),
-  bio: z.string().max(1000).optional(),
-  interests: z.array(z.string().max(50)).max(20).optional(),
-  avatar: z.string().url().max(2048).optional(),
-});
-const directMessageHttpSchema = z.object({
-  recipientId: z.string().min(1),
-  text: z.string().trim().min(1).max(1000),
-});
 
 app.get('/health/live', (_req: Request, res: Response) => {
   return res.status(200).json({ status: 'alive', timestamp: new Date().toISOString() });

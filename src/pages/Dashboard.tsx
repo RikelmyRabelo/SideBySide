@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback, useMemo, memo } from '
 import { useNavigate } from 'react-router-dom';
 import type { Socket } from 'socket.io-client';
 import { Button } from '../components/ui/Button';
-import { FriendsManagerModal, Friend } from '../components/dashboard/FriendsManagerModal';
+import { FriendsManagerModal, Friend, FriendRequest } from '../components/dashboard/FriendsManagerModal';
 import { DirectChatsModal } from '../components/dashboard/DirectChatsModal';
 import { BadgesModal } from '../components/dashboard/BadgesModal';
 import { DeviceCheckModal } from '../components/dashboard/DeviceCheckModal';
@@ -13,6 +13,57 @@ import { TopicItemType } from '../types/user';
 import { useFetchCache } from '../hooks/useFetchCache';
 import { BADGES_CATALOG } from '../data/badgesData';
 import { api } from '../services/api';
+
+interface NotificationItem {
+  id: string;
+  title: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+}
+
+interface SessionHistoryItem {
+  id: string;
+  partner: string;
+  date: string;
+  duration: number;
+  topic: string;
+  rating: number;
+}
+
+interface WeeklyGoal {
+  target: number;
+  completed: number;
+  days: { day: string; completed: boolean }[];
+}
+
+interface LastSessionFeedback {
+  date: string;
+  duration: string;
+  partnerName: string;
+  partnerAvatar: string;
+  topic: string;
+  userNote: string;
+  vocabLearned: string[];
+}
+
+interface UserData {
+  id: string;
+  name: string;
+  email: string;
+  level: string;
+  reputation: number;
+  avatar: string | null;
+  streak: number;
+  maxStreak: number;
+  hasPracticedToday: boolean;
+  totalMinutes: number;
+  totalSessions: number;
+  weeklyGoal?: WeeklyGoal;
+  lastSession?: LastSessionFeedback | null;
+  sessionsHistory?: SessionHistoryItem[];
+  minutesHistory?: { day: string; min: number }[];
+}
 
 const FALLBACK_VOCAB_LIST = [
   { word: 'serendipity', phonetic: '/ˌser.ənˈdɪp.ə.ti/', definition: 'A ocorrência de acontecimentos afortunados por mero acaso ou sorte.' },
@@ -48,7 +99,7 @@ export const Dashboard: React.FC = memo(() => {
   const navigate = useNavigate();
   const { showToast } = useToast();
 
-  const { data: userData } = useFetchCache<any>('/api/user/me');
+  const { data: userData } = useFetchCache<UserData>('/api/user/me');
 
   const [mediaMode, setMediaMode] = useState<'video' | 'audio'>('video');
   const [expandedMatching, setExpandedMatching] = useState(true);
@@ -71,9 +122,9 @@ export const Dashboard: React.FC = memo(() => {
   const [selectedChatContact, setSelectedChatContact] = useState<Friend | null>(null);
 
   const [friendRequestsCount, setFriendRequestsCount] = useState(0);
-  const [requestsList, setRequestsList] = useState<import('../components/dashboard/FriendsManagerModal').FriendRequest[]>([]);
+  const [requestsList, setRequestsList] = useState<FriendRequest[]>([]);
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
   const [vocabTip, setVocabTip] = useState<VocabResult>(FALLBACK_VOCAB_LIST[0]);
   const [isLoadingVocab, setIsLoadingVocab] = useState(false);
@@ -97,12 +148,13 @@ export const Dashboard: React.FC = memo(() => {
   const mockSessionsHistory = useMemo(() => userData?.sessionsHistory || [], [userData]);
   const mockMinutesHistory = useMemo(() => userData?.minutesHistory || DEFAULT_MINUTES_HISTORY, [userData]);
   const unreadCount = useMemo(() => (notifications || []).filter((n) => !n?.read).length, [notifications]);
+  
   const clearUnread = useCallback((senderId: string) => {
     setUnreadCounts((current) => ({ ...current, [senderId]: 0 }));
   }, []);
   
   const lastSessionFeedback = useMemo(() => userData?.lastSession || null, [userData]);
-  const weeklyGoal = useMemo(() => userData?.weeklyGoal || {
+  const weeklyGoal = useMemo<WeeklyGoal>(() => userData?.weeklyGoal || {
     target: 5, completed: 0,
     days: [
       { day: 'Seg', completed: false }, { day: 'Ter', completed: false }, { day: 'Qua', completed: false },
@@ -166,10 +218,16 @@ export const Dashboard: React.FC = memo(() => {
 
   const fetchNotifications = useCallback(async () => {
     try {
-      const response = await api.get('/api/notifications');
+      const response = await api.get<{ items?: NotificationItem[] } | NotificationItem[]>('/api/notifications');
       const data = response.data;
-      setNotifications(data.items || data || []);
-    } catch (error) {
+      if (data && 'items' in data && Array.isArray(data.items)) {
+        setNotifications(data.items);
+      } else if (Array.isArray(data)) {
+        setNotifications(data);
+      } else {
+        setNotifications([]);
+      }
+    } catch (error: unknown) {
       console.error('Erro ao carregar notificações globais:', error);
     }
   }, []);
@@ -182,7 +240,7 @@ export const Dashboard: React.FC = memo(() => {
     setIsNotificationsOpen(true);
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     
-    void api.put('/api/notifications/read-all').catch((error) => console.error('Erro ao atualizar leitura no servidor:', error));
+    void api.put('/api/notifications/read-all').catch((error: unknown) => console.error('Erro ao atualizar leitura no servidor:', error));
   };
 
   useEffect(() => {
@@ -578,15 +636,13 @@ export const Dashboard: React.FC = memo(() => {
         </section>
       </main>
 
-      {/* Modals e Overlays */}
-      <FriendsManagerModal isOpen={isFriendsOpen} onClose={() => setIsFriendsOpen(false)} onOpenDirectChat={(friend) => { setSelectedChatContact(friend); setIsDirectChatsOpen(true); }} friendsList={friendsList} setFriendsList={setFriendsList} requestsList={requestsList} setRequestsList={setRequestsList} />
+      <FriendsManagerModal isOpen={isFriendsOpen} onClose={() => setIsFriendsOpen(false)} onOpenDirectChat={(friend: Friend) => { setSelectedChatContact(friend); setIsDirectChatsOpen(true); }} friendsList={friendsList} setFriendsList={setFriendsList} requestsList={requestsList} setRequestsList={setRequestsList} />
       <DirectChatsModal isOpen={isDirectChatsOpen} onClose={() => setIsDirectChatsOpen(false)} selectedContact={selectedChatContact} friendsList={friendsList} unreadCounts={unreadCounts} onClearUnread={clearUnread} />
       <BadgesModal isOpen={isBadgesOpen} onClose={() => setIsBadgesOpen(false)} />
       <DeviceCheckModal isOpen={isDeviceCheckOpen} onClose={() => setIsDeviceCheckOpen(false)} mediaMode={mediaMode} />
       <SupportModal isOpen={isSupportOpen} onClose={() => setIsSupportOpen(false)} />
       <NotificationsModal isOpen={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} notifications={notifications} />
 
-      {/* Modal de Confirmação do Tópico no Dashboard */}
       {showTopicConfirmModal && (topicToJoin || selectedTopic) && (
         <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150">
@@ -664,7 +720,7 @@ export const Dashboard: React.FC = memo(() => {
                 <div className="h-full bg-[#1C1917] rounded-full transition-all duration-500 ease-out" style={{ width: `${goalPercentage}%` }} />
               </div>
               <div className="grid grid-cols-7 gap-2 pt-2">
-                {(mockMinutesHistory || []).map((item: { day: string; min: number }, index: number) => (
+                {(mockMinutesHistory || []).map((item, index: number) => (
                   <div key={index} className="flex flex-col items-center gap-2 group w-full">
                     <div className="relative w-full flex justify-center h-full items-end">
                       <div className={`w-6 sm:w-8 rounded-t-md transition-all duration-300 ${item.min > 0 ? 'bg-[#1C1917] group-hover:bg-[#57534E]' : 'bg-[#E7E5E4]'}`} style={{ height: `${item.min === 0 ? 4 : (item.min / 40) * 100}%` }} />
@@ -753,7 +809,7 @@ export const Dashboard: React.FC = memo(() => {
                 <div className="flex flex-col gap-3">
                   <span className="text-[10px] font-black uppercase tracking-widest text-[#1C1917]">Últimos 7 dias</span>
                   <div className="grid grid-cols-7 gap-2">
-                    {(weeklyGoal.days || []).map((item: { day: string; completed: boolean }, index: number) => (
+                    {(weeklyGoal.days || []).map((item, index: number) => (
                       <div key={index} className="flex flex-col items-center gap-1.5">
                         <div className={`w-10 h-10 rounded-xl border flex items-center justify-center font-bold text-xs transition-colors ${item.completed ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4]'}`}>
                           {item.completed ? '🔥' : '🧊'}
@@ -782,7 +838,7 @@ export const Dashboard: React.FC = memo(() => {
                 <div className="flex flex-col gap-3">
                   <span className="text-[10px] font-black uppercase tracking-widest text-[#1C1917]">Distribuição Semanal</span>
                   <div className="flex items-end justify-between h-32 pt-4 border-b border-[#E7E5E4]">
-                    {(weeklyGoal.days || []).map((item: { day: string; completed: boolean }, index: number) => (
+                    {(weeklyGoal.days || []).map((item, index: number) => (
                       <div key={index} className="flex flex-col items-center gap-1.5">
                         <div className={`w-9 h-9 rounded-xl border flex items-center justify-center font-bold text-xs transition-colors ${item.completed ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4]'}`}>
                           {item.completed ? <svg className="w-4 h-4 fill-none stroke-current stroke-[3]" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg> : '•'}
@@ -803,7 +859,7 @@ export const Dashboard: React.FC = memo(() => {
                 </div>
                 <div className="flex flex-col gap-3 max-h-60 overflow-y-auto">
                   {mockSessionsHistory.length > 0 ? (
-                    mockSessionsHistory.map((session: { id: string; partner: string; date: string; duration: number; topic: string; rating: number }) => (
+                    mockSessionsHistory.map((session: SessionHistoryItem) => (
                       <div key={session.id} className="bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl p-4 flex flex-col gap-3 hover:border-[#1C1917] transition-colors">
                         <div className="flex justify-between items-start">
                           <div className="flex flex-col gap-0.5">
@@ -843,5 +899,3 @@ export const Dashboard: React.FC = memo(() => {
 
 Dashboard.displayName = 'Dashboard';
 export default Dashboard;
-
-Dashboard.displayName = 'Dashboard';

@@ -6,7 +6,7 @@ export class SessionRepository {
   constructor() {
     const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
     this.client = createClient({ url: redisUrl }) as RedisClientType;
-    this.client.on('error', (err) => console.error('Erro no cliente Redis:', err));
+    this.client.on('error', (err: unknown) => console.error('Erro no cliente Redis:', err));
   }
 
   async connect(): Promise<void> {
@@ -39,7 +39,7 @@ export class SessionRepository {
     await this.client.lRem(key, 0, value);
   }
 
-  async executeScript(script: string, keys: string[], args: string[]): Promise<any> {
+  async executeScript(script: string, keys: string[], args: string[]): Promise<unknown> {
     await this.connect();
     return await this.client.eval(script, { keys, arguments: args });
   }

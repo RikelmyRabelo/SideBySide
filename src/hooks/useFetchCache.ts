@@ -5,8 +5,7 @@ interface CacheItem<T> {
   timestamp: number;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const globalCache: Record<string, CacheItem<any>> = {};
+const globalCache: Record<string, CacheItem<unknown>> = {};
 const DEFAULT_TTL = 5 * 60 * 1000; // 5 minutos de cache
 
 export function invalidateCache(url?: string) {
@@ -19,7 +18,7 @@ export function invalidateCache(url?: string) {
 
 export function updateCacheData<T>(url: string, updater: (oldData: T | null) => T) {
   const cached = globalCache[url];
-  const currentData = cached ? cached.data : null;
+  const currentData = cached ? (cached.data as T) : null;
   const newData = updater(currentData);
   globalCache[url] = {
     data: newData,
@@ -28,7 +27,7 @@ export function updateCacheData<T>(url: string, updater: (oldData: T | null) => 
 }
 
 export function useFetchCache<T>(url: string, options?: RequestInit, ttl: number = DEFAULT_TTL) {
-  const [data, setData] = useState<T | null>(globalCache[url]?.data || null);
+  const [data, setData] = useState<T | null>((globalCache[url]?.data as T) || null);
   const [isLoading, setIsLoading] = useState<boolean>(!globalCache[url]);
   const [error, setError] = useState<Error | null>(null);
 
@@ -40,7 +39,7 @@ export function useFetchCache<T>(url: string, options?: RequestInit, ttl: number
     const isFresh = cached && (Date.now() - cached.timestamp < ttl);
 
     if (isFresh && !force) {
-      setData(cached.data);
+      setData(cached.data as T);
       setIsLoading(false);
       return;
     }
