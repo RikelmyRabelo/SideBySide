@@ -31,7 +31,7 @@ jobs:
         run: npm test --workspace=backend --if-present
 
   frontend-ci:
-    name: Frontend Build & Test
+    name: Frontend CI & Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
