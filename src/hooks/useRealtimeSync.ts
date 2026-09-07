@@ -1,25 +1,36 @@
 import { useEffect } from 'react';
 import { socket } from '../services/socket';
+import { invalidateCache } from './useFetchCache';
 
 interface RealtimeSyncOptions {
   onNotification?: (notification: any) => void;
   onFriendRequest?: (request: any) => void;
   onDirectMessage?: (message: any) => void;
+  invalidateUrlsOnEvent?: string[];
 }
 
 export function useRealtimeSync(options: RealtimeSyncOptions) {
   useEffect(() => {
     if (!socket) return;
 
+    const handleEventTrigger = () => {
+      if (options.invalidateUrlsOnEvent) {
+        options.invalidateUrlsOnEvent.forEach((url) => invalidateCache(url));
+      }
+    };
+
     const handleNotification = (data: any) => {
+      handleEventTrigger();
       options.onNotification?.(data);
     };
 
     const handleFriendRequest = (data: any) => {
+      handleEventTrigger();
       options.onFriendRequest?.(data);
     };
 
     const handleDirectMessage = (data: any) => {
+      handleEventTrigger();
       options.onDirectMessage?.(data);
     };
 
