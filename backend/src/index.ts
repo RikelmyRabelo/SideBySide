@@ -11,12 +11,9 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { prisma } from './lib/prisma.js';
 import http from 'http';
-import { Server as SocketIOServer, Socket } from 'socket.io';
-import cookie from 'cookie';
 import { randomUUID } from 'crypto';
-import { setupMatchmaking } from './sockets/matchmaking.js';
-import { createAdapter } from '@socket.io/redis-adapter';
 import { createClient } from 'redis';
+import { Emitter } from '@socket.io/redis-emitter';
 import { cookieOptions, pendingUsers, verificationCodes, transporter, loginHandler, logoutHandler } from './controllers/authController.js';
 import { assertCanMessage } from './utils/authorization.js';
 
@@ -59,20 +56,16 @@ const signingSecret = JWT_SECRET;
 
 const server = http.createServer(app);
 
-const io = new SocketIOServer(server, {
-  cors: corsOptions
-});
-
 const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 const pubClient = createClient({ url: redisUrl });
 const subClient = pubClient.duplicate();
+const ioEmitter = new Emitter(pubClient);
 
 if (process.env.NODE_ENV !== 'test') {
   Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
-    io.adapter(createAdapter(pubClient, subClient));
-    console.log(`📡 Redis Adapter conectado com sucesso em ${redisUrl}`);
+    console.log(`📡 Redis conectado com sucesso em ${redisUrl} (API REST)`);
   }).catch(err => {
-    console.error('❌ Erro ao conectar o Redis Adapter:', err);
+    console.error('❌ Erro ao conectar o Redis:', err);
   });
 }
 
@@ -122,7 +115,6 @@ const metrics = {
   latencyTotalMs: 0,
 };
 
-// Middleware de Request ID, Rastreamento e Latência (SBS-35)
 app.use((req: Request, res: Response, next: NextFunction) => {
   const incomingRequestId = req.headers['x-request-id'];
   const requestId = typeof incomingRequestId === 'string' && /^[A-Za-z0-9._:-]{1,100}$/.test(incomingRequestId)
@@ -164,7 +156,6 @@ app.get('/metrics', (_req: Request, res: Response) => {
   });
 });
 
-// Healthcheck endpoint
 app.get('/health', async (_req: Request, res: Response) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
@@ -256,57 +247,6 @@ const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
     next();
   });
 };
-
-io.use((socket: Socket, next: (err?: Error) => void) => {
-  try {
-    const cookies = cookie.parse(socket.request.headers.cookie || '');
-    const token = cookies.token;
-
-    if (!token) return next(new Error('Autenticação não encontrada no handshake.'));
-
-    jwt.verify(token, signingSecret, (err, decoded: any) => {
-      if (err) return next(new Error('Sessão JWT inválida ou expirada.'));
-       
-      (socket as any).user = decoded;
-      socket.join(`user_${decoded.id}`);
-      next();
-    });
-  } catch (error: unknown) {
-    logger.error('[WebSocket Handshake Error] Erro interno de autenticação WebSocket:', error);
-    next(new Error('Erro interno de autenticação WebSocket.'));
-  }
-});
-
-// Socket Rate Limiting Map para eventos em tempo real
-const socketEventLimits = new Map<string, { count: number; resetTime: number }>();
-const checkSocketRateLimit = (socketId: string, eventName: string, limit: number = 20, windowMs: number = 60000): boolean => {
-  const key = `${socketId}_${eventName}`;
-  const now = Date.now();
-  const record = socketEventLimits.get(key);
-
-  if (!record || now > record.resetTime) {
-    socketEventLimits.set(key, { count: 1, resetTime: now + windowMs });
-    return true;
-  }
-
-  if (record.count >= limit) {
-    return false;
-  }
-
-  record.count++;
-  return true;
-};
-
-io.on('connection', (socket: Socket) => {
-  socket.onAny((eventName, ..._args) => {
-    if (!checkSocketRateLimit(socket.id, eventName, 30, 60000)) {
-      socket.emit('error', { message: 'Limite de eventos excedido. Por favor, diminua o ritmo.' });
-      logger.warn(`[Socket Rate Limit] Socket ${socket.id} bloqueado por excesso de eventos no canal ${eventName}`);
-    }
-  });
-});
-
-setupMatchmaking(io);
 
 const registerSchema = z.object({
   name: z.string().trim().min(1, 'Nome não pode estar vazio.').optional().default('Usuário'),
@@ -547,7 +487,7 @@ app.post('/api/room/report', authenticateToken, reportLimiter, async (req: Reque
       return { reportId: report.id, flagStatus };
     });
 
-    logger.warn(`🚨 AUDITORIA DE DENÚNCIA: Usuário ${userId} denunciou ${reportedUserId} por "${reason}" na sala ${roomId || 'N/A'}.`);
+    logger.warn(` AUDITORIA DE DENÚNCIA: Usuário ${userId} denunciou ${reportedUserId} por "${reason}" na sala ${roomId || 'N/A'}.`);
 
     const userReports = reports.get(reportedUserId) || [];
     userReports.push({ 
@@ -714,7 +654,7 @@ app.post('/api/friends/request', authenticateToken, async (req: Request, res: Re
       }
     });
 
-    io.to(`user_${resolvedTargetId}`).emit('friend_request_received', {
+    ioEmitter.to(`user_${resolvedTargetId}`).emit('friend_request_received', {
       requestId: friendRelation.id,
       senderId: userId,
       name: sender.name,
@@ -788,13 +728,13 @@ app.post('/api/friends/accept', authenticateToken, async (req: Request, res: Res
           data: [
             {
               userId: userId,
-              title: 'Nova Amizade 🤝',
+              title: 'Nova Amizade',
               message: `Você e ${requesterUser.name} agora são amigos!`,
               read: false,
             },
             {
               userId: String(targetRequesterId),
-              title: 'Nova Amizade 🤝',
+              title: 'Nova Amizade',
               message: `Você e ${acceptingUser.name} agora são amigos!`,
               read: false,
             }
@@ -900,7 +840,7 @@ app.post('/api/messages/send', authenticateToken, messageLimiter, async (req: Re
       }
     });
 
-    io.to(`user_${recipientId}`).emit('direct_message', {
+    ioEmitter.to(`user_${recipientId}`).emit('direct_message', {
       id: message.id,
       senderId,
       text,
@@ -915,6 +855,34 @@ app.post('/api/messages/send', authenticateToken, messageLimiter, async (req: Re
     }
     next(error);
   }
+});
+
+app.post('/api/observability/frontend-error', (req: Request, res: Response) => {
+  try {
+    const errorData = req.body;
+    logger.error(' [Frontend Error Boundary Report]', {
+      ...errorData,
+      userAgent: req.headers['user-agent'],
+      ip: anonymizeIp(req.ip),
+    });
+    return res.status(202).json({ status: 'logged' });
+  } catch (err) {
+    return res.status(500).json({ error: 'Falha ao registrar log de erro.' });
+  }
+});
+
+// Captura global de exceções não tratadas no processo Node.js
+process.on('uncaughtException', (err: Error) => {
+  logger.error(' UNCAUGHT EXCEPTION - Exceção síncrona não tratada:', {
+    message: err.message,
+    stack: err.stack,
+  });
+});
+
+process.on('unhandledRejection', (reason: unknown) => {
+  logger.error(' UNHANDLED REJECTION - Promise rejeitada não tratada:', {
+    reason: reason instanceof Error ? { message: reason.message, stack: reason.stack } : reason,
+  });
 });
 
 app.get('/api/messages/:recipientId', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
@@ -1231,11 +1199,11 @@ const gracefulShutdown = async (signal: string) => {
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-export { app, server, io };
+export { app, server, ioEmitter as io };
 
 if (process.env.NODE_ENV !== 'test') {
   server.listen(PORT, () => {
-    logger.info(`Servidor HTTP/Socket rodando na porta ${PORT}`);
+    logger.info(`Servidor HTTP rodando na porta ${PORT}`);
   });
 }
 const profileUpdateSchema = z.object({

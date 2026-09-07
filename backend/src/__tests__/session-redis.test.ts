@@ -1,26 +1,22 @@
 // backend/src/__tests__/session-redis.test.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const redisMockStore = new Map<string, string>();
+const mockStore = new Map<string, string>();
 
-vi.mock('redis', () => ({
-  createClient: () => ({
-    isOpen: true,
-    connect: vi.fn().mockResolvedValue(undefined),
-    set: vi.fn(async (key: string, value: string) => {
-      redisMockStore.set(key, value);
-      return 'OK';
+vi.mock('../repositories/sessionRepository.js', () => ({
+  sessionRepository: {
+    set: vi.fn(async (key: string, value: string, _expireInSeconds?: number) => {
+      mockStore.set(key, value);
     }),
     get: vi.fn(async (key: string) => {
-      return redisMockStore.get(key) || null;
+      return mockStore.get(key) || null;
     }),
-    del: vi.fn(async (key: string) => {
-      const exists = redisMockStore.has(key);
-      redisMockStore.delete(key);
-      return exists ? 1 : 0;
+    delete: vi.fn(async (key: string) => {
+      mockStore.delete(key);
     }),
-    on: vi.fn(),
-  }),
+    removeFromList: vi.fn(),
+    executeScript: vi.fn(),
+  }
 }));
 
 import { 
@@ -32,9 +28,10 @@ import {
   removeUserSocketMapping 
 } from '../services/sessionRedis.js';
 
-describe('Session Redis External Storage', () => {
+describe('Session Redis External Storage (via Repository)', () => {
   beforeEach(() => {
-    redisMockStore.clear();
+    mockStore.clear();
+    vi.clearAllMocks();
   });
 
   it('deve armazenar e recuperar uma sessão ativa corretamente', async () => {

@@ -13,11 +13,15 @@ const formatSessionTimer = (seconds: number) => {
   return `${mins}:${secs}`;
 };
 
-const ICE_SERVERS = {
+const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' }
+    {
+      urls: 'turn:turn.seusiteoficial.com:3478',
+      username: 'usuario_seguro',
+      credential: 'senha_segura_turn'
+    }
   ],
+  iceTransportPolicy: 'relay'
 };
 
 const getAvatarFallback = (name: string) => {

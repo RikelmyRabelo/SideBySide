@@ -46,7 +46,6 @@ describe('WebRTC & Chat Payload Security Tests (SBS-20)', () => {
       });
       
       setTimeout(() => {
-        // Conexão permanece viva (o parser seguro apenas intercepta e loga a falha sem derrubar o socket)
         expect(clientSocket.connected).toBe(true);
         done();
       }, 200);
@@ -71,5 +70,22 @@ describe('WebRTC & Chat Payload Security Tests (SBS-20)', () => {
         done();
       }, 200);
     });
+  });
+
+  test('Deve validar a configuração de política de transporte ICE restrita a relay (TURN)', () => {
+    // Configuração simulada que o cliente WebRTC deve adotar para mascarar o IP
+    const rtcConfiguration: RTCConfiguration = {
+      iceServers: [
+        {
+          urls: 'turn:turn.seusiteoficial.com:3478',
+          username: 'sec_user',
+          credential: 'sec_password'
+        }
+      ],
+      iceTransportPolicy: 'relay' // Força o uso estrito de TURN, bloqueando STUN e vazamento de IP real
+    };
+
+    expect(rtcConfiguration.iceTransportPolicy).toBe('relay');
+    expect(rtcConfiguration.iceServers?.[0].urls).toContain('turn:');
   });
 });

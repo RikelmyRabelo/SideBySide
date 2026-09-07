@@ -9,12 +9,29 @@ interface CacheItem<T> {
 const globalCache: Record<string, CacheItem<any>> = {};
 const DEFAULT_TTL = 5 * 60 * 1000; // 5 minutos de cache
 
+export function invalidateCache(url?: string) {
+  if (url) {
+    delete globalCache[url];
+  } else {
+    Object.keys(globalCache).forEach((key) => delete globalCache[key]);
+  }
+}
+
+export function updateCacheData<T>(url: string, updater: (oldData: T | null) => T) {
+  const cached = globalCache[url];
+  const currentData = cached ? cached.data : null;
+  const newData = updater(currentData);
+  globalCache[url] = {
+    data: newData,
+    timestamp: Date.now(),
+  };
+}
+
 export function useFetchCache<T>(url: string, options?: RequestInit, ttl: number = DEFAULT_TTL) {
   const [data, setData] = useState<T | null>(globalCache[url]?.data || null);
   const [isLoading, setIsLoading] = useState<boolean>(!globalCache[url]);
   const [error, setError] = useState<Error | null>(null);
 
-  // Armazena as opções em ref para evitar recriação de loops no useEffect
   const optionsRef = useRef(options);
   optionsRef.current = options;
 

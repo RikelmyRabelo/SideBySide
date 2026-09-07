@@ -22,3 +22,9 @@
 **/values.dev.yaml
 LICENSE
 README.md
+node_modules
+dist
+.git
+Dockerfile
+docker-compose.yml
+**/src/__tests__

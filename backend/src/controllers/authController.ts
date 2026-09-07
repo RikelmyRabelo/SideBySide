@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import nodemailer from 'nodemailer';
 import type { UserLevel } from '@prisma/client';
@@ -10,6 +11,11 @@ if (!JWT_SECRET || JWT_SECRET.length < 32) {
   throw new Error('JWT_SECRET must be configured with at least 32 characters.');
 }
 const signingSecret = JWT_SECRET;
+
+const loginDtoSchema = z.object({
+  email: z.string().email('E-mail inválido.'),
+  password: z.string().min(1, 'A senha é obrigatória.'),
+});
 
 export const cookieOptions = {
   httpOnly: true,
@@ -31,7 +37,15 @@ export const verificationCodes = new Map<string, string>();
 
 export async function loginHandler(req: Request, res: Response, next: NextFunction) {
   try {
-    const { email, password } = req.body;
+    const validationResult = loginDtoSchema.safeParse(req.body);
+    if (!validationResult.success) {
+      return res.status(400).json({
+        error: 'Dados de entrada inválidos.',
+        details: validationResult.error.format(),
+      });
+    }
+
+    const { email, password } = validationResult.data;
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return res.status(401).json({ error: 'Credenciais inválidas.' });
