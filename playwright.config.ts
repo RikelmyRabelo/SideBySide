@@ -4,14 +4,18 @@ export default defineConfig({
   testDir: './e2e',
   testMatch: '**/*.spec.ts',
   testIgnore: ['**/*.test.ts', '**/backend/**'],
+
   fullyParallel: true,
   forbidOnly: false,
   retries: 0,
   workers: undefined,
+
   reporter: 'html',
+
   webServer: [
     {
-      command: 'export DATABASE_URL="postgresql://postgres.qkeykngnurwniwdyegmp:tK2qtC33TRx0X2j9@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true" && export JWT_SECRET="FOTsUuFsyFINbN7GvPW1nL7fdOsONGlLa3N1d1I36MU=" && export REDIS_URL="${REDIS_URL:-redis://localhost:6379}" && npx prisma generate --schema=prisma/schema.prisma && npm run dev',
+      command:
+        'export DATABASE_URL="..." && export JWT_SECRET="..." && export REDIS_URL="${REDIS_URL:-redis://localhost:6379}" && npx prisma generate --schema=prisma/schema.prisma && npm run dev',
       cwd: './backend',
       url: 'http://localhost:3000/health',
       reuseExistingServer: true,
@@ -20,7 +24,7 @@ export default defineConfig({
       stderr: 'pipe',
     },
     {
-      command: 'npm run dev -- --host 0.0.0.0',
+      command: 'npm run dev:frontend -- --host 0.0.0.0',
       cwd: '.',
       url: 'http://localhost:5173',
       reuseExistingServer: true,
@@ -29,13 +33,15 @@ export default defineConfig({
       stderr: 'pipe',
     },
   ],
+
   use: {
     trace: 'on-first-retry',
   },
+
   projects: [
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
-    }
+    },
   ],
 });
