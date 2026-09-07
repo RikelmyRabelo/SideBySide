@@ -487,7 +487,7 @@ app.post('/api/room/report', authenticateToken, reportLimiter, async (req: Reque
       return { reportId: report.id, flagStatus };
     });
 
-    logger.warn(`🚨 AUDITORIA DE DENÚNCIA: Usuário ${userId} denunciou ${reportedUserId} por "${reason}" na sala ${roomId || 'N/A'}.`);
+    logger.warn(` AUDITORIA DE DENÚNCIA: Usuário ${userId} denunciou ${reportedUserId} por "${reason}" na sala ${roomId || 'N/A'}.`);
 
     const userReports = reports.get(reportedUserId) || [];
     userReports.push({ 
@@ -728,13 +728,13 @@ app.post('/api/friends/accept', authenticateToken, async (req: Request, res: Res
           data: [
             {
               userId: userId,
-              title: 'Nova Amizade 🤝',
+              title: 'Nova Amizade',
               message: `Você e ${requesterUser.name} agora são amigos!`,
               read: false,
             },
             {
               userId: String(targetRequesterId),
-              title: 'Nova Amizade 🤝',
+              title: 'Nova Amizade',
               message: `Você e ${acceptingUser.name} agora são amigos!`,
               read: false,
             }
@@ -855,6 +855,34 @@ app.post('/api/messages/send', authenticateToken, messageLimiter, async (req: Re
     }
     next(error);
   }
+});
+
+app.post('/api/observability/frontend-error', (req: Request, res: Response) => {
+  try {
+    const errorData = req.body;
+    logger.error(' [Frontend Error Boundary Report]', {
+      ...errorData,
+      userAgent: req.headers['user-agent'],
+      ip: anonymizeIp(req.ip),
+    });
+    return res.status(202).json({ status: 'logged' });
+  } catch (err) {
+    return res.status(500).json({ error: 'Falha ao registrar log de erro.' });
+  }
+});
+
+// Captura global de exceções não tratadas no processo Node.js
+process.on('uncaughtException', (err: Error) => {
+  logger.error(' UNCAUGHT EXCEPTION - Exceção síncrona não tratada:', {
+    message: err.message,
+    stack: err.stack,
+  });
+});
+
+process.on('unhandledRejection', (reason: unknown) => {
+  logger.error(' UNHANDLED REJECTION - Promise rejeitada não tratada:', {
+    reason: reason instanceof Error ? { message: reason.message, stack: reason.stack } : reason,
+  });
 });
 
 app.get('/api/messages/:recipientId', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {

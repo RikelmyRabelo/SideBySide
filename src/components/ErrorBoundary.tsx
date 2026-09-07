@@ -21,6 +21,25 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Erro não capturado detectado pelo ErrorBoundary:', error, errorInfo);
+    
+    // Serviço de registro centralizado de stack traces para observabilidade (Frontend)
+    const errorPayload = {
+      message: error.message,
+      stack: error.stack,
+      componentStack: errorInfo.componentStack,
+      timestamp: new Date().toISOString(),
+      url: window.location.href,
+    };
+
+    // Envio opcional para endpoint de log do backend ou console estruturado
+    fetch('/api/observability/frontend-error', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(errorPayload),
+    }).catch(() => {
+      // Fallback caso a rota de log falhe
+      console.warn('Falha ao enviar stack trace para o servidor de observabilidade.');
+    });
   }
 
   private handleReload = () => {
