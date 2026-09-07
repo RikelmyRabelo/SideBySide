@@ -5,7 +5,7 @@ on:
     branches: [ "main", "master" ]
   pull_request:
     branches: [ "main", "master" ]
-  
+
 env:
   JWT_SECRET: "FOTsUuFsyFINbN7GvPW1nL7fdOsONGlLa3N1d1I36MU="
   DATABASE_URL: "postgresql://postgres:tK2qtC33TRx0X2j9@db.qkeykngnurwniwdyegmp.supabase.co:5432/postgres"
@@ -15,6 +15,7 @@ jobs:
   backend-ci:
     name: Backend CI & Test
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -38,6 +39,7 @@ jobs:
   frontend-ci:
     name: Frontend CI & Test
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -61,8 +63,12 @@ jobs:
     name: Playwright E2E Tests
     needs: [backend-ci, frontend-ci]
     runs-on: ubuntu-latest
+
     env:
+      DATABASE_URL: "postgresql://postgres:tK2qtC33TRx0X2j9@db.qkeykngnurwniwdyegmp.supabase.co:5432/postgres"
+      JWT_SECRET: "FOTsUuFsyFINbN7GvPW1nL7fdOsONGlLa3N1d1I36MU="
       REDIS_URL: "redis://redis:6379"
+
     services:
       redis:
         image: redis:alpine
@@ -73,6 +79,7 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
