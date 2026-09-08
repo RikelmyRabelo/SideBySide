@@ -9,29 +9,15 @@ const backendEnvPath = path.resolve(
   '.env',
 );
 
-/**
- * Carrega o .env local somente fora do CI.
- *
- * No GitHub Actions, DATABASE_URL, JWT_SECRET e REDIS_URL
- * são fornecidos pelo próprio ambiente do workflow.
- */
-if (
-  process.env.CI !== 'true' &&
-  fs.existsSync(backendEnvPath)
-) {
+if (fs.existsSync(backendEnvPath)) {
   dotenv.config({
     path: backendEnvPath,
     override: false,
   });
 }
 
-const databaseUrl = process.env.DATABASE_URL;
-
-if (!databaseUrl) {
-  throw new Error(
-    'DATABASE_URL não está configurada antes da inicialização do Playwright.',
-  );
-}
+const databaseUrl =
+  process.env.DATABASE_URL;
 
 const jwtSecret =
   process.env.JWT_SECRET ||
@@ -41,17 +27,10 @@ const redisUrl =
   process.env.REDIS_URL ||
   'redis://localhost:6379';
 
-/**
- * Ambiente utilizado pelos processos do backend.
- *
- * Não usamos ...process.env aqui porque o tipo de
- * process.env é Record<string, string | undefined>,
- * enquanto o Playwright exige Record<string, string>.
- */
-const backendEnv = {
+const backendEnv: Record<string, string> = {
   NODE_ENV: 'test',
   E2E_TEST: 'true',
-  DATABASE_URL: databaseUrl,
+  DATABASE_URL: databaseUrl || '',
   JWT_SECRET: jwtSecret,
   REDIS_URL: redisUrl,
 };
@@ -79,12 +58,6 @@ export default defineConfig({
   globalSetup: './e2e/global-setup.ts',
 
   webServer: [
-    /**
-     * Backend HTTP
-     *
-     * Primeiro gera o Prisma Client e depois inicia
-     * o servidor HTTP na porta 3000.
-     */
     {
       command:
         'npx prisma generate --schema=prisma/schema.prisma && npm run dev',
@@ -104,9 +77,6 @@ export default defineConfig({
       env: backendEnv,
     },
 
-    /**
-     * Servidor WebSocket / Socket.IO
-     */
     {
       command:
         'npx tsx src/sockets/server-ws.ts',
@@ -129,9 +99,6 @@ export default defineConfig({
       },
     },
 
-    /**
-     * Frontend Vite
-     */
     {
       command:
         'npm run dev:frontend -- --host 0.0.0.0',
