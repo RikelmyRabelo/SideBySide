@@ -81,7 +81,7 @@ jobs:
     name: Playwright E2E Tests
     needs: [backend-ci, frontend-ci]
     runs-on: ubuntu-latest
-    environment: ci  # <--- Vincula ao Environment "ci" aqui também
+    environment: ci
 
     services:
       postgres:
@@ -111,23 +111,25 @@ jobs:
         with:
           node-version: '22'
 
+      # 1. Usa npm install para garantir que tudo do package.json seja instalado
       - name: Install Root Dependencies
-        run: |
-          npm ci || npm install
-          npm install -D @playwright/test dotenv
+        run: npm install --include=dev
 
+      # 2. Configura o backend
       - name: Setup Backend & Database Schema
         working-directory: ./backend
         run: |
-          npm ci
+          npm install
           npx prisma generate
           npx prisma db push
 
+      # 3. Instala os binários dos navegadores do Playwright
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
 
+      # 4. Executa usando o script oficial do seu package.json
       - name: Run Playwright E2E Tests
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
-        run: npx playwright test
+        run: npm run test:e2e
