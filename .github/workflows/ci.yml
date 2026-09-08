@@ -31,9 +31,6 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
-      - name: Generate Prisma Client
-        run: npx prisma generate --schema backend/prisma/schema.prisma
-
       - name: Verify Environment Variables
         run: |
           test -n "$DATABASE_URL"
@@ -41,6 +38,9 @@ jobs:
           test "${#JWT_SECRET}" -ge 32
           test -n "$REDIS_URL"
           echo "Environment variables configured successfully."
+
+      - name: Generate Prisma Client
+        run: npx prisma generate --schema backend/prisma/schema.prisma
 
       - name: Run Backend Tests
         run: npm test --workspace=backend --if-present
@@ -120,6 +120,13 @@ jobs:
           test "${#JWT_SECRET}" -ge 32
           test -n "$REDIS_URL"
           echo "Environment variables configured successfully."
+
+      - name: Debug Environment
+        run: |
+          echo "CI=$CI"
+          echo "DATABASE_URL configured: ${DATABASE_URL:+yes}"
+          echo "JWT_SECRET configured: ${JWT_SECRET:+yes}"
+          echo "REDIS_URL configured: ${REDIS_URL:+yes}"
 
       - name: Run Playwright E2E Tests
         run: npx playwright test
