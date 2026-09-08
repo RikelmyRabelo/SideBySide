@@ -31,6 +31,7 @@ vi.mock('redis', () => ({
       isOpen: true,
       connect: vi.fn().mockResolvedValue(undefined),
       quit: vi.fn().mockResolvedValue(undefined),
+      on: vi.fn(),
     }),
     quit: vi.fn().mockResolvedValue(undefined),
     on: vi.fn(),
