@@ -16,9 +16,6 @@ if (fs.existsSync(backendEnvPath)) {
   });
 }
 
-const databaseUrl =
-  process.env.DATABASE_URL;
-
 const jwtSecret =
   process.env.JWT_SECRET ||
   'integration-test-secret-with-at-least-32-chars';
@@ -26,14 +23,6 @@ const jwtSecret =
 const redisUrl =
   process.env.REDIS_URL ||
   'redis://localhost:6379';
-
-const backendEnv: Record<string, string> = {
-  NODE_ENV: 'test',
-  E2E_TEST: 'true',
-  DATABASE_URL: databaseUrl || '',
-  JWT_SECRET: jwtSecret,
-  REDIS_URL: redisUrl,
-};
 
 export default defineConfig({
   testDir: './e2e',
@@ -74,7 +63,12 @@ export default defineConfig({
 
       stderr: 'pipe',
 
-      env: backendEnv,
+      env: {
+        NODE_ENV: 'test',
+        E2E_TEST: 'true',
+        JWT_SECRET: jwtSecret,
+        REDIS_URL: redisUrl,
+      },
     },
 
     {
@@ -94,7 +88,10 @@ export default defineConfig({
       stderr: 'pipe',
 
       env: {
-        ...backendEnv,
+        NODE_ENV: 'test',
+        E2E_TEST: 'true',
+        JWT_SECRET: jwtSecret,
+        REDIS_URL: redisUrl,
         WS_PORT: '3001',
       },
     },
