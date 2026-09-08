@@ -100,6 +100,7 @@ jobs:
         run: |
           test -n "$DATABASE_URL"
           test -n "$JWT_SECRET"
+          test "${#JWT_SECRET}" -ge 32
           test -n "$REDIS_URL"
           echo "Environment variables configured successfully."
 
