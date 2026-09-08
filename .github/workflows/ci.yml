@@ -36,9 +36,15 @@ jobs:
       - name: Run Backend Tests
         run: npm test --workspace=backend --if-present
 
+
   frontend-ci:
     name: Frontend CI & Test
     runs-on: ubuntu-latest
+    environment: ci
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      REDIS_URL: redis://localhost:6379
 
     steps:
       - name: Checkout Code
