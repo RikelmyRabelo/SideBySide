@@ -98,21 +98,10 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-      # Sobe o container do Redis
-      redis:
-        image: redis:alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
-      REDIS_URL: "redis://127.0.0.1:6379" # <--- Usando 127.0.0.1 em vez de localhost
+      REDIS_URL: "redis://127.0.0.1:6379"
 
     steps:
       - name: Checkout Code
@@ -122,6 +111,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+
+      # 1. Inicia o Redis e só prossegue quando estiver respondendo
+      - name: Start Redis
+        uses: supercharge/redis-github-action@1.8.1
+        with:
+          redis-version: 7
 
       - name: Install Root Dependencies
         run: npm install --include=dev
