@@ -112,11 +112,12 @@ jobs:
         with:
           node-version: '22'
 
-      # 1. Inicia o Redis e só prossegue quando estiver respondendo
-      - name: Start Redis
-        uses: supercharge/redis-github-action@1.8.1
-        with:
-          redis-version: 7
+      # Sobe o Redis diretamente na rede nativa do host (sem bridge/iptables)
+      - name: Start Redis (Host Network)
+        run: |
+          docker run -d --network host --name test-redis redis:alpine
+          sleep 2
+          docker exec test-redis redis-cli ping
 
       - name: Install Root Dependencies
         run: npm install --include=dev
