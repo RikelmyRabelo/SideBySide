@@ -39,6 +39,12 @@ jobs:
           test -n "$REDIS_URL"
           echo "Environment variables configured successfully."
 
+      - name: Verify Node Environment
+        run: |
+          node -e "console.log('DATABASE_URL configured in Node:', Boolean(process.env.DATABASE_URL))"
+          node -e "console.log('JWT_SECRET configured in Node:', Boolean(process.env.JWT_SECRET))"
+          node -e "console.log('REDIS_URL configured in Node:', Boolean(process.env.REDIS_URL))"
+
       - name: Generate Prisma Client
         run: npx prisma generate --schema backend/prisma/schema.prisma
 
@@ -68,6 +74,14 @@ jobs:
 
       - name: Install Dependencies
         run: npm ci
+
+      - name: Verify Environment Variables
+        run: |
+          test -n "$DATABASE_URL"
+          test -n "$JWT_SECRET"
+          test "${#JWT_SECRET}" -ge 32
+          test -n "$REDIS_URL"
+          echo "Environment variables configured successfully."
 
       - name: Run Frontend Tests
         run: npm run test --if-present
@@ -115,24 +129,28 @@ jobs:
 
       - name: Verify Environment Variables
         run: |
-          test -n "$DATABASE_URL"
-          test -n "$JWT_SECRET"
-          test "${#JWT_SECRET}" -ge 32
-          test -n "$REDIS_URL"
-          echo "Environment variables configured successfully."
-
-      - name: Debug Environment
-        run: |
           echo "CI=$CI"
           echo "DATABASE_URL configured: ${DATABASE_URL:+yes}"
           echo "JWT_SECRET configured: ${JWT_SECRET:+yes}"
           echo "REDIS_URL configured: ${REDIS_URL:+yes}"
+
+          test -n "$DATABASE_URL"
+          test -n "$JWT_SECRET"
+          test "${#JWT_SECRET}" -ge 32
+          test -n "$REDIS_URL"
+
+          echo "Environment variables configured successfully."
 
       - name: Verify Node Environment
         run: |
           node -e "console.log('DATABASE_URL configured in Node:', Boolean(process.env.DATABASE_URL))"
           node -e "console.log('JWT_SECRET configured in Node:', Boolean(process.env.JWT_SECRET))"
           node -e "console.log('REDIS_URL configured in Node:', Boolean(process.env.REDIS_URL))"
+
+      - name: Verify Prisma Environment
+        run: |
+          node -e "if (!process.env.DATABASE_URL) { console.error('DATABASE_URL is missing before Prisma execution'); process.exit(1) }"
+          echo "DATABASE_URL is available to Prisma."
 
       - name: Run Playwright E2E Tests
         run: npx playwright test
