@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { Button } from '../components/ui/Button';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 export const Onboarding: React.FC = () => {
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
@@ -537,6 +542,31 @@ export const Onboarding: React.FC = () => {
                 variant="primary"
                 onClick={async () => {
                   try {
+                    let finalAvatarUrl = avatarUrl;
+
+                    if (avatarUrl && avatarUrl.startsWith('data:image') && !skipPhoto) {
+                      const response = await fetch(avatarUrl);
+                      const blob = await response.blob();
+                      const fileName = `avatar_${Date.now()}.jpg`;
+
+                      const { error: uploadError } = await supabase.storage
+                        .from('avatars')
+                        .upload(fileName, blob, {
+                          contentType: 'image/jpeg',
+                          upsert: true,
+                        });
+
+                      if (uploadError) {
+                        throw new Error(`Erro no upload: ${uploadError.message}`);
+                      }
+
+                      const { data: publicUrlData } = supabase.storage
+                        .from('avatars')
+                        .getPublicUrl(fileName);
+
+                      finalAvatarUrl = publicUrlData.publicUrl;
+                    }
+
                     await api.put('/api/user/profile', {
                       name: displayName.trim(),
                       birthDate,
@@ -546,7 +576,7 @@ export const Onboarding: React.FC = () => {
                       cefrLevel,
                       bio: bio.trim(),
                       interests: selectedInterests,
-                      avatar: avatarUrl,
+                      avatar: finalAvatarUrl,
                     });
 
                     window.location.href = '/auth-success';
