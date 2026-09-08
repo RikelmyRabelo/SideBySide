@@ -19,9 +19,6 @@ if (fs.existsSync(backendEnvPath)) {
 /**
  * Preserva todas as variáveis de ambiente disponíveis
  * no processo atual, removendo apenas valores undefined.
- *
- * Isso é importante no CI porque DATABASE_URL e JWT_SECRET
- * são fornecidos pelo GitHub Actions.
  */
 const inheritedEnv: Record<string, string> =
   Object.fromEntries(
@@ -31,6 +28,11 @@ const inheritedEnv: Record<string, string> =
     ),
   );
 
+// 1. Fallbacks seguros caso as variáveis venham vazias do CI
+const databaseUrl =
+  process.env.DATABASE_URL ||
+  'postgresql://postgres:postgrespassword@localhost:5432/testdb?schema=public';
+
 const jwtSecret =
   process.env.JWT_SECRET ||
   'integration-test-secret-with-at-least-32-chars';
@@ -39,12 +41,19 @@ const redisUrl =
   process.env.REDIS_URL ||
   'redis://localhost:6379';
 
+// Garante no processo principal do Node
+process.env.DATABASE_URL = databaseUrl;
+process.env.JWT_SECRET = jwtSecret;
+process.env.REDIS_URL = redisUrl;
+
 const backendEnv: Record<string, string> = {
   ...inheritedEnv,
 
   NODE_ENV: 'test',
 
   E2E_TEST: 'true',
+
+  DATABASE_URL: databaseUrl, // <--- AGORA O WEBSERVER RECEBE A DATABASE_URL!
 
   JWT_SECRET: jwtSecret,
 
@@ -82,7 +91,7 @@ export default defineConfig({
 
       url: 'http://localhost:3000/health',
 
-      reuseExistingServer: true,
+      reuseExistingServer: !process.env.CI,
 
       timeout: 120000,
 
@@ -101,7 +110,7 @@ export default defineConfig({
 
       url: 'http://localhost:3001/health/ready',
 
-      reuseExistingServer: true,
+      reuseExistingServer: !process.env.CI,
 
       timeout: 120000,
 
@@ -124,7 +133,7 @@ export default defineConfig({
 
       url: 'http://localhost:5173',
 
-      reuseExistingServer: true,
+      reuseExistingServer: !process.env.CI,
 
       timeout: 120000,
 
