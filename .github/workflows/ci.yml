@@ -13,6 +13,27 @@ jobs:
     defaults:
       run:
         working-directory: ./backend
+
+    # 1. Banco Postgres para o backend caso os testes precisem
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgrespassword
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    # 2. Variável de ambiente necessária para o Prisma e testes
+    env:
+      DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/testdb?schema=public"
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -27,6 +48,9 @@ jobs:
 
       - name: Generate Prisma Client
         run: npx prisma generate
+
+      - name: Run Migrations / Push Schema
+        run: npx prisma db push
 
       - name: Run Backend Tests
         run: npm test --if-present
