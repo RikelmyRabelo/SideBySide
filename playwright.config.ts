@@ -16,6 +16,21 @@ if (fs.existsSync(backendEnvPath)) {
   });
 }
 
+/**
+ * Preserva todas as variáveis de ambiente disponíveis
+ * no processo atual, removendo apenas valores undefined.
+ *
+ * Isso é importante no CI porque DATABASE_URL e JWT_SECRET
+ * são fornecidos pelo GitHub Actions.
+ */
+const inheritedEnv: Record<string, string> =
+  Object.fromEntries(
+    Object.entries(process.env).filter(
+      (entry): entry is [string, string] =>
+        typeof entry[1] === 'string',
+    ),
+  );
+
 const jwtSecret =
   process.env.JWT_SECRET ||
   'integration-test-secret-with-at-least-32-chars';
@@ -23,6 +38,18 @@ const jwtSecret =
 const redisUrl =
   process.env.REDIS_URL ||
   'redis://localhost:6379';
+
+const backendEnv: Record<string, string> = {
+  ...inheritedEnv,
+
+  NODE_ENV: 'test',
+
+  E2E_TEST: 'true',
+
+  JWT_SECRET: jwtSecret,
+
+  REDIS_URL: redisUrl,
+};
 
 export default defineConfig({
   testDir: './e2e',
@@ -63,12 +90,7 @@ export default defineConfig({
 
       stderr: 'pipe',
 
-      env: {
-        NODE_ENV: 'test',
-        E2E_TEST: 'true',
-        JWT_SECRET: jwtSecret,
-        REDIS_URL: redisUrl,
-      },
+      env: backendEnv,
     },
 
     {
@@ -88,10 +110,8 @@ export default defineConfig({
       stderr: 'pipe',
 
       env: {
-        NODE_ENV: 'test',
-        E2E_TEST: 'true',
-        JWT_SECRET: jwtSecret,
-        REDIS_URL: redisUrl,
+        ...backendEnv,
+
         WS_PORT: '3001',
       },
     },
