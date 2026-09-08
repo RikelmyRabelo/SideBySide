@@ -128,5 +128,11 @@ jobs:
           echo "JWT_SECRET configured: ${JWT_SECRET:+yes}"
           echo "REDIS_URL configured: ${REDIS_URL:+yes}"
 
+      - name: Verify Node Environment
+        run: |
+          node -e "console.log('DATABASE_URL configured in Node:', Boolean(process.env.DATABASE_URL))"
+          node -e "console.log('JWT_SECRET configured in Node:', Boolean(process.env.JWT_SECRET))"
+          node -e "console.log('REDIS_URL configured in Node:', Boolean(process.env.REDIS_URL))"
+
       - name: Run Playwright E2E Tests
         run: npx playwright test
