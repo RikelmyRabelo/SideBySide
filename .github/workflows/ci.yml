@@ -112,7 +112,9 @@ jobs:
           node-version: '22'
 
       - name: Install Root Dependencies
-        run: npm ci
+        run: |
+          npm ci || npm install
+          npm install -D @playwright/test dotenv
 
       - name: Setup Backend & Database Schema
         working-directory: ./backend
