@@ -20,9 +20,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
+          node-version: '22'
 
       - name: Install Dependencies
         run: npm ci
@@ -44,8 +42,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: '**/package-lock.json'
 
       - name: Install Dependencies
         run: npm ci
@@ -61,7 +57,6 @@ jobs:
     needs: [backend-ci, frontend-ci]
     runs-on: ubuntu-latest
 
-    # 1. Sobe um container de banco para o backend se conectar durante o E2E
     services:
       postgres:
         image: postgres:15
@@ -78,7 +73,6 @@ jobs:
           --health-retries 5
 
     env:
-      # URL apontando para o serviço acima
       DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/testdb?schema=public"
 
     steps:
@@ -89,14 +83,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: '**/package-lock.json'
 
-      # Instala dependências da raiz / frontend
       - name: Install Root Dependencies
         run: npm ci
 
-      # 2. Instala dependências do backend e sincroniza o Prisma com o banco
       - name: Setup Backend & Database Schema
         working-directory: ./backend
         run: |
@@ -107,6 +97,5 @@ jobs:
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
 
-      # 3. Roda os testes com a variável de ambiente disponível
       - name: Run Playwright E2E Tests
         run: npx playwright test
