@@ -28,14 +28,12 @@ export default defineConfig({
     stdout: 'pipe',
     stderr: 'pipe',
     env: {
-      NODE_ENV: 'test',
-      E2E_TEST: 'true',
-      DATABASE_URL: process.env.DATABASE_URL || '',
-      JWT_SECRET:
-        process.env.JWT_SECRET ||
-        'FOTsUuFsyFINbN7GvPW1nL7fdOsONGlLa3N1d1I36MU=',
-      REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
-    },
+  NODE_ENV: 'test',
+  E2E_TEST: 'true',
+  DATABASE_URL: process.env.DATABASE_URL || '',
+  JWT_SECRET: process.env.JWT_SECRET || '',
+  REDIS_URL: 'redis://localhost:6379',
+},
   },
 
   {
@@ -47,15 +45,13 @@ export default defineConfig({
     stdout: 'pipe',
     stderr: 'pipe',
     env: {
-      NODE_ENV: 'test',
-      E2E_TEST: 'true',
-      DATABASE_URL: process.env.DATABASE_URL || '',
-      JWT_SECRET:
-        process.env.JWT_SECRET ||
-        'FOTsUuFsyFINbN7GvPW1nL7fdOsONGlLa3N1d1I36MU=',
-      REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
-      WS_PORT: '3001',
-    },
+  NODE_ENV: 'test',
+  E2E_TEST: 'true',
+  DATABASE_URL: process.env.DATABASE_URL || '',
+  JWT_SECRET: process.env.JWT_SECRET || '',
+  REDIS_URL: 'redis://localhost:6379',
+  WS_PORT: '3001',
+},
   },
 
   {
