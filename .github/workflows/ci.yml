@@ -59,6 +59,27 @@ jobs:
     name: Playwright E2E Tests
     needs: [backend-ci, frontend-ci]
     runs-on: ubuntu-latest
+
+    # 1. Sobe um container de banco para o backend se conectar durante o E2E
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgrespassword
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # URL apontando para o serviço acima
+      DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/testdb?schema=public"
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -69,11 +90,21 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install Dependencies
+      # Instala dependências da raiz / frontend
+      - name: Install Root Dependencies
         run: npm ci
+
+      # 2. Instala dependências do backend e sincroniza o Prisma com o banco
+      - name: Setup Backend & Database Schema
+        working-directory: ./backend
+        run: |
+          npm ci
+          npx prisma generate
+          npx prisma db push
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
 
+      # 3. Roda os testes com a variável de ambiente disponível
       - name: Run Playwright E2E Tests
         run: npx playwright test
