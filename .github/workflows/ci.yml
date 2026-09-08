@@ -6,7 +6,6 @@ on:
   pull_request:
     branches: [ "main", "master" ]
 
-# 1. Variável global: evita que qualquer job quebre por falta de DATABASE_URL
 env:
   DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/testdb?schema=public"
 
@@ -14,6 +13,7 @@ jobs:
   backend-ci:
     name: Backend CI & Test
     runs-on: ubuntu-latest
+    environment: ci  # <--- 1. CONECTA COM O SEU ENVIRONMENT "ci"
     defaults:
       run:
         working-directory: ./backend
@@ -32,6 +32,9 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+
+    env:
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}  # <--- 2. PUXA O SEGREDO DO ENVIRONMENT "ci"
 
     steps:
       - name: Checkout Code
@@ -72,7 +75,6 @@ jobs:
       - name: Run Frontend Tests
         run: npm run test --if-present
 
-      # 2. Roda apenas o build do frontend, e não do monorepo todo
       - name: Build Frontend
         run: npm run build:frontend
 
@@ -80,6 +82,7 @@ jobs:
     name: Playwright E2E Tests
     needs: [backend-ci, frontend-ci]
     runs-on: ubuntu-latest
+    environment: ci  # <--- CONECTA COM O ENVIRONMENT "ci" TAMBÉM
 
     services:
       postgres:
@@ -95,6 +98,9 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+
+    env:
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
 
     steps:
       - name: Checkout Code
