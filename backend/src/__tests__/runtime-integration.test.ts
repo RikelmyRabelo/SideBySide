@@ -39,7 +39,12 @@ vi.mock('redis', () => ({
 }));
 
 vi.mock('@socket.io/redis-adapter', () => ({
-  createAdapter: vi.fn(() => vi.fn()),
+  createAdapter: vi.fn(() => {
+    return class MockRedisAdapter {
+      init() {}
+      close() {}
+    };
+  }),
 }));
 
 vi.mock('nodemailer', () => ({
