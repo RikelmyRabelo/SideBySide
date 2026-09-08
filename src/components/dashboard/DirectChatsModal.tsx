@@ -73,15 +73,45 @@ export const DirectChatsModal: React.FC<DirectChatsModalProps> = memo(({ isOpen,
   useEffect(() => {
     if (isOpen) {
       socketRef.current = socket;
+      const handleDirectMessage = (data: {
+  id: string;
+  senderId: string;
+  text: string;
+  timestamp: number;
+}) => {
+  console.log(
+    '[DIRECT_MESSAGE]',
+    {
+      id: data.id,
+      senderId: data.senderId,
+      text: data.text,
+      timestamp: data.timestamp,
+    }
+  );
 
-      const handleDirectMessage = (data: { id: string; senderId: string; text: string; timestamp: number }) => {
-        if (activeContactRef.current && data.senderId === activeContactRef.current.id) {
-          const d = new Date(data.timestamp);
-          const timeString = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
-          setMessages((prev) => [...prev, { id: data.id || data.timestamp, text: data.text, sender: 'them', time: timeString }]);
-          onClearUnread(data.senderId);
-        }
-      };
+  if (
+    activeContactRef.current &&
+    data.senderId === activeContactRef.current.id
+  ) {
+    const d = new Date(data.timestamp);
+    const timeString = `${d.getHours().toString().padStart(2, '0')}:${d
+      .getMinutes()
+      .toString()
+      .padStart(2, '0')}`;
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: data.id || data.timestamp,
+        text: data.text,
+        sender: 'them',
+        time: timeString,
+      },
+    ]);
+
+    onClearUnread(data.senderId);
+  }
+};
       socket.on('direct_message', handleDirectMessage);
 
       return () => {

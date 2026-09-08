@@ -6,27 +6,61 @@ import pg from 'pg';
 test.describe('Fluxo E2E: Amizade e Chat em Tempo Real', () => {
   
   test.beforeAll(async () => {
-    const connectionString = process.env.DATABASE_URL?.replace(':6543', ':5432').replace('?pgbouncer=true', '');
-    const pool = new pg.Pool({ connectionString });
-    const adapter = new PrismaPg(pool);
-    const prisma = new PrismaClient({ adapter });
+  const connectionString = process.env.DATABASE_URL
+    ?.replace(':6543', ':5432')
+    .replace('?pgbouncer=true', '');
 
-    try {
-      const possibleTables = ['Friendship', 'FriendRelation', 'friendship', 'friendRelation', 'Friend', 'friends'];
-      for (const table of possibleTables) {
-        try {
-          await prisma.$executeRawUnsafe(`DELETE FROM "${table}"`);
-        } catch (e) {
-          // Ignora tabelas inexistentes
-        }
-      }
-    } catch (e) {
-      console.log('Limpeza via SQL ignorada:', e);
-    } finally {
-      await prisma.$disconnect();
-      await pool.end();
+  const pool = new pg.Pool({ connectionString });
+  const adapter = new PrismaPg(pool);
+  const prisma = new PrismaClient({ adapter });
+
+  try {
+    const userA = await prisma.user.findUnique({
+      where: { email: 'userA@teste.com' },
+      select: { id: true },
+    });
+
+    const userB = await prisma.user.findUnique({
+      where: { email: 'userB@teste.com' },
+      select: { id: true },
+    });
+
+    if (userA && userB) {
+      await prisma.directMessage.deleteMany({
+        where: {
+          OR: [
+            {
+              senderId: userA.id,
+              recipientId: userB.id,
+            },
+            {
+              senderId: userB.id,
+              recipientId: userA.id,
+            },
+          ],
+        },
+      });
+
+      await prisma.friendRelation.deleteMany({
+        where: {
+          OR: [
+            {
+              userId: userA.id,
+              friendId: userB.id,
+            },
+            {
+              userId: userB.id,
+              friendId: userA.id,
+            },
+          ],
+        },
+      });
     }
-  });
+  } finally {
+    await prisma.$disconnect();
+    await pool.end();
+  }
+});
 
   test('User A envia pedido, User B aceita e ambos conversam via Socket', async ({ browser }) => {
     const contextA = await browser.newContext();
@@ -170,7 +204,7 @@ await expect(
 // A RESPONDE
 // -------------------------
 
-const respostaTeste = 'Message received loudly and clearly!';
+const respostaTeste = `Message received loudly and clearly! ${Date.now()}`;
 
 await pageA.fill(
   'input[placeholder="Escreva sua mensagem..."]',
@@ -186,6 +220,9 @@ await pageA.locator('form button[type="submit"]').click();
 
 await expect(
   pageB.getByText(respostaTeste)
-).toBeVisible({ timeout: 15000 });
+).toHaveCount(1, { timeout: 15000 });
+
+await contextA.close();
+await contextB.close();
   });
 });
