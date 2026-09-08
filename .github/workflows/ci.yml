@@ -6,18 +6,16 @@ on:
   pull_request:
     branches: [ "main", "master" ]
 
-env:
-  DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/testdb?schema=public"
-
 jobs:
   backend-ci:
     name: Backend CI & Test
     runs-on: ubuntu-latest
-    environment: ci  # <--- 1. CONECTA COM O SEU ENVIRONMENT "ci"
+    environment: ci  # <--- Vincula ao Environment "ci" para liberar as secrets
     defaults:
       run:
         working-directory: ./backend
 
+    # Mantemos o serviço caso a sua URL aponte para localhost/container
     services:
       postgres:
         image: postgres:15
@@ -34,7 +32,8 @@ jobs:
           --health-retries 5
 
     env:
-      JWT_SECRET: ${{ secrets.JWT_SECRET }}  # <--- 2. PUXA O SEGREDO DO ENVIRONMENT "ci"
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
 
     steps:
       - name: Checkout Code
@@ -82,7 +81,7 @@ jobs:
     name: Playwright E2E Tests
     needs: [backend-ci, frontend-ci]
     runs-on: ubuntu-latest
-    environment: ci  # <--- CONECTA COM O ENVIRONMENT "ci" TAMBÉM
+    environment: ci  # <--- Vincula ao Environment "ci" aqui também
 
     services:
       postgres:
@@ -100,6 +99,7 @@ jobs:
           --health-retries 5
 
     env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
 
     steps:
@@ -125,4 +125,7 @@ jobs:
         run: npx playwright install --with-deps
 
       - name: Run Playwright E2E Tests
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
         run: npx playwright test
