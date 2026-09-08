@@ -2,21 +2,17 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: ["main", "master"]
+    branches: [ "main", "master" ]
   pull_request:
-    branches: ["main", "master"]
+    branches: [ "main", "master" ]
 
 jobs:
   backend-ci:
     name: Backend CI & Test
     runs-on: ubuntu-latest
-    environment: ci
-
-    env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      JWT_SECRET: ${{ secrets.JWT_SECRET }}
-      REDIS_URL: redis://localhost:6379
-
+    defaults:
+      run:
+        working-directory: ./backend
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -24,43 +20,22 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
-          cache-dependency-path: package-lock.json
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
 
       - name: Install Dependencies
         run: npm ci
-
-      - name: Verify Environment Variables
-        run: |
-          test -n "$DATABASE_URL"
-          test -n "$JWT_SECRET"
-          test "${#JWT_SECRET}" -ge 32
-          test -n "$REDIS_URL"
-          echo "Environment variables configured successfully."
-
-      - name: Verify Node Environment
-        run: |
-          node -e "console.log('DATABASE_URL configured in Node:', Boolean(process.env.DATABASE_URL))"
-          node -e "console.log('JWT_SECRET configured in Node:', Boolean(process.env.JWT_SECRET))"
-          node -e "console.log('REDIS_URL configured in Node:', Boolean(process.env.REDIS_URL))"
 
       - name: Generate Prisma Client
-        run: npx prisma generate --schema backend/prisma/schema.prisma
+        run: npx prisma generate
 
       - name: Run Backend Tests
-        run: npm test --workspace=backend --if-present
+        run: npm test --if-present
 
   frontend-ci:
-    name: Frontend CI & Test
+    name: Frontend Build & Test
     runs-on: ubuntu-latest
-    environment: ci
-
-    env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      JWT_SECRET: ${{ secrets.JWT_SECRET }}
-      REDIS_URL: redis://localhost:6379
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -68,20 +43,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
-          cache-dependency-path: package-lock.json
+          node-version: '20'
+          cache: 'npm'
 
       - name: Install Dependencies
         run: npm ci
-
-      - name: Verify Environment Variables
-        run: |
-          test -n "$DATABASE_URL"
-          test -n "$JWT_SECRET"
-          test "${#JWT_SECRET}" -ge 32
-          test -n "$REDIS_URL"
-          echo "Environment variables configured successfully."
 
       - name: Run Frontend Tests
         run: npm run test --if-present
@@ -90,25 +56,29 @@ jobs:
         run: npm run build
 
   e2e-tests:
-    name: E2E Tests
+    name: Playwright E2E Tests
+    needs: [backend-ci, frontend-ci]
     runs-on: ubuntu-latest
-    environment: ci
 
-    env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      JWT_SECRET: ${{ secrets.JWT_SECRET }}
-      REDIS_URL: redis://localhost:6379
-
+    # 1. Sobe um container de banco para o backend se conectar durante o E2E
     services:
-      redis:
-        image: redis:alpine
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgrespassword
+          POSTGRES_DB: testdb
         ports:
-          - 6379:6379
+          - 5432:5432
         options: >-
-          --health-cmd "redis-cli ping"
+          --health-cmd pg_isready
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+
+    env:
+      # URL apontando para o serviço acima
+      DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/testdb?schema=public"
 
     steps:
       - name: Checkout Code
@@ -117,40 +87,24 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
-          cache-dependency-path: package-lock.json
+          node-version: '20'
+          cache: 'npm'
 
-      - name: Install Dependencies
+      # Instala dependências da raiz / frontend
+      - name: Install Root Dependencies
         run: npm ci
+
+      # 2. Instala dependências do backend e sincroniza o Prisma com o banco
+      - name: Setup Backend & Database Schema
+        working-directory: ./backend
+        run: |
+          npm ci
+          npx prisma generate
+          npx prisma db push
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
 
-      - name: Verify Environment Variables
-        run: |
-          echo "CI=$CI"
-          echo "DATABASE_URL configured: ${DATABASE_URL:+yes}"
-          echo "JWT_SECRET configured: ${JWT_SECRET:+yes}"
-          echo "REDIS_URL configured: ${REDIS_URL:+yes}"
-
-          test -n "$DATABASE_URL"
-          test -n "$JWT_SECRET"
-          test "${#JWT_SECRET}" -ge 32
-          test -n "$REDIS_URL"
-
-          echo "Environment variables configured successfully."
-
-      - name: Verify Node Environment
-        run: |
-          node -e "console.log('DATABASE_URL configured in Node:', Boolean(process.env.DATABASE_URL))"
-          node -e "console.log('JWT_SECRET configured in Node:', Boolean(process.env.JWT_SECRET))"
-          node -e "console.log('REDIS_URL configured in Node:', Boolean(process.env.REDIS_URL))"
-
-      - name: Verify Prisma Environment
-        run: |
-          node -e "if (!process.env.DATABASE_URL) { console.error('DATABASE_URL is missing before Prisma execution'); process.exit(1) }"
-          echo "DATABASE_URL is available to Prisma."
-
+      # 3. Roda os testes com a variável de ambiente disponível
       - name: Run Playwright E2E Tests
         run: npx playwright test
