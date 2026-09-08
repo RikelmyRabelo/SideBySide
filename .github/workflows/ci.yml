@@ -98,9 +98,21 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
+      # Sobe o Redis para o backend e Socket.IO conectarem
+      redis:
+        image: redis:alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      REDIS_URL: "redis://localhost:6379"
 
     steps:
       - name: Checkout Code
@@ -111,11 +123,9 @@ jobs:
         with:
           node-version: '22'
 
-      # 1. Usa npm install para garantir que tudo do package.json seja instalado
       - name: Install Root Dependencies
         run: npm install --include=dev
 
-      # 2. Configura o backend
       - name: Setup Backend & Database Schema
         working-directory: ./backend
         run: |
@@ -123,13 +133,12 @@ jobs:
           npx prisma generate
           npx prisma db push
 
-      # 3. Instala os binários dos navegadores do Playwright
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
 
-      # 4. Executa usando o script oficial do seu package.json
       - name: Run Playwright E2E Tests
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          REDIS_URL: "redis://localhost:6379"
         run: npm run test:e2e
