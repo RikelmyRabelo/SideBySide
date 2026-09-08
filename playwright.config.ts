@@ -39,7 +39,7 @@ const jwtSecret =
 
 const redisUrl =
   process.env.REDIS_URL ||
-  'redis://localhost:6379';
+  'redis://127.0.0.1:6379';
 
 // Garante no processo principal do Node
 process.env.DATABASE_URL = databaseUrl;

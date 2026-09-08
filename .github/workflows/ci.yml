@@ -98,7 +98,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-      # Sobe o Redis para o backend e Socket.IO conectarem
+      # Sobe o container do Redis
       redis:
         image: redis:alpine
         ports:
@@ -112,7 +112,7 @@ jobs:
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
-      REDIS_URL: "redis://localhost:6379"
+      REDIS_URL: "redis://127.0.0.1:6379" # <--- Usando 127.0.0.1 em vez de localhost
 
     steps:
       - name: Checkout Code
@@ -140,5 +140,5 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          REDIS_URL: "redis://localhost:6379"
+          REDIS_URL: "redis://127.0.0.1:6379"
         run: npm run test:e2e
