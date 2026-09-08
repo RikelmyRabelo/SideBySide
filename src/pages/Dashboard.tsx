@@ -236,6 +236,27 @@ export const Dashboard: React.FC = memo(() => {
     fetchNotifications();
   }, [fetchNotifications]);
 
+  // Busca lista de amigos e pedidos ao carregar o Dashboard de forma isolada
+  useEffect(() => {
+    const fetchFriendsData = async () => {
+      // Busca a lista de amigos (ignora se der 404)
+      api.get('/api/friends')
+        .then(res => { if (res.data) setFriendsList(res.data); })
+        .catch(err => console.warn('A rota de amigos falhou ou está vazia.', err));
+
+      // Busca as solicitações pendentes
+      api.get('/api/friends/requests')
+        .then(res => { if (res.data) setRequestsList(res.data); })
+        .catch(err => console.warn('A rota de solicitações falhou.', err));
+    };
+    fetchFriendsData();
+  }, []);
+
+  // Mantém a badge do menu atualizada com a quantidade de solicitações pendentes
+  useEffect(() => {
+    setFriendRequestsCount(requestsList.length);
+  }, [requestsList]);
+
   const handleOpenNotifications = () => {
     setIsNotificationsOpen(true);
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));

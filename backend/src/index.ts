@@ -18,6 +18,9 @@ import { createClient } from 'redis';
 import { Emitter } from '@socket.io/redis-emitter';
 import { cookieOptions, pendingUsers, verificationCodes, transporter, loginHandler, logoutHandler } from './controllers/authController.js';
 import { assertCanMessage } from './utils/authorization.js';
+import { Server as SocketIOServer } from 'socket.io';
+import type { Socket } from 'socket.io';
+import { createAdapter } from '@socket.io/redis-adapter';
 
 declare global {
   namespace Express {
@@ -156,17 +159,90 @@ const signingSecret = JWT_SECRET;
 const server = http.createServer(app);
 
 const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+
 const pubClient = createClient({ url: redisUrl });
 const subClient = pubClient.duplicate();
+
+pubClient.on('error', (err) => {
+  logger.error('Erro no Redis pubClient:', err);
+});
+
+subClient.on('error', (err) => {
+  logger.error('Erro no Redis subClient:', err);
+});
+
+const connectRedis = async () => {
+  await Promise.all([
+    pubClient.connect(),
+    subClient.connect(),
+  ]);
+
+  logger.info(`Redis conectado com sucesso em ${redisUrl}`);
+
+  io.adapter(createAdapter(pubClient, subClient));
+};
+
+const io = new SocketIOServer(server, {
+  cors: {
+    origin: allowedOrigins,
+    credentials: true,
+    methods: ['GET', 'POST'],
+  },
+});
+
 const ioEmitter = new Emitter(pubClient);
 
-if (process.env.NODE_ENV !== 'test') {
-  Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
-    console.log(`📡 Redis conectado com sucesso em ${redisUrl} (API REST)`);
-  }).catch((err: unknown) => {
-    console.error('❌ Erro ao conectar o Redis:', err);
+io.use((socket: Socket, next: (err?: Error) => void) => {
+  try {
+    const cookieHeader = socket.handshake.headers.cookie;
+
+    const cookieToken = cookieHeader
+      ?.split(';')
+      .map((cookie: string) => cookie.trim())
+      .find((cookie: string) => cookie.startsWith('token='))
+      ?.slice('token='.length);
+
+    const authToken =
+      typeof socket.handshake.auth?.token === 'string'
+        ? socket.handshake.auth.token
+        : undefined;
+
+    const token = authToken || cookieToken;
+
+    if (!token) {
+      return next(new Error('Não autenticado'));
+    }
+
+    const decoded = jwt.verify(token, signingSecret);
+
+    if (
+      typeof decoded === 'string' ||
+      !decoded ||
+      typeof decoded.id !== 'string'
+    ) {
+      return next(new Error('Token inválido'));
+    }
+
+    socket.data.userId = decoded.id;
+
+    next();
+  } catch {
+    next(new Error('Não autenticado'));
+  }
+});
+
+io.on('connection', (socket: Socket) => {
+  const userId = socket.data.userId as string;
+  const room = `user_${userId}`;
+
+  socket.join(room);
+
+  logger.info(`Socket conectado: ${socket.id} → ${room}`);
+
+  socket.on('disconnect', (reason: string) => {
+    logger.info(`Socket desconectado: ${socket.id} → ${reason}`);
   });
-}
+});
 
 const matchFeedback = new Map<string, Map<string, 'positive' | 'negative' | 'skip'>>();
 const _sessionFeedback = new Map<string, { averageRating: number; count: number; lastUpdated: Date }>();
@@ -749,228 +825,260 @@ app.post('/api/room/rate', authenticateToken, async (req: Request, res: Response
   }
 });
 
-app.post('/api/friends/request', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const userId = req.user!.id;
-    const { targetUserId, tag } = req.body || {};
-    
-    let resolvedTargetId = targetUserId;
-    
-    if (!resolvedTargetId && tag) {
-      let targetUserByTag = await prisma.user.findFirst({ where: { tag } });
-      
-      if (!targetUserByTag && tag.includes('#')) {
-        const cleanName = tag.split('#')[0].trim();
-        targetUserByTag = await prisma.user.findFirst({
-          where: { name: { startsWith: cleanName, mode: 'insensitive' } }
+app.post(
+  '/api/friends/request',
+  authenticateToken,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user!.id;
+      const { targetUserId, tag } = req.body || {};
+
+      let resolvedTargetId = targetUserId;
+
+      if (!resolvedTargetId && tag) {
+        const target = await prisma.user.findUnique({
+          where: { tag: String(tag) },
+          select: { id: true },
+        });
+
+        if (!target) {
+          return res.status(404).json({
+            error: 'Usuário não encontrado.',
+          });
+        }
+
+        resolvedTargetId = target.id;
+      }
+
+      if (!resolvedTargetId) {
+        return res.status(400).json({
+          error: 'targetUserId ou tag é obrigatório.',
         });
       }
-      
-      if (targetUserByTag) {
-        resolvedTargetId = targetUserByTag.id;
+
+      resolvedTargetId = String(resolvedTargetId);
+
+      if (resolvedTargetId === userId) {
+        return res.status(400).json({
+          error: 'Você não pode adicionar a si mesmo.',
+        });
       }
-    }
 
-    if (!resolvedTargetId || userId === resolvedTargetId) {
-      return res.status(400).json({ error: 'ID ou Tag de usuário inválida.' });
-    }
+      const [sender, target] = await Promise.all([
+        prisma.user.findUnique({
+          where: { id: userId },
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+          },
+        }),
+        prisma.user.findUnique({
+          where: { id: resolvedTargetId },
+          select: { id: true },
+        }),
+      ]);
 
-    const sender = await prisma.user.findUnique({ where: { id: userId } });
-    const targetUser = await prisma.user.findUnique({ where: { id: resolvedTargetId } });
-    
-    if (!targetUser || !sender) {
-      return res.status(404).json({ error: 'Usuário não encontrado no banco de dados.' });
-    }
-
-    const existing = await prisma.friendRelation.findFirst({
-      where: {
-        OR: [
-          { userId, friendId: resolvedTargetId },
-          { userId: resolvedTargetId, friendId: userId }
-        ]
+      if (!sender || !target) {
+        return res.status(404).json({
+          error: 'Usuário não encontrado.',
+        });
       }
-    });
 
-    if (existing) {
-      return res.status(400).json({ error: 'Já existe uma solicitação ou amizade entre vocês.' });
-    }
+      const existing = await prisma.friendRelation.findFirst({
+        where: {
+          OR: [
+            { userId, friendId: resolvedTargetId },
+            { userId: resolvedTargetId, friendId: userId },
+          ],
+        },
+      });
 
-    const friendRelation = await prisma.friendRelation.create({
-      data: {
-        userId: userId,
-        friendId: String(resolvedTargetId),
-        status: 'PENDING'
+      if (existing) {
+        return res.status(400).json({
+          error: 'Já existe uma relação entre esses usuários.',
+        });
       }
-    });
 
-    ioEmitter.to(`user_${resolvedTargetId}`).emit('friend_request_received', {
-      requestId: friendRelation.id,
-      senderId: userId,
-      name: sender.name,
-      avatar: sender.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'
-    });
+      const friendRelation = await prisma.friendRelation.create({
+        data: {
+          userId,
+          friendId: resolvedTargetId,
+          status: 'PENDING',
+        },
+      });
 
-    return res.status(200).json({ message: 'Solicitação enviada com sucesso.' });
-   
-  } catch (error: unknown) { 
-    next(error); 
+      ioEmitter
+        .to(`user_${resolvedTargetId}`)
+        .emit('friend_request_received', {
+          requestId: friendRelation.id,
+          senderId: userId,
+          name: sender.name,
+          avatar:
+            sender.avatar ||
+            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+        });
+
+      return res.status(200).json({
+        message: 'Solicitação de amizade enviada.',
+        requestId: friendRelation.id,
+      });
+    } catch (error: unknown) {
+      next(error);
+    }
   }
-});
+);
 
-app.get('/api/friends/requests', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const userId = req.user!.id;
-    const pendingRelations = await prisma.friendRelation.findMany({
-      where: { friendId: userId, status: 'PENDING' },
-      include: { user: true }
-    });
+app.get(
+  '/api/friends/requests',
+  authenticateToken,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user!.id;
 
-    const requests = pendingRelations.map((rel) => ({
-      id: rel.id,
-      senderId: rel.userId,
-      name: rel.user.name,
-      tag: rel.user.tag || `${rel.user.name.replace(/\s+/g, '')}#${rel.user.id.slice(0, 4)}`,
-      avatar: rel.user.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
-      level: rel.user.level || 'B1',
-      time: 'Pendente'
-    }));
+      const requests = await prisma.friendRelation.findMany({
+        where: {
+          friendId: userId,
+          status: 'PENDING',
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              tag: true,
+              avatar: true,
+              level: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
 
-    return res.status(200).json(requests);
-   
-  } catch (error: unknown) {
-    next(error);
+      return res.status(200).json(
+        requests.map((request) => ({
+          id: request.id,
+          senderId: request.user.id,
+          name: request.user.name,
+          tag:
+            request.user.tag ||
+            `${request.user.name.replace(/\s+/g, '')}#${request.user.id.slice(0, 4)}`,
+          avatar: request.user.avatar,
+          level: request.user.level || 'B1',
+          time: request.createdAt,
+        }))
+      );
+    } catch (error: unknown) {
+      next(error);
+    }
   }
-});
+);
 
 app.post('/api/friends/accept', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.user!.id;
-    const { requestId, senderId, action } = req.body;
-    
-    const relation = requestId
-      ? await prisma.friendRelation.findFirst({ where: { id: String(requestId), friendId: userId, status: 'PENDING' } })
-      : senderId
-        ? await prisma.friendRelation.findFirst({ where: { userId: String(senderId), friendId: userId, status: 'PENDING' } })
-        : null;
+    const { requestId } = req.body || {};
 
-    if (!relation) return res.status(404).json({ error: 'Solicitação de amizade não encontrada.' });
-    const targetRequesterId = relation.userId;
+    if (!requestId) {
+      return res.status(400).json({ error: 'ID da solicitação é obrigatório.' });
+    }
 
-    if (action === 'reject') {
-      await prisma.friendRelation.delete({ where: { id: relation.id } });
-      return res.status(200).json({ message: 'Solicitação de amizade recusada e removida com sucesso.' });
+    const request = await prisma.friendRelation.findUnique({
+      where: { id: String(requestId) }
+    });
+
+    if (!request) {
+      return res.status(404).json({ error: 'Solicitação de amizade não encontrada.' });
+    }
+
+    if (request.friendId !== userId) {
+      return res.status(403).json({ error: 'Você não pode aceitar esta solicitação.' });
+    }
+
+    if (request.status !== 'PENDING') {
+      return res.status(400).json({ error: 'Esta solicitação não está pendente.' });
     }
 
     await prisma.friendRelation.update({
-      where: { id: relation.id },
+      where: { id: request.id },
       data: { status: 'ACCEPTED' }
     });
 
-    {
-      const [acceptingUser, requesterUser] = await Promise.all([
-        prisma.user.findUnique({ where: { id: userId } }),
-        prisma.user.findUnique({ where: { id: String(targetRequesterId) } })
-      ]);
+    return res.status(200).json({
+      message: 'Amizade aceita com sucesso.'
+    });
+  } catch (error: unknown) {
+    next(error);
+  }
+});
 
-      if (acceptingUser && requesterUser) {
-        await prisma.notification.createMany({
-          data: [
-            {
-              userId: userId,
-              title: 'Nova Amizade',
-              message: `Você e ${requesterUser.name} agora são amigos!`,
-              read: false,
-            },
-            {
-              userId: String(targetRequesterId),
-              title: 'Nova Amizade',
-              message: `Você e ${acceptingUser.name} agora são amigos!`,
-              read: false,
-            }
-          ]
-        });
+app.get(
+  '/api/friends',
+  authenticateToken,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user!.id;
+
+      const relations = await prisma.friendRelation.findMany({
+        where: {
+          status: 'ACCEPTED',
+          OR: [
+            { userId },
+            { friendId: userId },
+          ],
+        },
+      });
+
+      const friendIds = new Set<string>();
+
+      relations.forEach((rel) => {
+        if (rel.userId === userId) {
+          friendIds.add(rel.friendId);
+        }
+
+        if (rel.friendId === userId) {
+          friendIds.add(rel.userId);
+        }
+      });
+
+      if (friendIds.size === 0) {
+        return res.status(200).json([]);
       }
+
+      const friends = await prisma.user.findMany({
+        where: {
+          id: {
+            in: Array.from(friendIds),
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+          level: true,
+          avatar: true,
+          tag: true,
+        },
+      });
+
+      return res.status(200).json(
+        friends.map((friend) => ({
+          id: friend.id,
+          name: friend.name,
+          tag:
+            friend.tag ||
+            `${friend.name.replace(/\s+/g, '')}#${friend.id.slice(0, 4)}`,
+          avatar: friend.avatar,
+          level: friend.level || 'B1',
+          isOnline: true,
+        }))
+      );
+    } catch (error: unknown) {
+      next(error);
     }
-
-    return res.status(200).json({ message: 'Amizade aceita com sucesso.' });
-   
-  } catch (error: unknown) {
-    next(error);
   }
-});
-
-app.get('/api/friends/list', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const userId = req.user!.id;
-    
-    const relations = await prisma.friendRelation.findMany({
-      where: {
-        status: 'ACCEPTED',
-        OR: [{ userId: userId }, { friendId: userId }]
-      }
-    });
-
-    const friendIds = new Set<string>();
-     
-    relations.forEach((rel) => {
-      if (rel.userId === userId) friendIds.add(rel.friendId);
-      if (rel.friendId === userId) friendIds.add(rel.userId);
-    });
-
-    if (friendIds.size === 0) {
-      return res.status(200).json([]);
-    }
-
-    const friendsData = await prisma.user.findMany({
-      where: { id: { in: Array.from(friendIds) } },
-      select: { id: true, name: true, level: true, avatar: true, tag: true }
-    });
-
-    const formatted = friendsData.map((f) => ({
-      id: f.id,
-      name: f.name,
-      tag: f.tag || `${f.name.replace(/\s+/g, '')}#${f.id.slice(0, 4)}`,
-      avatar: f.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
-      level: f.level || 'B1',
-      isOnline: true
-    }));
-
-    return res.status(200).json(formatted);
-   
-  } catch (error: unknown) {
-    next(error);
-  }
-});
-
-app.delete('/api/friends/:friendId', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const userId = req.user!.id;
-    const targetId = String(req.params.friendId);
-
-    await prisma.friendRelation.deleteMany({
-      where: {
-        OR: [
-          { AND: { userId: userId, friendId: targetId } },
-          { AND: { userId: targetId, friendId: userId } }
-        ]
-      }
-    });
-
-    await prisma.directMessage.deleteMany({
-      where: {
-        OR: [
-          { senderId: userId, recipientId: targetId },
-          { senderId: targetId, recipientId: userId }
-        ]
-      }
-    });
-
-    return res.status(200).json({ message: 'Amizade e histórico removidos com sucesso.' });
-   
-  } catch (error: unknown) {
-    next(error);
-  }
-});
+);
 
 app.post('/api/messages/send', authenticateToken, messageLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -1375,13 +1483,22 @@ const gracefulShutdown = async (signal: string) => {
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-export { app, server, ioEmitter as io };
+export { app, server, io, ioEmitter };
 
-if (process.env.NODE_ENV !== 'test') {
-  server.listen(PORT, () => {
-    logger.info(`Servidor HTTP rodando na porta ${PORT}`);
-  });
-}
+const startServer = async () => {
+  try {
+    await connectRedis();
+
+    server.listen(PORT, () => {
+      logger.info(`Servidor HTTP + Socket.IO rodando na porta ${PORT}`);
+    });
+  } catch (error) {
+    logger.error('Falha ao iniciar servidor:', error);
+    process.exit(1);
+  }
+};
+
+startServer();
 
 app.get('/health/live', (_req: Request, res: Response) => {
   return res.status(200).json({ status: 'alive', timestamp: new Date().toISOString() });

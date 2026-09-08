@@ -1,11 +1,18 @@
 import "dotenv/config";
+
 import http from 'http';
-import { Server as SocketIOServer, Socket } from 'socket.io';
-import { createAdapter } from '@socket.io/redis-adapter';
 import { createClient } from 'redis';
+
+import { Server as SocketIOServer } from 'socket.io';
+import type { Socket } from 'socket.io';
+
+import { createAdapter } from '@socket.io/redis-adapter';
+import { Emitter } from '@socket.io/redis-emitter';
+
 import winston from 'winston';
 import jwt from 'jsonwebtoken';
 import cookie from 'cookie';
+
 import { setupMatchmaking } from './matchmaking.js';
 
 const PORT = process.env.WS_PORT || 3001;
@@ -57,12 +64,12 @@ const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 const pubClient = createClient({ url: redisUrl });
 const subClient = pubClient.duplicate();
 
-if (process.env.NODE_ENV !== 'test') {
+if (process.env.NODE_ENV !== 'production') {
   Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
     io.adapter(createAdapter(pubClient, subClient));
     logger.info(`📡 Redis Adapter conectado com sucesso em ${redisUrl} (WebSocket)`);
   }).catch(err => {
-    logger.error('❌ Erro ao conectar o Redis Adapter:', err);
+    logger.error('Falha ao conectar Redis Adapter:', err);
   });
 }
 
@@ -106,7 +113,7 @@ const checkSocketRateLimit = (socketId: string, eventName: string, limit: number
 };
 
 io.on('connection', (socket: Socket) => {
-  socket.onAny((eventName, ..._args) => {
+  socket.onAny((eventName: string, ..._args: unknown[]) => {
     if (!checkSocketRateLimit(socket.id, eventName, 30, 60000)) {
       socket.emit('error', { message: 'Limite de eventos excedido. Por favor, diminua o ritmo.' });
       logger.warn(`[Socket Rate Limit] Socket ${socket.id} bloqueado por excesso de eventos no canal ${eventName}`);
@@ -134,10 +141,8 @@ const gracefulShutdown = async (signal: string) => {
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-if (process.env.NODE_ENV !== 'test') {
-  server.listen(PORT, () => {
-    logger.info(`Servidor WebSocket rodando na porta ${PORT}`);
-  });
-}
+server.listen(PORT, () => {
+  logger.info(`Servidor WebSocket rodando na porta ${PORT}`);
+});
 
 export { server, io };  

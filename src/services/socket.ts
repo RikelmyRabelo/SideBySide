@@ -1,7 +1,10 @@
 import { io, Socket } from 'socket.io-client';
 
-const SOCKET_URL = import.meta.env.VITE_WS_URL
-  || (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/api\/?$/, '');
+const SOCKET_URL =
+  import.meta.env.VITE_WS_URL ||
+  (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/api\/?$/, '');
+
+console.log('[Socket] URL:', SOCKET_URL);
 
 class SocketClient {
   private static instance: Socket | null = null;
