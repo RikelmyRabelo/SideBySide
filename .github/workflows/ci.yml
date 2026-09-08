@@ -10,12 +10,11 @@ jobs:
   backend-ci:
     name: Backend CI & Test
     runs-on: ubuntu-latest
-    environment: ci  # <--- Vincula ao Environment "ci" para liberar as secrets
+    environment: ci
     defaults:
       run:
         working-directory: ./backend
 
-    # Mantemos o serviço caso a sua URL aponte para localhost/container
     services:
       postgres:
         image: postgres:15
@@ -112,7 +111,7 @@ jobs:
         with:
           node-version: '22'
 
-      # Sobe o Redis diretamente na rede nativa do host (sem bridge/iptables)
+      # Sobe o Redis diretamente na rede nativa do host (evita problemas de bridge/iptables)
       - name: Start Redis (Host Network)
         run: |
           docker run -d --network host --name test-redis redis:alpine
@@ -138,3 +137,12 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           REDIS_URL: "redis://127.0.0.1:6379"
         run: npm run test:e2e
+
+      # Salva o relatório de testes do Playwright como artefato
+      - name: Upload Playwright Report
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
