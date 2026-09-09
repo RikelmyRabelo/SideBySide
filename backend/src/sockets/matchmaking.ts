@@ -22,8 +22,6 @@ if (!JWT_SECRET || JWT_SECRET.length < 32) {
 }
 const signingSecret = JWT_SECRET;
 
-const ALLOWED_TOPICS = ['general', 'business', 'technology', 'travel', 'daily'] as const;
-
 const activeRooms: Map<string, Set<string>> = new Map();
 const socketRoomMap: Map<string, string> = new Map();
 const socketTopicMap: Map<string, string> = new Map();
@@ -35,14 +33,16 @@ interface RateLimitTracker {
 const socketRateLimits = new Map<string, RateLimitTracker>();
 
 const RATE_LIMIT_WINDOW_MS = 1000;
-const MAX_EVENTS_PER_WINDOW = 10;
-const MAX_CHAT_EVENTS_PER_WINDOW = 5;
+const MAX_EVENTS_PER_WINDOW = 15;
+const MAX_CHAT_EVENTS_PER_WINDOW = 10;
 
 const findMatchSchema = z.object({ 
-  topicId: z.enum(ALLOWED_TOPICS, {
-    errorMap: () => ({ message: 'Tópico de busca inválido ou não autorizado.' })
-  }).nullable().optional() 
-}).optional();
+  topicId: z.string().nullable().optional(),
+  userId: z.string().optional(),
+  userName: z.string().optional(),
+  userAvatar: z.string().nullable().optional(),
+  userLevel: z.string().optional(),
+}).passthrough().optional();
 
 const webrtcSdpSchema = z.object({
   roomId: z.string().min(1, 'ID da sala é obrigatório.'),
@@ -65,12 +65,12 @@ const cameraStatusSchema = z.object({ roomId: z.string(), camActive: z.boolean()
 
 const chatSchema = z.object({
   roomId: z.string().min(1, 'ID da sala é obrigatório.'),
-  text: z.string().min(1, 'A mensagem não pode estar vazia.').max(1000, 'Mensagem muito longa. O limite é de 1000 caracteres.')
+  text: z.string().min(1, 'A mensagem não pode estar vazia.').max(1000, 'Mensagem muito longa.')
 });
 
 const directMessageSchema = z.object({
   recipientId: z.string().min(1, 'ID do destinatário é obrigatório.'),
-  text: z.string().min(1, 'A mensagem não pode estar vazia.').max(1000, 'Mensagem muito longa. O limite é de 1000 caracteres.')
+  text: z.string().min(1, 'A mensagem não pode estar vazia.').max(1000, 'Mensagem muito longa.')
 });
 
 const leaveRoomSchema = z.object({ roomId: z.string().optional() }).optional();
@@ -80,7 +80,7 @@ const safeParseEvent = <T>(schema: z.ZodType<T>, data: unknown, callback: (parse
   if (result.success) {
     callback(result.data);
   } else {
-    console.error('Payload WebSocket inválido:', result.error.errors);
+    console.error('[Matchmaking] Payload WebSocket inválido:', result.error.errors);
   }
 };
 
@@ -94,15 +94,17 @@ export const setupMatchmaking = (io: Server) => {
   io.use((socket, next) => {
     try {
       const cookies = cookie.parse(socket.request.headers.cookie || '');
-      const token = cookies.token;
+      const cookieToken = cookies.token;
+      const authToken = typeof socket.handshake.auth?.token === 'string' ? socket.handshake.auth.token : undefined;
+      const token = authToken || cookieToken;
 
       if (!token) {
         return next(new Error('Autenticação não encontrada no handshake.'));
       }
 
       jwt.verify(token, signingSecret, (err, decoded) => {
-        if (err) {
-          console.error(`[WebSocket Auth Error] Falha ao verificar token JWT para socket ID ${socket.id}:`, err);
+        if (err || !decoded) {
+          console.error(`[WebSocket Auth Error] Token inválido no socket ${socket.id}:`, err);
           return next(new Error('Sessão JWT inválida ou expirada.'));
         }
          
@@ -110,19 +112,17 @@ export const setupMatchmaking = (io: Server) => {
         next();
       });
     } catch (error: unknown) {
-      console.error(`[WebSocket Handshake Error] Erro crítico durante autenticação de socket ID ${socket.id}:`, error);
+      console.error(`[WebSocket Handshake Error] Erro no socket ${socket.id}:`, error);
       next(new Error('Erro interno de autenticação WebSocket.'));
     }
   });
 
   io.on('connection', (socket: Socket) => {
-     
     const user = (socket as any).user;
-    console.log(`🔌 Novo usuário conectado: ${user?.email || socket.id}`);
+    console.log(`🔌 [Socket] Novo usuário conectado: ${user?.email || socket.id}`);
 
     socketRateLimits.set(socket.id, { count: 0, lastReset: Date.now() });
 
-     
     socket.use(([event, ..._args]: [string, ...any[]], next: (err?: Error) => void) => {
       const tracker = socketRateLimits.get(socket.id);
       const now = Date.now();
@@ -139,7 +139,6 @@ export const setupMatchmaking = (io: Server) => {
             socket.emit('rate_limit_exceeded', {
               message: 'Você está enviando eventos rápido demais. Aguarde um instante.'
             });
-            console.warn(`[Rate Limit Exceeded] Socket ID ${socket.id} excedeu o limite de requisições no evento: ${event}`);
             return next(new Error('Taxa de requisições excedida'));
           }
         }
@@ -159,64 +158,76 @@ export const setupMatchmaking = (io: Server) => {
         const rawTopic = parsedData?.topicId;
         const topicId = (rawTopic && rawTopic.trim() !== '') ? rawTopic : 'general';
         
+        console.log(`[Matchmaking] 🔍 Usuário ${user?.id} (${user?.email}) buscando par no tópico: ${topicId}`);
+
         await removeMatch(topicId, user.id, socket.id);
         await enqueueMatch(topicId, user.id, socket.id);
         socketTopicMap.set(socket.id, topicId);
 
         const pair = await dequeueMatchPair(topicId);
-        if (pair.length === 2 && pair[0] && pair[1]) {
-          const socket1 = io.sockets.sockets.get(pair[0].socketId);
-          const socket2 = io.sockets.sockets.get(pair[1].socketId);
+        console.log(`[Matchmaking] 🔎 Verificando fila para o tópico "${topicId}". Pares encontrados:`, pair?.length || 0);
+
+        if (pair && pair.length === 2 && pair[0] && pair[1]) {
           const user1 = pair[0];
           const user2 = pair[1];
 
-          if (socket1 || socket2) {
-             
-            const roomId = `room_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-            
-            void io.in(`user_${user1.userId}`).socketsJoin(roomId);
-            void io.in(`user_${user2.userId}`).socketsJoin(roomId);
+          const socket1 = io.sockets.sockets.get(user1.socketId);
+          const socket2 = io.sockets.sockets.get(user2.socketId);
 
-            activeRooms.set(roomId, new Set([user1.socketId, user2.socketId]));
-            if (socket1) socketRoomMap.set(socket1.id, roomId);
-            if (socket2) socketRoomMap.set(socket2.id, roomId);
-            void setActiveSession(roomId, { userA: user1.userId, userB: user2.userId, topicId });
-            
-            socketTopicMap.delete(user1.socketId);
-            socketTopicMap.delete(user2.socketId);
+          const roomId = `room_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+          
+          if (socket1) socket1.join(roomId);
+          if (socket2) socket2.join(roomId);
+          void io.in(`user_${user1.userId}`).socketsJoin(roomId);
+          void io.in(`user_${user2.userId}`).socketsJoin(roomId);
 
-            const u1Data = { name: 'Estudante', avatar: null as string | null };
-            const u2Data = { name: 'Estudante', avatar: null as string | null };
+          console.log(`[Matchmaking] 🚀 MATCH FORMADO! Sala: ${roomId} entre ${user1.userId} e ${user2.userId}`);
 
-            try {
-              if (user1.userId) {
-                const dbU1 = await prisma.user.findUnique({ where: { id: user1.userId } });
-                if (dbU1) { u1Data.name = dbU1.name; u1Data.avatar = dbU1.avatar; }
-              }
-              if (user2.userId) {
-                const dbU2 = await prisma.user.findUnique({ where: { id: user2.userId } });
-                if (dbU2) { u2Data.name = dbU2.name; u2Data.avatar = dbU2.avatar; }
-              }
-            } catch (err: unknown) {
-              console.error(`[Matchmaking DB Error] Falha ao buscar dados de perfil dos usuários na sala ${roomId}:`, err);
+          const u1Data = { name: 'Estudante', avatar: null as string | null };
+          const u2Data = { name: 'Estudante', avatar: null as string | null };
+
+          try {
+            if (user1.userId) {
+              const dbU1 = await prisma.user.findUnique({ where: { id: user1.userId } });
+              if (dbU1) { u1Data.name = dbU1.name; u1Data.avatar = dbU1.avatar; }
             }
-
-            io.to(`user_${user1.userId}`).emit('match_found', { 
-              roomId, 
-              partnerId: user2.userId, 
-              partnerName: u2Data.name, 
-              partnerAvatar: u2Data.avatar, 
-              initiator: true 
-            });
-            
-            io.to(`user_${user2.userId}`).emit('match_found', { 
-              roomId, 
-              partnerId: user1.userId, 
-              partnerName: u1Data.name, 
-              partnerAvatar: u1Data.avatar, 
-              initiator: false 
-            });
+            if (user2.userId) {
+              const dbU2 = await prisma.user.findUnique({ where: { id: user2.userId } });
+              if (dbU2) { u2Data.name = dbU2.name; u2Data.avatar = dbU2.avatar; }
+            }
+          } catch (err: unknown) {
+            console.error(`[Matchmaking DB Error] Erro ao buscar perfil na sala ${roomId}:`, err);
           }
+
+          activeRooms.set(roomId, new Set([user1.socketId, user2.socketId]));
+          if (socket1) socketRoomMap.set(socket1.id, roomId);
+          if (socket2) socketRoomMap.set(socket2.id, roomId);
+          void setActiveSession(roomId, { userA: user1.userId, userB: user2.userId, topicId });
+          
+          socketTopicMap.delete(user1.socketId);
+          socketTopicMap.delete(user2.socketId);
+
+          const payloadUser1 = { 
+            roomId, 
+            partnerId: user2.userId, 
+            partnerName: u2Data.name, 
+            partnerAvatar: u2Data.avatar, 
+            initiator: true 
+          };
+
+          const payloadUser2 = { 
+            roomId, 
+            partnerId: user1.userId, 
+            partnerName: u1Data.name, 
+            partnerAvatar: u1Data.avatar, 
+            initiator: false 
+          };
+
+          if (socket1) socket1.emit('match_found', payloadUser1);
+          io.to(`user_${user1.userId}`).emit('match_found', payloadUser1);
+
+          if (socket2) socket2.emit('match_found', payloadUser2);
+          io.to(`user_${user2.userId}`).emit('match_found', payloadUser2);
         }
       });
     });
@@ -300,7 +311,6 @@ export const setupMatchmaking = (io: Server) => {
 
     socket.on('direct_message', (data: unknown) => {
       safeParseEvent(directMessageSchema, data, (parsedData) => {
-        if (!user?.id) return;
         if (!user?.id) return;
         void assertCanMessage(user.id, parsedData.recipientId)
           .then(async () => {
