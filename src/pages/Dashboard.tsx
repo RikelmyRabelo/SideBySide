@@ -14,6 +14,9 @@ import { useFetchCache } from '../hooks/useFetchCache';
 import { BADGES_CATALOG } from '../data/badgesData';
 import { api } from '../services/api';
 
+/* =========================================================
+   ÍCONES VETORIAIS EXCLUSIVOS SIDEBYSIDE
+   ========================================================= */
 
 const PandaPawIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
@@ -151,11 +154,97 @@ interface VocabResult {
   definition: string;
 }
 
+// Helper para ler e normalizar usuário de qualquer fonte local
+const getStoredUser = (): Partial<UserData> | null => {
+  try {
+    const raw = 
+      localStorage.getItem('sidebyside_user') || 
+      localStorage.getItem('user') ||
+      localStorage.getItem('currentUser') ||
+      sessionStorage.getItem('sidebyside_user');
+      
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    
+    if (parsed.user && typeof parsed.user === 'object') return parsed.user;
+    if (parsed.data && typeof parsed.data === 'object' && !Array.isArray(parsed.data)) {
+      if (parsed.data.user && typeof parsed.data.user === 'object') return parsed.data.user;
+      return parsed.data;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
 export const Dashboard: React.FC = memo(() => {
   const navigate = useNavigate();
   const { showToast } = useToast();
 
-  const { data: userData } = useFetchCache<UserData>('/api/user/me');
+  // Estado que carrega imediatamente do localStorage (zero delay ou flash de "Estudante")
+  const [currentUser, setCurrentUser] = useState<UserData | null>(() => getStoredUser() as UserData | null);
+
+  const { data: cacheUserData } = useFetchCache<any>('/api/user/me');
+
+  // Sincroniza dados atualizados com o backend com fallback de rotas
+  useEffect(() => {
+    let isMounted = true;
+
+    const syncUserProfile = async () => {
+      try {
+        let res;
+        try {
+          res = await api.get('/api/user/me');
+        } catch (err: any) {
+          if (err?.response?.status === 404) {
+            try {
+              res = await api.get('/api/auth/me');
+            } catch {
+              res = await api.get('/api/users/me');
+            }
+          } else {
+            throw err;
+          }
+        }
+
+        if (res && res.data && isMounted) {
+          const raw = res.data;
+          const normalized: UserData = raw.user || raw.data?.user || raw.data || raw;
+          if (normalized && (normalized.name || normalized.email || normalized.id)) {
+            setCurrentUser((prev) => ({ ...prev, ...normalized }));
+            
+            // Mantém localStorage síncrono para próximos acessos
+            const existing = getStoredUser() || {};
+            localStorage.setItem('sidebyside_user', JSON.stringify({ ...existing, ...normalized }));
+          }
+        }
+      } catch (error) {
+        console.warn('Utilizando dados do perfil armazenados localmente.', error);
+      }
+    };
+
+    syncUserProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Se o hook useFetchCache retornar dados, unifica também
+  useEffect(() => {
+    if (cacheUserData) {
+      const normalized: UserData = cacheUserData.user || cacheUserData.data?.user || cacheUserData.data || cacheUserData;
+      if (normalized && (normalized.name || normalized.email)) {
+        setCurrentUser((prev) => ({ ...prev, ...normalized }));
+      }
+    }
+  }, [cacheUserData]);
+
+  // Objeto de usuário ativo com máxima tolerância a variações de campos
+  const activeUser = useMemo(() => {
+    return currentUser || (getStoredUser() as UserData) || null;
+  }, [currentUser]);
 
   const [mediaMode, setMediaMode] = useState<'video' | 'audio'>('video');
   const [expandedMatching, setExpandedMatching] = useState(true);
@@ -202,38 +291,47 @@ export const Dashboard: React.FC = memo(() => {
     { id: '2', name: 'Mariana S.', tag: 'Mari#4412', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80', level: 'B2', isOnline: true },
   ]);
 
-  const mockSessionsHistory = useMemo(() => userData?.sessionsHistory || [], [userData]);
-  const mockMinutesHistory = useMemo(() => userData?.minutesHistory || DEFAULT_MINUTES_HISTORY, [userData]);
+  const mockSessionsHistory = useMemo(() => activeUser?.sessionsHistory || [], [activeUser]);
+  const mockMinutesHistory = useMemo(() => activeUser?.minutesHistory || DEFAULT_MINUTES_HISTORY, [activeUser]);
   const unreadCount = useMemo(() => (notifications || []).filter((n) => !n?.read).length, [notifications]);
   
   const clearUnread = useCallback((senderId: string) => {
     setUnreadCounts((current) => ({ ...current, [senderId]: 0 }));
   }, []);
   
-  const lastSessionFeedback = useMemo(() => userData?.lastSession || null, [userData]);
-  const weeklyGoal = useMemo<WeeklyGoal>(() => userData?.weeklyGoal || {
+  const lastSessionFeedback = useMemo(() => activeUser?.lastSession || null, [activeUser]);
+  const weeklyGoal = useMemo<WeeklyGoal>(() => activeUser?.weeklyGoal || {
     target: 5, completed: 0,
     days: [
       { day: 'Seg', completed: false }, { day: 'Ter', completed: false }, { day: 'Qua', completed: false },
       { day: 'Qui', completed: false }, { day: 'Sex', completed: false }, { day: 'Sáb', completed: false },
       { day: 'Dom', completed: false },
     ],
-  }, [userData]);
+  }, [activeUser]);
   const goalPercentage = useMemo(() => Math.min(100, Math.round((weeklyGoal.completed / (weeklyGoal.target || 1)) * 100)), [weeklyGoal]);
 
   const userMetrics = useMemo(() => ({
-    currentStreak: userData?.streak || 0,
-    hasPracticedToday: userData?.hasPracticedToday || false,
-    totalMinutes: userData?.totalMinutes || 0,
-    totalSessions: userData?.totalSessions || 0,
-  }), [userData]);
+    currentStreak: activeUser?.streak ?? 0,
+    hasPracticedToday: activeUser?.hasPracticedToday ?? false,
+    totalMinutes: activeUser?.totalMinutes ?? 0,
+    totalSessions: activeUser?.totalSessions ?? 0,
+  }), [activeUser]);
 
-  const userNameDisplay = useMemo(() => userData?.name || 'Estudante', [userData]);
-  const userFirstName = useMemo(() => userNameDisplay.split(' ')[0], [userNameDisplay]);
-  const userEmailDisplay = useMemo(() => userData?.email || 'usuario@email.com', [userData]);
-  const userLevelDisplay = useMemo(() => userData?.level || 'B1', [userData]);
-  const userReputationDisplay = useMemo(() => userData?.reputation ?? 100, [userData]);
-  const userAvatarDisplay = useMemo(() => userData?.avatar || '/images/default-avatar.png', [userData]);
+  // Resolução resiliente dos dados do usuário
+  const rawUserName = activeUser?.name || (activeUser as any)?.fullName || (activeUser as any)?.username || (activeUser as any)?.nome || '';
+  const userNameDisplay = useMemo(() => rawUserName || 'Estudante', [rawUserName]);
+  const userFirstName = useMemo(() => userNameDisplay.trim().split(' ')[0] || 'Estudante', [userNameDisplay]);
+  
+  const userEmailDisplay = useMemo(() => activeUser?.email || (activeUser as any)?.userEmail || 'usuario@email.com', [activeUser]);
+  const userLevelDisplay = useMemo(() => activeUser?.level || (activeUser as any)?.englishLevel || 'B1', [activeUser]);
+  const userReputationDisplay = useMemo(() => activeUser?.reputation ?? 100, [activeUser]);
+  const userAvatarDisplay = useMemo(() => (
+    activeUser?.avatar || 
+    (activeUser as any)?.avatarUrl || 
+    (activeUser as any)?.photo || 
+    (activeUser as any)?.profilePicture || 
+    '/images/default-avatar.png'
+  ), [activeUser]);
 
   const handleReloadDashboard = useCallback(() => {
     window.location.reload();
@@ -403,6 +501,7 @@ export const Dashboard: React.FC = memo(() => {
       console.error('Erro ao encerrar sessão no servidor', err);
     }
     localStorage.removeItem('sidebyside_user'); 
+    localStorage.removeItem('user');
     showToast('Sessão encerrada com sucesso.', 'info');
     navigate('/');
   }, [navigate, showToast]);
@@ -1178,7 +1277,7 @@ export const Dashboard: React.FC = memo(() => {
                 <div className="flex items-center justify-between bg-[#FAF9F6] p-4 rounded-2xl border border-[#E7E5E4]">
                   <div className="flex flex-col gap-1">
                     <span className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-wider">SEQUENCIA_MAXIMA</span>
-                    <span className="font-mono text-xl font-black text-[#1C1917]">{userData?.maxStreak || 0}D</span>
+                    <span className="font-mono text-xl font-black text-[#1C1917]">{activeUser?.maxStreak || 0}D</span>
                   </div>
                   <div className="w-px h-8 bg-[#E7E5E4]" />
                   <div className="flex flex-col gap-1 text-right">
