@@ -197,7 +197,7 @@ export const Dashboard: React.FC = memo(() => {
   const userReputationDisplay = useMemo(() => userData?.reputation ?? 100, [userData]);
   const userAvatarDisplay = useMemo(() => userData?.avatar || '/images/default-avatar.png', [userData]);
 
-  // Recarrega o painel (F5 silencioso ao clicar na Logo/Marca)
+  // Recarrega o painel de forma silenciosa ao clicar na logo
   const handleReloadDashboard = useCallback(() => {
     window.location.reload();
   }, []);
@@ -372,34 +372,41 @@ export const Dashboard: React.FC = memo(() => {
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col font-sans relative selection:bg-[#1C1917] selection:text-[#FAF9F6] w-full">
-      {/* Seguidor do Cursor */}
+      {/* Seguidor do Cursor com suave toque de Panda */}
       <div
-        className="pointer-events-none fixed z-50 w-3.5 h-3.5 rounded-full bg-[#1C1917] transition-opacity duration-300 ease-out -translate-x-1/2 -translate-y-1/2 hidden md:block"
+        className="pointer-events-none fixed z-50 w-3.5 h-3.5 rounded-full bg-[#1C1917] transition-opacity duration-300 ease-out -translate-x-1/2 -translate-y-1/2 hidden md:block ring-2 ring-emerald-500/20"
         style={{ left: `${followerPos.x}px`, top: `${followerPos.y}px`, opacity: cursorOpacity }}
       />
 
-      {/* HEADER NAS EXTREMIDADES (SEM RESTRINGIR LARGURA) */}
+      {/* HEADER NAS EXTREMIDADES */}
       <header className="bg-[#FFFFFF]/95 backdrop-blur-md border-b border-[#E7E5E4] px-6 sm:px-10 lg:px-14 py-2 sticky top-0 z-30 shadow-xs w-full flex items-center justify-between">
         
-        {/* LOGO AMPLA E TEXTO PRÓXIMO (EXATAMENTE COMO NA SUA IMAGEM) */}
+        {/* LOGO AMPLA E TEXTO INTEGRADO (COM MICRO-ANIMAÇÃO PANDA) */}
         <button
           type="button"
           onClick={handleReloadDashboard}
-          className="flex items-center gap-2 sm:gap-2.5 cursor-pointer group text-left outline-none transition-opacity hover:opacity-90 shrink-0"
-          title="SideBySide"
+          className="flex items-center gap-2 sm:gap-2.5 cursor-pointer group text-left outline-none shrink-0"
+          title="SideBySide • Recarregar"
         >
-          {/* Imagem da logo com destaque e proporção real */}
-          <img 
-            src="/images/logo.png" 
-            alt="SideBySide Logo" 
-            className="h-16 sm:h-20 md:h-24 w-auto object-contain transition-transform duration-200 group-hover:scale-105 drop-shadow-xs" 
-          />
-          <span className="text-xl sm:text-2xl font-black tracking-tight text-[#1C1917] uppercase leading-none font-sans">
-            SIDEBYSIDE
-          </span>
+          {/* Logo do panda com leve inclinação e zoom no hover */}
+          <div className="relative flex items-center justify-center">
+            <img 
+              src="/images/logo.png" 
+              alt="SideBySide Pandas" 
+              className="h-16 sm:h-20 md:h-24 w-auto object-contain transition-transform duration-300 group-hover:rotate-6 group-hover:scale-105 drop-shadow-xs" 
+            />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-xl sm:text-2xl font-black tracking-tight text-[#1C1917] uppercase leading-none font-sans">
+              SIDEBYSIDE
+            </span>
+            <span className="text-[8px] font-black uppercase tracking-widest text-emerald-700/80 mt-0.5 flex items-center gap-1">
+              <span>🎋</span> Language Exchange
+            </span>
+          </div>
         </button>
 
-        {/* CONTROLES E PERFIL NA EXTREMIDADE DIREITA */}
+        {/* CONTROLES E PERFIL */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-3.5 py-1.5 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#57534E]">
             <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
@@ -407,9 +414,7 @@ export const Dashboard: React.FC = memo(() => {
           </div>
 
           <div className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#57534E]">
-            <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-2 text-[#1C1917]" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.105-2.574-.305-3.8A11.983 11.983 0 0112 2.714z" />
-            </svg>
+            <span className="text-xs">🎋</span>
             <span>{userReputationDisplay}% Reputação</span>
           </div>
 
@@ -457,8 +462,8 @@ export const Dashboard: React.FC = memo(() => {
 
                 <button type="button" onClick={() => { setIsUserMenuOpen(false); setIsFriendsOpen(true); }} className="px-4 py-2 hover:bg-[#FAF9F6] text-left flex items-center justify-between transition-colors group cursor-pointer">
                   <div className="flex items-center gap-2.5">
-                    <svg className="w-4 h-4 stroke-[#57534E] group-hover:stroke-[#1C1917] fill-none stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.75 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>
-                    <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Lista de Amigos</span>
+                    <span className="text-sm">🐾</span>
+                    <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Amigos de Conversa</span>
                   </div>
                   {friendRequestsCount > 0 && <span className="text-[10px] font-black bg-red-100 text-red-600 px-2 py-0.5 rounded-full">{friendRequestsCount}</span>}
                 </button>
@@ -466,15 +471,15 @@ export const Dashboard: React.FC = memo(() => {
                 <button type="button" onClick={() => { setIsUserMenuOpen(false); setSelectedChatContact(null); setIsDirectChatsOpen(true); }} className="px-4 py-2 hover:bg-[#FAF9F6] text-left flex items-center justify-between transition-colors group cursor-pointer">
                   <div className="flex items-center gap-2.5">
                     <svg className="w-4 h-4 stroke-[#57534E] group-hover:stroke-[#1C1917] fill-none stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" /></svg>
-                    <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Conversas</span>
+                    <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Mensagens Diretas</span>
                   </div>
                   <span className="text-[10px] font-black bg-[#F5F5F4] px-2 py-0.5 rounded text-[#1C1917]">0</span>
                 </button>
 
                 <button type="button" onClick={() => { setIsUserMenuOpen(false); setIsBadgesOpen(true); }} className="px-4 py-2 hover:bg-[#FAF9F6] text-left flex items-center justify-between transition-colors group cursor-pointer">
                   <div className="flex items-center gap-2.5">
-                    <svg className="w-4 h-4 stroke-[#57534E] group-hover:stroke-[#1C1917] fill-none stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg>
-                    <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Badges & Conquistas</span>
+                    <span className="text-sm">🎋</span>
+                    <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Badges do Bambu</span>
                   </div>
                   <span className="text-[10px] font-black bg-[#F5F5F4] px-2 py-0.5 rounded text-[#1C1917]">
                     {BADGES_CATALOG.filter(b => b.unlocked).length}/{BADGES_CATALOG.length}
@@ -512,27 +517,40 @@ export const Dashboard: React.FC = memo(() => {
         </div>
       </header>
 
-      {/* ÁREA PRINCIPAL AMPLA (RESOLVE A IMPRESSÃO DE TABLET) */}
+      {/* ÁREA PRINCIPAL AMPLA */}
       <main className="flex-1 w-full max-w-[1800px] mx-auto px-6 sm:px-10 lg:px-14 py-6 sm:py-8 flex flex-col gap-6 lg:gap-8">
         
-        {/* GRID PRINCIPAL: 8 COLS + 4 COLS EM ESCALA REAL */}
+        {/* GRID PRINCIPAL: 8 COLS + 4 COLS */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
           
           {/* COLUNA ESQUERDA (8 COLS) */}
           <div className="lg:col-span-8 flex flex-col gap-6 lg:gap-8">
             
-            {/* HERO LAUNCHPAD: AÇÃO E PRÁTICA */}
+            {/* HERO LAUNCHPAD COM DETALHE ARTÍSTICO DE BAMBU */}
             <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-8 lg:p-10 shadow-xs flex flex-col gap-6 relative overflow-hidden">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              
+              {/* Marca d'água sutil de bambu no fundo do Hero */}
+              <div className="pointer-events-none absolute -bottom-10 -right-6 text-[#1C1917] opacity-[0.035] select-none">
+                <svg className="w-72 h-72 fill-current" viewBox="0 0 200 200">
+                  <path d="M40 180 C40 120 70 80 120 40 C100 80 110 140 140 180 Z" />
+                  <path d="M70 180 C70 130 95 90 145 50 C125 90 135 150 165 180 Z" />
+                  <circle cx="150" cy="45" r="14" />
+                </svg>
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
                 <div className="flex flex-col gap-1">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-[#78716C] bg-[#FAF9F6] px-2.5 py-1 rounded-md border border-[#E7E5E4] w-fit">
-                    Pareamento por Nível CEFR
-                  </span>
-                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tight text-[#1C1917] mt-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200/80 w-fit flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                      Bamboo Lounge • Nível {userLevelDisplay}
+                    </span>
+                  </div>
+                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tight text-[#1C1917] mt-1.5">
                     Olá, {userFirstName}! Pronto para falar?
                   </h1>
                   <p className="text-xs sm:text-sm text-[#57534E] max-w-2xl font-medium leading-relaxed">
-                    Conecte-se com estudantes de nível <strong className="text-[#1C1917]">{userLevelDisplay}</strong>. Todas as chamadas contam com moderação por IA, quebra-gelos e ambiente seguro de aprendizado mútuo.
+                    Conecte-se com estudantes de nível <strong className="text-[#1C1917]">{userLevelDisplay}</strong>. Conversas moderadas por IA, com quebra-gelos e sem pressão — como dois pandas aprendendo lado a lado.
                   </p>
                 </div>
 
@@ -547,7 +565,7 @@ export const Dashboard: React.FC = memo(() => {
               </div>
 
               {/* OPÇÕES INTEGRADAS */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-[#E7E5E4]">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-[#E7E5E4] relative z-10">
                 <div className="flex flex-col gap-1.5">
                   <span className="text-[10px] font-bold text-[#78716C] uppercase tracking-wider">Modo de Transmissão</span>
                   <div className="grid grid-cols-2 bg-[#FAF9F6] p-1.5 rounded-xl border border-[#E7E5E4] text-xs font-bold">
@@ -585,13 +603,13 @@ export const Dashboard: React.FC = memo(() => {
                 </div>
               </div>
 
-              {/* BOTÃO PRINCIPAL DE CONEXÃO */}
+              {/* BOTÃO PRINCIPAL COM CARIMBO PANDA */}
               <Button 
                 variant="primary" 
                 onClick={startMatchingFlow} 
-                className="w-full py-4 text-xs font-black uppercase tracking-widest bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-2xl shadow-md flex items-center justify-center gap-3 transition-all hover:scale-[1.008] active:scale-[0.99] cursor-pointer"
+                className="w-full py-4 text-xs font-black uppercase tracking-widest bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-2xl shadow-md flex items-center justify-center gap-3 transition-all hover:scale-[1.008] active:scale-[0.99] cursor-pointer relative z-10"
               >
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></div>
+                <span className="text-sm">🐾</span>
                 PROCURAR PAR DE CONVERSA AGORA
                 <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
               </Button>
@@ -601,10 +619,13 @@ export const Dashboard: React.FC = memo(() => {
             <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-8 shadow-xs flex flex-col gap-6">
               <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-4">
                 <div>
-                  <h2 className="text-lg font-black uppercase tracking-tight text-[#1C1917]">Tópicos Recomendados de Hoje</h2>
-                  <p className="text-xs text-[#78716C] font-medium">Salas temáticas com roteiros e perguntas para destravar a fala</p>
+                  <h2 className="text-lg font-black uppercase tracking-tight text-[#1C1917] flex items-center gap-2">
+                    <span>Tópicos Recomendados de Hoje</span>
+                    <span className="text-xs">🎋</span>
+                  </h2>
+                  <p className="text-xs text-[#78716C] font-medium">Salas com quebra-gelos práticos para guiar a conversa</p>
                 </div>
-                <span className="hidden sm:inline-block text-[10px] font-bold uppercase tracking-wider bg-[#F5F5F4] px-3 py-1.5 rounded-lg text-[#57534E]">
+                <span className="hidden sm:inline-block text-[10px] font-bold uppercase tracking-wider bg-[#FAF9F6] border border-[#E7E5E4] px-3 py-1.5 rounded-lg text-[#57534E]">
                   Atualizado Diariamente
                 </span>
               </div>
@@ -644,14 +665,16 @@ export const Dashboard: React.FC = memo(() => {
               </div>
             </section>
 
-            {/* TOOLKIT DE CONVERSAÇÃO */}
+            {/* PANDA SPEAKING TOOLKIT */}
             <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-7 shadow-xs flex flex-col gap-4">
               <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-3">
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-[#1C1917]" />
-                  <h3 className="text-xs font-black uppercase tracking-wider text-[#1C1917]">Conversational Toolkit • Frases de Apoio</h3>
+                  <span className="text-sm">🐾</span>
+                  <h3 className="text-xs font-black uppercase tracking-wider text-[#1C1917]">Panda Speaking Toolkit • Frases de Apoio</h3>
                 </div>
-                <span className="text-[10px] font-bold text-[#78716C] uppercase">Para usar durante a chamada</span>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  Saboreie a conversa com calma
+                </span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -660,7 +683,7 @@ export const Dashboard: React.FC = memo(() => {
                   <p className="text-xs font-bold text-[#1C1917]">"Could you rephrase that in other words?"</p>
                 </div>
                 <div className="bg-[#FAF9F6] border border-[#E7E5E4] p-3.5 rounded-2xl flex flex-col gap-1">
-                  <span className="text-[10px] font-bold uppercase text-[#78716C]">Para ganhar tempo:</span>
+                  <span className="text-[10px] font-bold uppercase text-[#78716C]">Para respirar e pensar:</span>
                   <p className="text-xs font-bold text-[#1C1917]">"That's a good question, let me think..."</p>
                 </div>
                 <div className="bg-[#FAF9F6] border border-[#E7E5E4] p-3.5 rounded-2xl flex flex-col gap-1">
@@ -684,11 +707,11 @@ export const Dashboard: React.FC = memo(() => {
 
               <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-5 flex items-start gap-4 shadow-xs">
                 <div className="w-10 h-10 rounded-xl bg-[#FAF9F6] border border-[#E7E5E4] text-[#1C1917] flex items-center justify-center shrink-0">
-                  <svg className="w-5 h-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" /></svg>
+                  <span className="text-lg">🎋</span>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <h3 className="text-xs font-black uppercase text-[#1C1917]">Erros São Bem-Vindos</h3>
-                  <p className="text-xs text-[#57534E] leading-relaxed">Seu parceiro está no mesmo estágio de aprendizado. Respire, use pausas naturais e valorize a troca de experiências.</p>
+                  <h3 className="text-xs font-black uppercase text-[#1C1917]">Cultura de Respeito</h3>
+                  <p className="text-xs text-[#57534E] leading-relaxed">Seu parceiro está no mesmo estágio de aprendizado. Respire, use pausas naturais e valorize a troca mútua de experiências.</p>
                 </div>
               </div>
             </div>
@@ -698,15 +721,15 @@ export const Dashboard: React.FC = memo(() => {
           {/* COLUNA DIREITA (4 COLS: STATS, PROGRESSO, AMIGOS & HISTÓRICO) */}
           <div className="lg:col-span-4 flex flex-col gap-6 lg:gap-8">
             
-            {/* CARDS DE MÉTRICAS RÁPIDAS */}
+            {/* CARDS DE MÉTRICAS RÁPIDAS COM DETALHES PANDA */}
             <div className="grid grid-cols-3 gap-3">
               <button 
                 type="button" 
                 onClick={() => setActiveMetricModal('streak')} 
                 className="bg-[#FFFFFF] border border-[#E7E5E4] hover:border-[#1C1917] rounded-2xl p-4 flex flex-col items-center justify-center gap-1.5 transition-all shadow-xs group cursor-pointer"
               >
-                <span className="text-xl font-black text-[#1C1917] leading-none group-hover:scale-110 transition-transform">
-                  {userMetrics.currentStreak} 🔥
+                <span className="text-xl font-black text-[#1C1917] leading-none group-hover:scale-110 transition-transform flex items-center gap-1">
+                  {userMetrics.currentStreak} <span className="text-base">🔥</span>
                 </span>
                 <span className="text-[10px] font-bold text-[#78716C] uppercase tracking-wider">Ofensiva</span>
               </button>
@@ -734,10 +757,13 @@ export const Dashboard: React.FC = memo(() => {
               </button>
             </div>
 
-            {/* META SEMANAL DE PRÁTICA */}
+            {/* META SEMANAL COM CARIMBOS DE PATINHA DE PANDA */}
             <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-7 shadow-xs flex flex-col gap-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-black uppercase tracking-wider text-[#1C1917]">Meta da Semana</span>
+                <span className="text-xs font-black uppercase tracking-wider text-[#1C1917] flex items-center gap-1.5">
+                  <span>Meta da Semana</span>
+                  <span className="text-xs">🐾</span>
+                </span>
                 <button 
                   type="button" 
                   onClick={() => setActiveModal('goals')} 
@@ -754,19 +780,22 @@ export const Dashboard: React.FC = memo(() => {
                 </div>
                 <div className="w-full h-2.5 bg-[#FAF9F6] border border-[#E7E5E4] rounded-full overflow-hidden p-0.5">
                   <div 
-                    className="h-full bg-[#1C1917] rounded-full transition-all duration-500" 
+                    className="h-full bg-emerald-600 rounded-full transition-all duration-500" 
                     style={{ width: `${goalPercentage}%` }} 
                   />
                 </div>
               </div>
 
+              {/* DIAS CARIMBADOS COM PATINHAS DE PANDA 🐾 */}
               <div className="grid grid-cols-7 gap-1.5 pt-2">
                 {(weeklyGoal.days || []).map((day, idx) => (
                   <div key={idx} className="flex flex-col items-center gap-1">
-                    <div className={`w-full aspect-square rounded-xl flex items-center justify-center text-xs font-bold ${
-                      day.completed ? 'bg-[#1C1917] text-white' : 'bg-[#FAF9F6] text-[#A8A29E] border border-[#E7E5E4]'
+                    <div className={`w-full aspect-square rounded-xl flex items-center justify-center text-xs font-bold transition-transform ${
+                      day.completed 
+                        ? 'bg-[#1C1917] text-white shadow-xs scale-105' 
+                        : 'bg-[#FAF9F6] text-[#D6D3D1] border border-[#E7E5E4]'
                     }`}>
-                      {day.completed ? '✓' : ''}
+                      {day.completed ? '🐾' : '•'}
                     </div>
                     <span className="text-[10px] font-bold text-[#78716C] uppercase">{day.day[0]}</span>
                   </div>
@@ -777,7 +806,10 @@ export const Dashboard: React.FC = memo(() => {
             {/* AMIGOS & CONEXÕES DIRETAS */}
             <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 shadow-xs flex flex-col gap-3.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-black uppercase tracking-wider text-[#1C1917]">Amigos & Conexões</span>
+                <span className="text-xs font-black uppercase tracking-wider text-[#1C1917] flex items-center gap-1.5">
+                  <span>Amigos de Prática</span>
+                  <span className="text-xs">🐾</span>
+                </span>
                 <button 
                   type="button" 
                   onClick={() => setIsFriendsOpen(true)}
@@ -849,18 +881,20 @@ export const Dashboard: React.FC = memo(() => {
               </section>
             ) : (
               <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 shadow-xs flex flex-col items-center justify-center text-center gap-2">
-                <div className="w-10 h-10 rounded-xl bg-[#FAF9F6] border border-[#E7E5E4] flex items-center justify-center text-[#78716C]">
-                  <svg className="w-5 h-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <div className="w-12 h-12 rounded-2xl bg-[#FAF9F6] border border-[#E7E5E4] flex items-center justify-center text-xl">
+                  🐼
                 </div>
-                <span className="text-xs font-bold text-[#1C1917]">Pronto para a estreia?</span>
-                <p className="text-xs text-[#78716C]">Sua primeira conexão ficará arquivada com notas e novos termos aqui.</p>
+                <span className="text-xs font-bold text-[#1C1917]">Pronto para a sua estreia?</span>
+                <p className="text-xs text-[#78716C] max-w-xs">Conecte-se com seu primeiro parceiro para desbloquear suas anotações e novos termos.</p>
               </section>
             )}
 
             {/* DICA DIÁRIA DE VOCABULÁRIO */}
             <section className="bg-[#FAF9F6] border border-[#E7E5E4] rounded-3xl p-6 flex flex-col gap-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#78716C]">Vocabulário em Destaque</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-800 flex items-center gap-1">
+                  <span>🎋</span> Vocabulário em Destaque
+                </span>
                 <button type="button" onClick={fetchDynamicVocab} className="text-[10px] font-bold text-[#1C1917] hover:underline uppercase cursor-pointer">Outra Palavra ↻</button>
               </div>
               <div className="flex items-baseline gap-2 mt-1">
@@ -909,25 +943,33 @@ export const Dashboard: React.FC = memo(() => {
         </div>
       )}
 
-      {/* MODAL DE BUSCA / MATCHING */}
+      {/* MODAL DE BUSCA COM TEMÁTICA PANDA */}
       {isMatching && (
-        <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-8 sm:p-10 max-w-lg w-full shadow-2xl flex flex-col items-center gap-8 animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 bg-[#1C1917]/75 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-8 sm:p-10 max-w-lg w-full shadow-2xl flex flex-col items-center gap-8 animate-in fade-in zoom-in-95 duration-150 relative overflow-hidden">
+            
             <div className="relative flex items-center justify-center">
-              <div className="w-24 h-24 rounded-full border-4 border-[#F5F5F4] border-t-[#1C1917] animate-spin" />
-              <div className="w-16 h-16 rounded-2xl bg-[#FAF9F6] border border-[#E7E5E4] absolute flex items-center justify-center p-2.5">
+              {/* Anel giratório suave */}
+              <div className="w-28 h-28 rounded-full border-4 border-emerald-100 border-t-emerald-600 animate-spin" />
+              {/* Logo do panda no centro */}
+              <div className="w-18 h-18 rounded-2xl bg-[#FAF9F6] border border-[#E7E5E4] absolute flex items-center justify-center p-3 shadow-inner">
                 <img src="/images/logo.png" alt="SideBySide" className="w-full h-full object-contain" />
               </div>
             </div>
 
-            <div className="flex flex-col items-center text-center gap-1.5">
+            <div className="flex flex-col items-center text-center gap-2">
+              <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-widest text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full">
+                <span>🐾</span> Conectando Dois Pandas Lado a Lado
+              </div>
               <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-[#1C1917]">Buscando Par de Conversa...</h3>
               <p className="text-xs font-bold text-[#78716C]">Aguardando estudante do nível <span className="text-[#1C1917] underline">{userLevelDisplay}</span></p>
             </div>
 
             <div className="w-full bg-[#FAF9F6] border border-[#E7E5E4] rounded-2xl p-5 flex flex-col gap-2.5 text-left">
               <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-2.5">
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#78716C]">Vocabulário para Praticar</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-800 flex items-center gap-1">
+                  <span>🎋</span> Vocabulário para Praticar
+                </span>
                 <button type="button" onClick={fetchDynamicVocab} className="text-[10px] font-bold text-[#1C1917] hover:underline uppercase cursor-pointer">Outra Palavra ↻</button>
               </div>
               {isLoadingVocab ? (
@@ -953,7 +995,10 @@ export const Dashboard: React.FC = memo(() => {
         <div className="fixed inset-0 bg-[#1C1917]/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-4">
-              <h3 className="text-base font-black uppercase tracking-tight text-[#1C1917]">Meta Semanal de Prática</h3>
+              <h3 className="text-base font-black uppercase tracking-tight text-[#1C1917] flex items-center gap-2">
+                <span>Meta Semanal de Prática</span>
+                <span className="text-sm">🐾</span>
+              </h3>
               <button type="button" onClick={() => setActiveModal(null)} className="text-[#78716C] hover:text-[#1C1917] text-sm font-bold cursor-pointer">✕</button>
             </div>
             <div className="flex flex-col gap-4">
@@ -962,7 +1007,7 @@ export const Dashboard: React.FC = memo(() => {
                 <span>{weeklyGoal.completed} de {weeklyGoal.target} conversas ({goalPercentage}%)</span>
               </div>
               <div className="w-full h-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-full overflow-hidden p-0.5">
-                <div className="h-full bg-[#1C1917] rounded-full transition-all duration-500 ease-out" style={{ width: `${goalPercentage}%` }} />
+                <div className="h-full bg-emerald-600 rounded-full transition-all duration-500 ease-out" style={{ width: `${goalPercentage}%` }} />
               </div>
               <div className="grid grid-cols-7 gap-2 pt-2">
                 {(mockMinutesHistory || []).map((item, index: number) => (
@@ -1059,7 +1104,7 @@ export const Dashboard: React.FC = memo(() => {
                     {(weeklyGoal.days || []).map((item, index: number) => (
                       <div key={index} className="flex flex-col items-center gap-1.5">
                         <div className={`w-10 h-10 rounded-xl border flex items-center justify-center font-bold text-xs transition-colors ${item.completed ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4]'}`}>
-                          {item.completed ? '🔥' : '🧊'}
+                          {item.completed ? '🐾' : '•'}
                         </div>
                         <span className="text-[10px] font-bold text-[#78716C] uppercase">{item.day}</span>
                       </div>
@@ -1088,7 +1133,7 @@ export const Dashboard: React.FC = memo(() => {
                     {(weeklyGoal.days || []).map((item, index: number) => (
                       <div key={index} className="flex flex-col items-center gap-1.5">
                         <div className={`w-9 h-9 rounded-xl border flex items-center justify-center font-bold text-xs transition-colors ${item.completed ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4]'}`}>
-                          {item.completed ? <svg className="w-4 h-4 fill-none stroke-current stroke-[3]" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg> : '•'}
+                          {item.completed ? <span className="text-xs">🐾</span> : '•'}
                         </div>
                         <span className="text-[10px] font-bold text-[#78716C] uppercase">{item.day}</span>
                       </div>
