@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import {fetchCsrfToken} from '../lib/api';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -13,6 +14,10 @@ export const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+    useEffect(() => {
+    fetchCsrfToken();
+  }, []);
 
   useEffect(() => {
     const savedEmail = localStorage.getItem('sidebyside_last_email');

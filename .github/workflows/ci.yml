@@ -80,7 +80,7 @@ jobs:
     name: Playwright E2E Tests
     needs: [backend-ci, frontend-ci]
     runs-on: ubuntu-latest
-    
+
     environment: ci
 
 
@@ -106,8 +106,6 @@ jobs:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
       REDIS_URL: "redis://127.0.0.1:6379"
-
-      DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/testdb?schema=public"
 
     steps:
       - name: Checkout Code

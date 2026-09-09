@@ -83,6 +83,7 @@ const allowedOrigins = (process.env.CORS_ORIGIN || (process.env.NODE_ENV === 'pr
 const corsOptionsApp = {
   origin: allowedOrigins,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-csrf-token', 'X-CSRF-Token'],
   credentials: true
 };
 
@@ -141,13 +142,17 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     return next();
   }
 
+   if (req.path.startsWith('/api/auth/') || req.path === '/api/observability/frontend-error') {
+    return next();
+  }
+
   const cookieToken = req.cookies?.csrfToken;
   const headerToken = req.headers['x-csrf-token'];
 
   if (!cookieToken || !headerToken || cookieToken !== headerToken) {
     logger.warn(`Falha de validação CSRF detectada. IP: ${anonymizeIp(req.ip)}`);
     return res.status(403).json({ error: 'Token CSRF ausente ou inválido.' });
-  }
+  } 
   next();
 });
 
