@@ -7,7 +7,6 @@ import { RatingModal } from '../components/room/RatingModal';
 import { TOPICS_CATALOG, FREE_TALK_TOPIC, TopicItem } from '../data/topicsData';
 import { useToast } from '../components/ui/ToastContext';
 
-// Interfaces estritas para substituir os "any" da Web Speech API
 interface ISpeechRecognitionEvent {
   resultIndex: number;
   results: {
@@ -46,19 +45,29 @@ const formatSessionTimer = (seconds: number) => {
 
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
-    {
-      urls: 'turn:turn.seusiteoficial.com:3478',
-      username: 'usuario_seguro',
-      credential: 'senha_segura_turn'
-    }
-  ],
-  iceTransportPolicy: 'relay'
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
+  ]
 };
 
 const getAvatarFallback = (name: string) => {
   const cleanName = name?.trim() || 'Estudante';
   const initial = cleanName.charAt(0).toUpperCase();
   return `https://ui-avatars.com/api/?name=${initial}&background=292524&color=FAF9F6&bold=true`;
+};
+
+const getStoredUser = () => {
+  try {
+    const raw = localStorage.getItem('sidebyside_user') || localStorage.getItem('user');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed?.user || parsed?.data || parsed;
+  } catch {
+    return null;
+  }
 };
 
 const Room: React.FC = memo(() => {
@@ -149,7 +158,10 @@ const Room: React.FC = memo(() => {
   const [chatMessages, setChatMessages] = useState<{ id: number; sender: 'me' | 'other'; text: string }[]>([]);
   const [chatInput, setChatInput] = useState('');
 
-  const [userAvatarUrl, setUserAvatarUrl] = useState<string>(getAvatarFallback('S'));
+  const localUser = useMemo(() => getStoredUser(), []);
+  const [userAvatarUrl, setUserAvatarUrl] = useState<string>(
+    localUser?.avatar || localUser?.avatarUrl || getAvatarFallback(localUser?.name || 'S')
+  );
 
   useEffect(() => {
     micActiveRef.current = micActive;
@@ -159,8 +171,10 @@ const Room: React.FC = memo(() => {
     const fetchUserAvatar = async () => {
       try {
         const response = await api.get('/api/user/me');
-        const data = response.data;
-        setUserAvatarUrl(data.avatar || getAvatarFallback(data.name || 'Estudante'));
+        const data = response.data?.user || response.data?.data || response.data;
+        if (data?.avatar || data?.name) {
+          setUserAvatarUrl(data.avatar || getAvatarFallback(data.name || 'Estudante'));
+        }
       } catch (_err: unknown) {}
     };
     fetchUserAvatar();
@@ -378,6 +392,7 @@ const Room: React.FC = memo(() => {
   }, []);
 
   const initializeWebRTC = useCallback(async (currentRoomId: string, isInitiator: boolean) => {
+    console.log('[WebRTC] Inicializando chamada para room:', currentRoomId, 'Iniciador:', isInitiator);
     try {
       const preferredAudioId = localStorage.getItem('sbs_preferred_audio_id');
       const preferredVideoId = localStorage.getItem('sbs_preferred_video_id');
@@ -404,6 +419,7 @@ const Room: React.FC = memo(() => {
       stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
       pc.ontrack = (event) => {
+        console.log('[WebRTC] Stream de áudio/vídeo recebido do parceiro!');
         if (event.streams && event.streams[0]) {
           const incomingStream = event.streams[0];
           setRemoteStream(incomingStream);
@@ -442,18 +458,25 @@ const Room: React.FC = memo(() => {
       };
 
       pc.onicecandidate = (event) => {
-        if (event.candidate) socket.emit('webrtc_ice_candidate', { roomId: currentRoomId, candidate: event.candidate });
+        if (event.candidate) {
+          socket.emit('webrtc_ice_candidate', { roomId: currentRoomId, candidate: event.candidate });
+        }
       };
 
       pc.oniceconnectionstatechange = () => {
-        if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') setConnectionStatus('reconnecting');
+        console.log('[WebRTC] Status da conexão ICE:', pc.iceConnectionState);
+        if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+          setConnectionStatus('reconnecting');
+        }
       };
 
       if (isInitiator) {
+        console.log('[WebRTC] Criando oferta (Offer) SDP...');
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
         socket.emit('webrtc_offer', { roomId: currentRoomId, sdp: pc.localDescription });
       } else if (pendingOfferRef.current) {
+        console.log('[WebRTC] Processando oferta recebida previamente...');
         await pc.setRemoteDescription(new RTCSessionDescription(pendingOfferRef.current));
         pendingOfferRef.current = null;
         
@@ -468,40 +491,77 @@ const Room: React.FC = memo(() => {
       }
 
     } catch (_err: unknown) {
+      console.error('[WebRTC] Erro de mídia:', _err);
       setMediaError('Permita o uso da câmera e do microfone para conversar.');
     }
   }, [setupAudioAnalyzer]);
 
+  // CICLO DE VIDA DO SOCKET ESTÁVEL E RESILIENTE
   useEffect(() => {
-    socket.emit('find_match', { topicId: topicId || null });
+    // Escuta universal: exibe qualquer evento que o servidor emitir para descobrirmos o nome exato
+    const onAnyListener = (event: string, ...args: any[]) => {
+      console.log(`[Socket EVENTO RECEBIDO]: "${event}"`, args);
+    };
+    socket.onAny(onAnyListener);
 
-    const handleMatchFound = async (data: { roomId: string; partnerId: string; partnerName?: string; partnerAvatar?: string; initiator: boolean }) => {
-      hasRatedCurrentSessionRef.current = false;
-      setRoomId(data.roomId);
-      roomIdRef.current = data.roomId;
-      setPartnerId(data.partnerId);
+    const dispatchFindMatch = () => {
+      const storedUser = getStoredUser();
+      const resolvedTopicId = topicId || currentTopic?.id || 'travel';
       
-      const resolvedPartnerName = data.partnerName || 'Estudante';
+      console.log('[Room] Procurando par. Usuário:', storedUser?.name || 'Estudante', 'Tópico:', resolvedTopicId);
+      socket.emit('find_match', { 
+        topicId: resolvedTopicId,
+        userId: storedUser?.id,
+        userName: storedUser?.name || 'Estudante',
+        userAvatar: storedUser?.avatar,
+        userLevel: storedUser?.level || 'B1'
+      });
+    };
+
+    if (!socket.connected) {
+      socket.connect();
+      socket.once('connect', dispatchFindMatch);
+    } else {
+      dispatchFindMatch();
+    }
+
+    // Normalizador universal para lidar com qualquer formato de resposta do backend
+    const handleMatchFound = async (raw: any) => {
+      console.log('[Room] SUCESSO! Match recebido:', raw);
+      
+      const resolvedRoomId = raw?.roomId || raw?.room?.id || raw?.id;
+      const partner = raw?.partner || raw?.user || raw?.peer || {};
+      const resolvedPartnerId = raw?.partnerId || partner?.id || partner?._id || 'partner_id';
+      const resolvedPartnerName = raw?.partnerName || partner?.name || partner?.userName || 'Estudante';
+      const resolvedPartnerAvatar = raw?.partnerAvatar || partner?.avatar || getAvatarFallback(resolvedPartnerName);
+      const isInitiator = raw?.initiator ?? raw?.isInitiator ?? true;
+
+      hasRatedCurrentSessionRef.current = false;
+      setRoomId(resolvedRoomId);
+      roomIdRef.current = resolvedRoomId;
+      setPartnerId(resolvedPartnerId);
       setPartnerName(resolvedPartnerName);
-      setPartnerAvatarUrl(data.partnerAvatar || getAvatarFallback(resolvedPartnerName));
+      setPartnerAvatarUrl(resolvedPartnerAvatar);
       
       setPartnerDisconnected(false);
+      
+      // MUDA A TELA DE BUSCA IMEDIATAMENTE
       setIsSearchingNextPair(false);
       setFriendRequestSent(false);
       setIncomingFriendRequest(null);
-      await initializeWebRTC(data.roomId, data.initiator);
+
+      await initializeWebRTC(resolvedRoomId, isInitiator);
     };
 
     const handlePartnerLeft = () => {
       const state = sessionStateRef.current;
-      
       if (state.isSearching || !roomIdRef.current || hasRatedCurrentSessionRef.current) return;
       
       hasRatedCurrentSessionRef.current = true;
       setIsConfirmExitOpen(false); 
 
       completedSessionRef.current = {
-        roomId: roomIdRef.current || roomId,
+        roomId: roomIdRef.current,
         partnerId: state.partnerId,
         partnerName: state.partnerName,
         partnerAvatarUrl: state.partnerAvatarUrl,
@@ -523,28 +583,34 @@ const Room: React.FC = memo(() => {
     };
 
     const handleWebRTCOffer = async (data: { sdp: RTCSessionDescriptionInit }) => {
+      console.log('[WebRTC] Oferta SDP recebida do parceiro');
       const pc = peerConnectionRef.current;
       if (!pc) {
         pendingOfferRef.current = data.sdp;
         return;
       }
-      await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-      while (pendingCandidates.current.length > 0) {
-        const candidate = pendingCandidates.current.shift();
-        if (candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      if (pc.signalingState === 'stable' || pc.signalingState === 'have-remote-offer') {
+        await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+        while (pendingCandidates.current.length > 0) {
+          const candidate = pendingCandidates.current.shift();
+          if (candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        }
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socket.emit('webrtc_answer', { roomId: roomIdRef.current, sdp: pc.localDescription });
       }
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      socket.emit('webrtc_answer', { roomId: roomIdRef.current, sdp: pc.localDescription });
     };
 
     const handleWebRTCAnswer = async (data: { sdp: RTCSessionDescriptionInit }) => {
+      console.log('[WebRTC] Resposta SDP recebida do parceiro');
       const pc = peerConnectionRef.current;
       if (!pc) return;
-      await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-      while (pendingCandidates.current.length > 0) {
-        const candidate = pendingCandidates.current.shift();
-        if (candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      if (pc.signalingState === 'have-local-offer') {
+        await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+        while (pendingCandidates.current.length > 0) {
+          const candidate = pendingCandidates.current.shift();
+          if (candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        }
       }
     };
 
@@ -563,7 +629,13 @@ const Room: React.FC = memo(() => {
       setChatMessages((prev) => [...prev, { id: data.id, sender: 'other', text: data.text }]);
     };
 
+    // Escuta em múltiplos nomes possíveis de eventos de match
     socket.on('match_found', handleMatchFound);
+    socket.on('matched', handleMatchFound);
+    socket.on('match-found', handleMatchFound);
+    socket.on('room_joined', handleMatchFound);
+    socket.on('partner_found', handleMatchFound);
+
     socket.on('partner_left', handlePartnerLeft);
     socket.on('camera_status', handleCameraStatus);
     socket.on('friend_request_received', handleFriendRequestReceived);
@@ -573,8 +645,14 @@ const Room: React.FC = memo(() => {
     socket.on('chat_message', handleChatMessage);
 
     return () => {
+      console.log('[Room] Saindo da sala');
       stopMediaStream();
+      socket.offAny(onAnyListener);
       socket.off('match_found', handleMatchFound);
+      socket.off('matched', handleMatchFound);
+      socket.off('match-found', handleMatchFound);
+      socket.off('room_joined', handleMatchFound);
+      socket.off('partner_found', handleMatchFound);
       socket.off('partner_left', handlePartnerLeft);
       socket.off('camera_status', handleCameraStatus);
       socket.off('friend_request_received', handleFriendRequestReceived);
@@ -583,7 +661,7 @@ const Room: React.FC = memo(() => {
       socket.off('webrtc_ice_candidate', handleWebRTCIceCandidate);
       socket.off('chat_message', handleChatMessage);
     };
-  }, [topicId, initializeWebRTC, stopMediaStream, showToast, roomId]);
+  }, [topicId]); // <--- Depende apenas de topicId
 
   const handleSendFriendRequest = useCallback(async () => {
     if (!partnerId || friendRequestSent) return;
@@ -610,7 +688,7 @@ const Room: React.FC = memo(() => {
 
       if (response.status === 200) {
         if (action === 'accept') {
-          showToast(`Você e ${incomingFriendRequest.name} agora são amigos! 🤝`, 'success');
+          showToast(`Você e ${incomingFriendRequest.name} agora são amigos!`, 'success');
           setFriendRequestSent(true);
         } else {
           showToast('Solicitação de amizade recusada.', 'info');
@@ -654,7 +732,7 @@ const Room: React.FC = memo(() => {
         reason,
         sessionDuration: sessionElapsedSeconds,
         messageCount: chatMessages.length,
-        roomId
+        roomId: roomIdRef.current
       });
     } catch (_err: unknown) {}
     
@@ -666,7 +744,7 @@ const Room: React.FC = memo(() => {
     if (!hasRatedCurrentSessionRef.current) {
       hasRatedCurrentSessionRef.current = true;
       completedSessionRef.current = {
-        roomId,
+        roomId: roomIdRef.current,
         partnerId,
         partnerName,
         partnerAvatarUrl,
@@ -676,7 +754,7 @@ const Room: React.FC = memo(() => {
       setPendingAction('nextPair');
       setIsRatingOpen(true);
     }
-  }, [partnerId, sessionElapsedSeconds, chatMessages.length, roomId, partnerName, partnerAvatarUrl]);
+  }, [partnerId, sessionElapsedSeconds, chatMessages.length, partnerName, partnerAvatarUrl]);
 
   const handleEndCall = useCallback(() => {
     if (isSearchingNextPair) {
@@ -700,7 +778,7 @@ const Room: React.FC = memo(() => {
     if (!hasRatedCurrentSessionRef.current) {
       hasRatedCurrentSessionRef.current = true;
       completedSessionRef.current = {
-        roomId,
+        roomId: roomIdRef.current,
         partnerId,
         partnerName,
         partnerAvatarUrl,
@@ -712,7 +790,7 @@ const Room: React.FC = memo(() => {
     setIsConfirmExitOpen(false);
     setPendingAction('exit');
     setIsRatingOpen(true);
-  }, [roomId, partnerId, partnerName, partnerAvatarUrl, sessionElapsedSeconds, stopMediaStream]);
+  }, [partnerId, partnerName, partnerAvatarUrl, sessionElapsedSeconds, stopMediaStream]);
 
   const handleNextPair = useCallback(() => {
     if (roomIdRef.current) {
@@ -723,7 +801,7 @@ const Room: React.FC = memo(() => {
     if (!hasRatedCurrentSessionRef.current) {
       hasRatedCurrentSessionRef.current = true;
       completedSessionRef.current = {
-        roomId,
+        roomId: roomIdRef.current,
         partnerId,
         partnerName,
         partnerAvatarUrl,
@@ -732,7 +810,7 @@ const Room: React.FC = memo(() => {
       setPendingAction('nextPair');
       setIsRatingOpen(true);
     }
-  }, [roomId, partnerId, partnerName, partnerAvatarUrl, sessionElapsedSeconds]);
+  }, [partnerId, partnerName, partnerAvatarUrl, sessionElapsedSeconds]);
 
   const triggerSearchNextPair = useCallback(() => {
     stopMediaStream();
@@ -744,14 +822,22 @@ const Room: React.FC = memo(() => {
     setCurrentTopic(topicId && TOPICS_CATALOG[topicId] ? TOPICS_CATALOG[topicId] : FREE_TALK_TOPIC);
     setIncomingFriendRequest(null);
     
-    socket.emit('find_match', { topicId: topicId || null });
-  }, [stopMediaStream, topicId]);
+    const storedUser = getStoredUser();
+    const resolvedTopicId = topicId || currentTopic?.id || 'travel';
+    socket.emit('find_match', { 
+      topicId: resolvedTopicId,
+      userId: storedUser?.id,
+      userName: storedUser?.name || 'Estudante',
+      userAvatar: storedUser?.avatar,
+      userLevel: storedUser?.level || 'B1'
+    });
+  }, [stopMediaStream, topicId, currentTopic]);
 
   const handleRatingSubmit = useCallback(async (data: { partnerRating?: number; platformRating: number; comment: string }) => {
     setIsRatingOpen(false);
 
     const sessionContext = completedSessionRef.current;
-    const targetRoomId = sessionContext.roomId || roomId || `session_${Date.now()}`;
+    const targetRoomId = sessionContext.roomId || `session_${Date.now()}`;
     const targetPartnerId = sessionContext.partnerId || partnerId;
     const targetPartnerName = sessionContext.partnerName || partnerName;
     const targetPartnerAvatar = sessionContext.partnerAvatarUrl || partnerAvatarUrl;
@@ -774,7 +860,7 @@ const Room: React.FC = memo(() => {
     
     if (pendingAction === 'exit') navigate('/dashboard');
     else triggerSearchNextPair();
-  }, [roomId, partnerId, partnerName, partnerAvatarUrl, sessionElapsedSeconds, currentTopic, pendingAction, navigate, triggerSearchNextPair]);
+  }, [partnerId, partnerName, partnerAvatarUrl, sessionElapsedSeconds, currentTopic, pendingAction, navigate, triggerSearchNextPair]);
 
   const handleRatingClose = useCallback(() => {
     setIsRatingOpen(false);
@@ -809,24 +895,17 @@ const Room: React.FC = memo(() => {
   }, [localStream, camActive]);
 
   useEffect(() => {
-    if (remoteVideoRef.current) {
-      if (isRemoteVideoActive && remoteStream) {
-        remoteVideoRef.current.srcObject = remoteStream;
-      } else {
-        remoteVideoRef.current.srcObject = null;
-      }
+    if (remoteVideoRef.current && remoteStream) {
+      remoteVideoRef.current.srcObject = remoteStream;
+      remoteVideoRef.current.play().catch(() => {});
     }
-  }, [isRemoteVideoActive, remoteStream]);
+  }, [remoteStream]);
 
   useEffect(() => {
-    if (localVideoRef.current) {
-      if (isLocalVideoActive && localStream) {
-        localVideoRef.current.srcObject = localStream;
-      } else {
-        localVideoRef.current.srcObject = null;
-      }
+    if (localVideoRef.current && localStream) {
+      localVideoRef.current.srcObject = localStream;
     }
-  }, [isLocalVideoActive, localStream]);
+  }, [localStream]);
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col font-sans h-screen overflow-hidden relative selection:bg-[#1C1917] selection:text-[#FAF9F6]">
@@ -856,7 +935,7 @@ const Room: React.FC = memo(() => {
             <span className="truncate max-w-[200px] md:max-w-md">Conversando sobre: <strong className="text-emerald-700">{currentTopic.title}</strong></span>
           </div>
 
-          <button type="button" onClick={handleEndCall} className="bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-sm">
+          <button type="button" onClick={handleEndCall} className="bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-sm cursor-pointer">
             {isSearchingNextPair ? 'Cancelar Busca' : 'Encerrar e Sair'}
           </button>
         </header>
@@ -864,7 +943,7 @@ const Room: React.FC = memo(() => {
 
       {mediaError && !isFullscreen && (
         <div className="bg-amber-50 border-b border-amber-200 text-amber-800 px-6 py-2.5 text-xs font-bold flex items-center justify-between z-40">
-          <span>⚠️ {mediaError}</span>
+          <span>Aviso: {mediaError}</span>
           <div className="flex items-center gap-3">
             <button type="button" onClick={() => {}} className="px-3 py-1 bg-[#1C1917] text-[#FAF9F6] rounded-lg text-[10px] font-black uppercase">Usar Apenas Áudio</button>
             <button type="button" onClick={() => {}} className="underline uppercase tracking-wider text-[10px] text-amber-900">Tentar Novamente</button>
@@ -922,7 +1001,7 @@ const Room: React.FC = memo(() => {
             <div className="absolute top-4 left-4 z-20 bg-[#1C1917]/90 backdrop-blur-md px-4 py-2 rounded-xl border border-[#FAF9F6]/20 shadow-md max-w-md flex flex-col gap-1 text-left">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-                <span className="text-[9px] font-black tracking-widest text-[#FAF9F6] uppercase">IA Transcription (Web Speech API)</span>
+                <span className="text-[9px] font-black tracking-widest text-[#FAF9F6] uppercase">IA Transcription</span>
               </div>
               <p className="text-xs text-[#FAF9F6] font-medium italic">
                 "{currentTranscript || 'Ouvindo sua voz...'}"
@@ -961,7 +1040,7 @@ const Room: React.FC = memo(() => {
                 ref={remoteVideoRef} 
                 autoPlay 
                 playsInline 
-                className={`w-full h-full object-cover transition-opacity duration-300 ${connectionStatus === 'reconnecting' ? 'opacity-40 grayscale-[50%]' : 'opacity-100'} ${!isRemoteVideoActive ? 'hidden' : 'block'}`} 
+                className={`w-full h-full object-cover transition-opacity duration-300 ${connectionStatus === 'reconnecting' ? 'opacity-40 grayscale-[50%]' : 'opacity-100'} ${!isRemoteVideoActive ? 'invisible absolute' : 'block'}`} 
               />
               
               {!isRemoteVideoActive && (
@@ -988,7 +1067,7 @@ const Room: React.FC = memo(() => {
               autoPlay 
               playsInline 
               muted 
-              className={`w-full h-full object-cover transform -scale-x-100 ${isLocalVideoActive ? 'block' : 'hidden'}`} 
+              className={`w-full h-full object-cover transform -scale-x-100 ${isLocalVideoActive ? 'block' : 'invisible absolute'}`} 
             />
             
             {!isLocalVideoActive && (
@@ -1011,16 +1090,16 @@ const Room: React.FC = memo(() => {
           </div>
 
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 bg-[#FFFFFF] border border-[#E7E5E4] p-2 rounded-2xl flex items-center gap-3 shadow-lg">
-            <button type="button" onClick={toggleMicrophone} className={`p-3 rounded-xl transition-all border ${micActive ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-red-50 text-red-600 border-red-200'}`}>
+            <button type="button" onClick={toggleMicrophone} className={`p-3 rounded-xl transition-all border cursor-pointer ${micActive ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-red-50 text-red-600 border-red-200'}`}>
               {micActive ? <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 003-3V4.5a3 3 0 00-3-3 3 3 0 00-3 3v8.25a3 3 0 003 3z" /></svg> : <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 003-3V4.5a3 3 0 00-3-3 3 3 0 00-3 3v8.25a3 3 0 003 3z" /><path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" /></svg>}
             </button>
-            <button type="button" onClick={toggleCamera} className={`p-3 rounded-xl transition-all border ${camActive ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-red-50 text-red-600 border-red-200'}`}>
+            <button type="button" onClick={toggleCamera} className={`p-3 rounded-xl transition-all border cursor-pointer ${camActive ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-red-50 text-red-600 border-red-200'}`}>
               {camActive ? <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" /></svg> : <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" /><path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" /></svg>}
             </button>
-            <button type="button" onClick={toggleSpeechTranscription} title="Alternar Transcrição de Voz" className={`p-3 rounded-xl transition-all border ${isTranscribing ? 'bg-emerald-600 text-white border-emerald-600 animate-pulse' : 'bg-[#FAF9F6] border-[#E7E5E4] text-[#1C1917] hover:bg-[#F5F5F4]'}`}>
+            <button type="button" onClick={toggleSpeechTranscription} title="Alternar Transcrição de Voz" className={`p-3 rounded-xl transition-all border cursor-pointer ${isTranscribing ? 'bg-emerald-600 text-white border-emerald-600 animate-pulse' : 'bg-[#FAF9F6] border-[#E7E5E4] text-[#1C1917] hover:bg-[#F5F5F4]'}`}>
               <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 003-3V4.5a3 3 0 00-3-3 3 3 0 00-3 3v8.25a3 3 0 003 3z" /></svg>
             </button>
-            <button type="button" onClick={toggleFullscreen} className="p-3 bg-[#FAF9F6] border border-[#E7E5E4] hover:bg-[#F5F5F4] text-[#1C1917] rounded-xl transition-all">
+            <button type="button" onClick={toggleFullscreen} className="p-3 bg-[#FAF9F6] border border-[#E7E5E4] hover:bg-[#F5F5F4] text-[#1C1917] rounded-xl transition-all cursor-pointer">
               {isFullscreen ? <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 9L4.5 4.5m0 0H9m-4.5 0V9m10.5 0l4.5-4.5m0 0H15m4.5 0V9M9 15l-4.5 4.5m0 0H9m-4.5 0v-4.5m10.5 4.5l4.5 4.5m0 0H15m4.5 0v-4.5" /></svg> : <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" /></svg>}
             </button>
             
@@ -1032,7 +1111,7 @@ const Room: React.FC = memo(() => {
                   type="button"
                   onClick={handleSendFriendRequest}
                   disabled={friendRequestSent || !partnerId}
-                  className={`p-3 rounded-xl transition-all border text-xs font-bold flex items-center gap-1.5 ${
+                  className={`p-3 rounded-xl transition-all border text-xs font-bold flex items-center gap-1.5 cursor-pointer ${
                     friendRequestSent
                       ? 'bg-emerald-50 text-emerald-700 border-emerald-200 cursor-default'
                       : 'bg-[#FAF9F6] border-[#E7E5E4] text-[#1C1917] hover:bg-[#F5F5F4]'
@@ -1052,10 +1131,10 @@ const Room: React.FC = memo(() => {
                   )}
                 </button>
 
-                <button type="button" onClick={() => setIsReportOpen(true)} className="p-3 bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 rounded-xl transition-all text-xs font-bold">
+                <button type="button" onClick={() => setIsReportOpen(true)} className="p-3 bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 rounded-xl transition-all text-xs font-bold cursor-pointer">
                   <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0l2.77-1.385a1.125 1.125 0 011.008 0L10.5 15l3.722-1.861a1.125 1.125 0 011.008 0L19.5 15V4.5l-4.27-2.135a1.125 1.125 0 00-1.008 0L10.5 4.23 6.778 2.369a1.125 1.125 0 00-1.008 0L3 3.75V15z" /></svg>
                 </button>
-                <button type="button" onClick={handleNextPair} className="px-5 py-2.5 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 shadow-sm pointer-events-auto">
+                <button type="button" onClick={handleNextPair} className="px-5 py-2.5 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 shadow-sm pointer-events-auto cursor-pointer">
                   <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-[3]" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 8.25V18a2.25 2.25 0 002.25 2.25h13.5A2.25 2.25 0 0021 18V8.25m-18 0V6a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 6v2.25m-18 0h18M12 11.25v6m0 0l-3-3m3 3l3-3" /></svg>
                   <span>PRÓXIMO PAR</span>
                 </button>
@@ -1086,8 +1165,8 @@ const Room: React.FC = memo(() => {
                   <p className="text-xs text-[#57534E] font-medium leading-relaxed">Sua chamada de vídeo ativa será encerrada e você perderá a conexão com o seu par atual.</p>
                 </div>
                 <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={() => setIsConfirmExitOpen(false)} className="flex-1 py-3 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] text-xs font-black uppercase rounded-xl hover:bg-[#F5F5F4] transition-all shadow-sm">Continuar na Sala</button>
-                  <button type="button" onClick={handleConfirmExit} className="flex-1 py-3 bg-red-600 text-white text-xs font-black uppercase rounded-xl border-2 border-[#1C1917] hover:bg-red-700 transition-all shadow-sm">Sim, Sair</button>
+                  <button type="button" onClick={() => setIsConfirmExitOpen(false)} className="flex-1 py-3 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] text-xs font-black uppercase rounded-xl hover:bg-[#F5F5F4] transition-all shadow-sm cursor-pointer">Continuar na Sala</button>
+                  <button type="button" onClick={handleConfirmExit} className="flex-1 py-3 bg-red-600 text-white text-xs font-black uppercase rounded-xl border-2 border-[#1C1917] hover:bg-red-700 transition-all shadow-sm cursor-pointer">Sim, Sair</button>
                 </div>
               </div>
             </div>
@@ -1097,8 +1176,8 @@ const Room: React.FC = memo(() => {
         {!isFullscreen && (
           <aside className="w-80 bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl flex flex-col overflow-hidden shrink-0 shadow-sm hidden md:flex">
             <div className="grid grid-cols-2 bg-[#F5F5F4] p-1 border-b border-[#E7E5E4] text-xs font-black uppercase tracking-wider">
-              <button type="button" onClick={() => setActiveTab('topics')} className={`py-2.5 rounded-lg transition-all ${activeTab === 'topics' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C]'}`}>Guia de Tópicos</button>
-              <button type="button" onClick={() => setActiveTab('chat')} className={`py-2.5 rounded-lg transition-all ${activeTab === 'chat' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C]'}`}>Chat ({chatMessages.length})</button>
+              <button type="button" onClick={() => setActiveTab('topics')} className={`py-2.5 rounded-lg transition-all cursor-pointer ${activeTab === 'topics' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C]'}`}>Guia de Tópicos</button>
+              <button type="button" onClick={() => setActiveTab('chat')} className={`py-2.5 rounded-lg transition-all cursor-pointer ${activeTab === 'chat' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C]'}`}>Chat ({chatMessages.length})</button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
@@ -1146,7 +1225,7 @@ const Room: React.FC = memo(() => {
                   </div>
                   <form onSubmit={handleSendMessage} className="flex gap-2">
                     <input type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Digite uma mensagem..." className="flex-1 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl px-3 py-2 text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]" />
-                    <button type="submit" className="bg-[#1C1917] hover:bg-[#292524] px-3 py-2 rounded-xl text-xs font-bold text-[#FAF9F6]">➔</button>
+                    <button type="submit" className="bg-[#1C1917] hover:bg-[#292524] px-3 py-2 rounded-xl text-xs font-bold text-[#FAF9F6] cursor-pointer">➔</button>
                   </form>
                 </div>
               )}
