@@ -14,6 +14,44 @@ import { useFetchCache } from '../hooks/useFetchCache';
 import { BADGES_CATALOG } from '../data/badgesData';
 import { api } from '../services/api';
 
+
+const PandaPawIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+    <ellipse cx="12" cy="15.8" rx="4.6" ry="3.8" />
+    <circle cx="6.5" cy="9.6" r="2" />
+    <circle cx="10.1" cy="6.6" r="2.1" />
+    <circle cx="13.9" cy="6.6" r="2.1" />
+    <circle cx="17.5" cy="9.6" r="2" />
+  </svg>
+);
+
+const BambooIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    <path d="M12 2v20" />
+    <path d="M9.5 7h5" />
+    <path d="M9.5 14h5" />
+    <path d="M12 7c2.5-2 5.5-2 7.5 0" />
+    <path d="M12 14c-2.5-2 -5.5-2 -7.5 0" />
+  </svg>
+);
+
+const FlameIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+    <path d="M12 2c-.5 2.5-2.5 4.5-4 7-1.8 3-1.8 6.5 0 9.5 2 3.2 6 4.5 9 3 2.5-1.2 4-3.8 4-6.5 0-4-3-7-4.5-9.5-1-1.6-1.5-3.5-1.5-5.5-.8 1-2 2-3 2.5z" />
+  </svg>
+);
+
+const PandaMascotIcon: React.FC<{ className?: string }> = ({ className = "w-8 h-8" }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    <circle cx="5" cy="5.5" r="2.5" fill="currentColor" />
+    <circle cx="19" cy="5.5" r="2.5" fill="currentColor" />
+    <circle cx="12" cy="13" r="7.5" />
+    <ellipse cx="9.2" cy="12" rx="1.8" ry="1.4" fill="currentColor" />
+    <ellipse cx="14.8" cy="12" rx="1.8" ry="1.4" fill="currentColor" />
+    <path d="M11 15.2h2" />
+  </svg>
+);
+
 interface NotificationItem {
   id: string;
   title: string;
@@ -197,7 +235,6 @@ export const Dashboard: React.FC = memo(() => {
   const userReputationDisplay = useMemo(() => userData?.reputation ?? 100, [userData]);
   const userAvatarDisplay = useMemo(() => userData?.avatar || '/images/default-avatar.png', [userData]);
 
-  // Recarrega o painel de forma silenciosa ao clicar na logo
   const handleReloadDashboard = useCallback(() => {
     window.location.reload();
   }, []);
@@ -371,51 +408,68 @@ export const Dashboard: React.FC = memo(() => {
   }, [navigate, showToast]);
 
   return (
-    <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col font-sans relative selection:bg-[#1C1917] selection:text-[#FAF9F6] w-full">
-      {/* Seguidor do Cursor com suave toque de Panda */}
+    <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col font-sans relative selection:bg-[#1C1917] selection:text-[#FAF9F6] w-full overflow-x-hidden">
+      
+      {/* ANIMAÇÕES VIBE CODING EMBUTIDAS */}
+      <style>{`
+        @keyframes radarPulse {
+          0%, 100% { opacity: 0.15; transform: scale(1); }
+          50% { opacity: 0.4; transform: scale(1.12); }
+        }
+        @keyframes orbitPaw {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .anim-radar {
+          animation: radarPulse 2.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        .anim-orbit {
+          animation: orbitPaw 9s linear infinite;
+        }
+      `}</style>
+
+      {/* CURSOR FOLLOWER */}
       <div
         className="pointer-events-none fixed z-50 w-3.5 h-3.5 rounded-full bg-[#1C1917] transition-opacity duration-300 ease-out -translate-x-1/2 -translate-y-1/2 hidden md:block ring-2 ring-emerald-500/20"
         style={{ left: `${followerPos.x}px`, top: `${followerPos.y}px`, opacity: cursorOpacity }}
       />
 
       {/* HEADER NAS EXTREMIDADES */}
-      <header className="bg-[#FFFFFF]/95 backdrop-blur-md border-b border-[#E7E5E4] px-6 sm:px-10 lg:px-14 py-2 sticky top-0 z-30 shadow-xs w-full flex items-center justify-between">
+      <header className="bg-[#FFFFFF]/95 backdrop-blur-md border-b border-[#E7E5E4] px-6 sm:px-10 lg:px-14 py-2.5 sticky top-0 z-30 shadow-2xs w-full flex items-center justify-between">
         
-        {/* LOGO AMPLA E TEXTO INTEGRADO (COM MICRO-ANIMAÇÃO PANDA) */}
+        {/* LOGO AMPLA & IDENTIDADE PANDA */}
         <button
           type="button"
           onClick={handleReloadDashboard}
-          className="flex items-center gap-2 sm:gap-2.5 cursor-pointer group text-left outline-none shrink-0"
-          title="SideBySide • Recarregar"
+          className="flex items-center gap-3 cursor-pointer group text-left outline-none shrink-0"
+          title="SideBySide // Recarregar Painel"
         >
-          {/* Logo do panda com leve inclinação e zoom no hover */}
-          <div className="relative flex items-center justify-center">
-            <img 
-              src="/images/logo.png" 
-              alt="SideBySide Pandas" 
-              className="h-16 sm:h-20 md:h-24 w-auto object-contain transition-transform duration-300 group-hover:rotate-6 group-hover:scale-105 drop-shadow-xs" 
-            />
-          </div>
+          <img 
+            src="/images/logo.png" 
+            alt="SideBySide Pandas" 
+            className="h-16 sm:h-18 md:h-20 w-auto object-contain transition-transform duration-300 group-hover:scale-105 group-hover:rotate-3" 
+          />
           <div className="flex flex-col">
             <span className="text-xl sm:text-2xl font-black tracking-tight text-[#1C1917] uppercase leading-none font-sans">
               SIDEBYSIDE
             </span>
-            <span className="text-[8px] font-black uppercase tracking-widest text-emerald-700/80 mt-0.5 flex items-center gap-1">
-              <span>🎋</span> Language Exchange
+            <span className="font-mono text-[9px] font-bold tracking-widest text-[#78716C] uppercase mt-0.5 flex items-center gap-1.5">
+              <BambooIcon className="w-3 h-3 text-emerald-600" />
+              <span>VERSÃO 1.0.0</span>
             </span>
           </div>
         </button>
 
-        {/* CONTROLES E PERFIL */}
+        {/* STATUS CEFR & PERFIL */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3.5 py-1.5 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#57534E]">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span>Nível <strong className="text-[#1C1917]">{userLevelDisplay}</strong></span>
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-mono font-bold text-[#57534E]">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>NÍVEL:{userLevelDisplay}</span>
           </div>
 
-          <div className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#57534E]">
-            <span className="text-xs">🎋</span>
-            <span>{userReputationDisplay}% Reputação</span>
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-mono font-bold text-[#57534E]">
+            <BambooIcon className="w-3.5 h-3.5 text-emerald-600" />
+            <span>REPUTAÇÃO:{userReputationDisplay}%</span>
           </div>
 
           {/* Notificações */}
@@ -423,14 +477,14 @@ export const Dashboard: React.FC = memo(() => {
             <button
               type="button"
               onClick={handleOpenNotifications}
-              className="p-2.5 bg-[#FFFFFF] border border-[#E7E5E4] hover:border-[#1C1917] rounded-xl transition-all relative flex items-center justify-center text-[#1C1917] shadow-xs active:scale-95 cursor-pointer"
+              className="p-2.5 bg-[#FFFFFF] border border-[#E7E5E4] hover:border-[#1C1917] hover:bg-[#FAF9F6] rounded-xl transition-all relative flex items-center justify-center text-[#1C1917] shadow-2xs active:scale-95 cursor-pointer"
               title="Notificações"
             >
               <svg className="w-4 h-4 stroke-current fill-none stroke-2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
               </svg>
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 text-white rounded-full text-[9px] font-black flex items-center justify-center ring-2 ring-[#FFFFFF]">
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 text-white rounded-full text-[9px] font-mono font-bold flex items-center justify-center ring-2 ring-[#FFFFFF]">
                   {unreadCount}
                 </span>
               )}
@@ -442,7 +496,7 @@ export const Dashboard: React.FC = memo(() => {
             <button 
               type="button" 
               onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} 
-              className="flex items-center gap-2.5 pl-2 py-1.5 pr-2 rounded-xl border border-[#E7E5E4] hover:border-[#1C1917] transition-all bg-[#FFFFFF] shadow-xs cursor-pointer"
+              className="flex items-center gap-2.5 pl-2 py-1.5 pr-2.5 rounded-xl border border-[#E7E5E4] hover:border-[#1C1917] transition-all bg-[#FFFFFF] shadow-2xs cursor-pointer active:scale-95"
             >
               <div className="w-7 h-7 rounded-lg bg-[#F5F5F4] overflow-hidden border border-[#D6D3D1]">
                 <img src={userAvatarDisplay} alt={userNameDisplay} className="w-full h-full object-cover" />
@@ -457,15 +511,15 @@ export const Dashboard: React.FC = memo(() => {
               <div className="absolute right-0 mt-2.5 w-64 bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl shadow-xl py-2 z-50 flex flex-col gap-0.5 animate-in fade-in slide-in-from-top-2 duration-150">
                 <div className="px-4 py-2.5 border-b border-[#E7E5E4] flex flex-col">
                   <span className="text-xs font-black text-[#1C1917] truncate">{userNameDisplay}</span>
-                  <span className="text-[10px] font-semibold text-[#78716C] truncate">{userEmailDisplay}</span>
+                  <span className="font-mono text-[10px] text-[#78716C] truncate">{userEmailDisplay}</span>
                 </div>
 
                 <button type="button" onClick={() => { setIsUserMenuOpen(false); setIsFriendsOpen(true); }} className="px-4 py-2 hover:bg-[#FAF9F6] text-left flex items-center justify-between transition-colors group cursor-pointer">
                   <div className="flex items-center gap-2.5">
-                    <span className="text-sm">🐾</span>
+                    <PandaPawIcon className="w-4 h-4 text-[#57534E] group-hover:text-[#1C1917] transition-colors" />
                     <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Amigos de Conversa</span>
                   </div>
-                  {friendRequestsCount > 0 && <span className="text-[10px] font-black bg-red-100 text-red-600 px-2 py-0.5 rounded-full">{friendRequestsCount}</span>}
+                  {friendRequestsCount > 0 && <span className="font-mono text-[10px] font-bold bg-red-100 text-red-600 px-2 py-0.5 rounded-md">{friendRequestsCount}</span>}
                 </button>
 
                 <button type="button" onClick={() => { setIsUserMenuOpen(false); setSelectedChatContact(null); setIsDirectChatsOpen(true); }} className="px-4 py-2 hover:bg-[#FAF9F6] text-left flex items-center justify-between transition-colors group cursor-pointer">
@@ -473,15 +527,15 @@ export const Dashboard: React.FC = memo(() => {
                     <svg className="w-4 h-4 stroke-[#57534E] group-hover:stroke-[#1C1917] fill-none stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" /></svg>
                     <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Mensagens Diretas</span>
                   </div>
-                  <span className="text-[10px] font-black bg-[#F5F5F4] px-2 py-0.5 rounded text-[#1C1917]">0</span>
+                  <span className="font-mono text-[10px] font-bold bg-[#F5F5F4] px-2 py-0.5 rounded text-[#1C1917]">0</span>
                 </button>
 
                 <button type="button" onClick={() => { setIsUserMenuOpen(false); setIsBadgesOpen(true); }} className="px-4 py-2 hover:bg-[#FAF9F6] text-left flex items-center justify-between transition-colors group cursor-pointer">
                   <div className="flex items-center gap-2.5">
-                    <span className="text-sm">🎋</span>
+                    <BambooIcon className="w-4 h-4 text-emerald-700" />
                     <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Badges do Bambu</span>
                   </div>
-                  <span className="text-[10px] font-black bg-[#F5F5F4] px-2 py-0.5 rounded text-[#1C1917]">
+                  <span className="font-mono text-[10px] font-bold bg-[#F5F5F4] px-2 py-0.5 rounded text-[#1C1917]">
                     {BADGES_CATALOG.filter(b => b.unlocked).length}/{BADGES_CATALOG.length}
                   </span>
                 </button>
@@ -491,7 +545,7 @@ export const Dashboard: React.FC = memo(() => {
                     <svg className="w-4 h-4 stroke-[#57534E] group-hover:stroke-[#1C1917] fill-none stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Lembretes Diários</span>
                   </div>
-                  <span className="text-[10px] font-bold text-[#78716C] uppercase">{reminderEnabled ? reminderTime : 'Off'}</span>
+                  <span className="font-mono text-[10px] font-bold text-[#78716C] uppercase">{reminderEnabled ? reminderTime : 'OFF'}</span>
                 </button>
 
                 <button type="button" onClick={() => { setIsUserMenuOpen(false); setIsSupportOpen(true); }} className="px-4 py-2 hover:bg-[#FAF9F6] text-left flex items-center justify-between transition-colors group cursor-pointer">
@@ -504,11 +558,11 @@ export const Dashboard: React.FC = memo(() => {
                 <div className="border-t border-[#E7E5E4] mt-1 pt-1">
                   <button type="button" onClick={() => { setIsUserMenuOpen(false); navigate('/profile'); }} className="w-full px-4 py-2 hover:bg-[#FAF9F6] text-left flex items-center gap-2.5 transition-colors group cursor-pointer">
                     <svg className="w-4 h-4 stroke-[#57534E] group-hover:stroke-[#1C1917] fill-none stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>
-                    <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Meu Perfil</span>
+                    <span className="text-xs font-bold text-[#57534E] group-hover:text-[#1C1917]">Configurações de Perfil</span>
                   </button>
                   <button type="button" onClick={handleLogout} className="w-full px-4 py-2 hover:bg-red-50 text-left flex items-center gap-2.5 transition-colors group cursor-pointer">
                     <svg className="w-4 h-4 stroke-red-600 fill-none stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" /></svg>
-                    <span className="text-xs font-bold text-red-600">Sair da Conta</span>
+                    <span className="text-xs font-bold text-red-600">Encerrar Sessão</span>
                   </button>
                 </div>
               </div>
@@ -526,12 +580,12 @@ export const Dashboard: React.FC = memo(() => {
           {/* COLUNA ESQUERDA (8 COLS) */}
           <div className="lg:col-span-8 flex flex-col gap-6 lg:gap-8">
             
-            {/* HERO LAUNCHPAD COM DETALHE ARTÍSTICO DE BAMBU */}
-            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-8 lg:p-10 shadow-xs flex flex-col gap-6 relative overflow-hidden">
+            {/* HERO LAUNCHPAD: AÇÃO E PRÁTICA COM MOTIVO DE BAMBU VETORIAL */}
+            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-8 lg:p-10 shadow-2xs flex flex-col gap-6 relative overflow-hidden group">
               
-              {/* Marca d'água sutil de bambu no fundo do Hero */}
+              {/* Marca d'água vetorial de bambu */}
               <div className="pointer-events-none absolute -bottom-10 -right-6 text-[#1C1917] opacity-[0.035] select-none">
-                <svg className="w-72 h-72 fill-current" viewBox="0 0 200 200">
+                <svg className="w-80 h-80 fill-current" viewBox="0 0 200 200">
                   <path d="M40 180 C40 120 70 80 120 40 C100 80 110 140 140 180 Z" />
                   <path d="M70 180 C70 130 95 90 145 50 C125 90 135 150 165 180 Z" />
                   <circle cx="150" cy="45" r="14" />
@@ -541,38 +595,34 @@ export const Dashboard: React.FC = memo(() => {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200/80 w-fit flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                      Bamboo Lounge • Nível {userLevelDisplay}
-                    </span>
                   </div>
                   <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tight text-[#1C1917] mt-1.5">
                     Olá, {userFirstName}! Pronto para falar?
                   </h1>
                   <p className="text-xs sm:text-sm text-[#57534E] max-w-2xl font-medium leading-relaxed">
-                    Conecte-se com estudantes de nível <strong className="text-[#1C1917]">{userLevelDisplay}</strong>. Conversas moderadas por IA, com quebra-gelos e sem pressão — como dois pandas aprendendo lado a lado.
+                    Conecte-se com estudantes de nível <strong className="text-[#1C1917]">{userLevelDisplay}</strong>. Conversas moderadas ativamente por IA — dois pares aprendendo juntos, lado a lado.
                   </p>
                 </div>
 
                 <button 
                   type="button" 
                   onClick={() => setIsDeviceCheckOpen(true)} 
-                  className="self-start sm:self-center px-4 py-2.5 bg-[#FAF9F6] border border-[#E7E5E4] hover:border-[#1C1917] rounded-xl text-xs font-bold text-[#1C1917] transition-all flex items-center gap-2 shrink-0 shadow-xs cursor-pointer"
+                  className="self-start sm:self-center px-4 py-2.5 bg-[#FAF9F6] border border-[#E7E5E4] hover:border-[#1C1917] hover:-translate-y-0.5 rounded-xl text-xs font-mono font-bold text-[#1C1917] transition-all flex items-center gap-2 shrink-0 shadow-2xs cursor-pointer active:scale-95"
                 >
                   <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.83m0 0a5.99 5.99 0 00-2.003-7.234L10.87 6.44a1.125 1.125 0 00-1.221.22L6.15 10.16a1.125 1.125 0 00-.22 1.221l2.302 2.498a5.99 5.99 0 007.188.291z" /></svg>
-                  Testar Equipamento
+                  TESTAR HARDWARE
                 </button>
               </div>
 
               {/* OPÇÕES INTEGRADAS */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-[#E7E5E4] relative z-10">
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-[10px] font-bold text-[#78716C] uppercase tracking-wider">Modo de Transmissão</span>
+                  <span className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-wider">Modo de Transmissão</span>
                   <div className="grid grid-cols-2 bg-[#FAF9F6] p-1.5 rounded-xl border border-[#E7E5E4] text-xs font-bold">
                     <button 
                       type="button" 
                       onClick={() => { setMediaMode('video'); showToast('Modo Vídeo + Áudio selecionado', 'info'); }} 
-                      className={`py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer ${mediaMode === 'video' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C] hover:text-[#1C1917]'}`}
+                      className={`py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer ${mediaMode === 'video' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-2xs' : 'text-[#78716C] hover:text-[#1C1917]'}`}
                     >
                       <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" /></svg>
                       Vídeo + Áudio
@@ -580,7 +630,7 @@ export const Dashboard: React.FC = memo(() => {
                     <button 
                       type="button" 
                       onClick={() => { setMediaMode('audio'); showToast('Modo Apenas Áudio selecionado', 'info'); }} 
-                      className={`py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer ${mediaMode === 'audio' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-sm' : 'text-[#78716C] hover:text-[#1C1917]'}`}
+                      className={`py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer ${mediaMode === 'audio' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-2xs' : 'text-[#78716C] hover:text-[#1C1917]'}`}
                     >
                       <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 003-3V4.5a3 3 0 00-3-3 3 3 0 00-3 3v8.25a3 3 0 003 3z" /></svg>
                       Apenas Áudio
@@ -589,7 +639,7 @@ export const Dashboard: React.FC = memo(() => {
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-[10px] font-bold text-[#78716C] uppercase tracking-wider">Pareamento Estendido</span>
+                  <span className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-wider">Pareamento Estendido</span>
                   <div className="flex items-center justify-between bg-[#FAF9F6] border border-[#E7E5E4] px-4 rounded-xl h-[52px]">
                     <span className="text-xs font-bold text-[#57534E]">Permitir conectar com níveis adjacentes</span>
                     <button 
@@ -597,36 +647,40 @@ export const Dashboard: React.FC = memo(() => {
                       onClick={() => { setExpandedMatching(!expandedMatching); showToast(expandedMatching ? 'Pareamento estrito ativado' : 'Pareamento ampliado ativado', 'info'); }} 
                       className={`w-11 h-6 flex items-center rounded-full p-0.5 transition-colors cursor-pointer ${expandedMatching ? 'bg-[#1C1917]' : 'bg-[#D6D3D1]'}`}
                     >
-                      <div className={`bg-[#FFFFFF] w-5 h-5 rounded-full shadow-md transform transition-transform ${expandedMatching ? 'translate-x-5' : 'translate-x-0'}`} />
+                      <div className={`bg-[#FFFFFF] w-5 h-5 rounded-full shadow-md transform transition-transform duration-200 ${expandedMatching ? 'translate-x-5' : 'translate-x-0'}`} />
                     </button>
                   </div>
                 </div>
               </div>
 
-              {/* BOTÃO PRINCIPAL COM CARIMBO PANDA */}
-              <Button 
-                variant="primary" 
-                onClick={startMatchingFlow} 
-                className="w-full py-4 text-xs font-black uppercase tracking-widest bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-2xl shadow-md flex items-center justify-center gap-3 transition-all hover:scale-[1.008] active:scale-[0.99] cursor-pointer relative z-10"
-              >
-                <span className="text-sm">🐾</span>
-                PROCURAR PAR DE CONVERSA AGORA
-                <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
-              </Button>
+              {/* BOTÃO PRINCIPAL COM VETOR DE PATINHA PANDA */}
+              <div className="relative group/cta w-full">
+                <Button 
+                  variant="primary" 
+                  onClick={startMatchingFlow} 
+                  className="w-full py-4 text-xs font-mono font-bold uppercase tracking-widest bg-[#1C1917] hover:bg-[#24201E] text-[#FAF9F6] rounded-2xl shadow-md flex items-center justify-center gap-3 transition-all hover:scale-[1.008] hover:shadow-xl active:scale-[0.99] cursor-pointer relative z-10 overflow-hidden"
+                >
+                  <div className="absolute inset-0 -translate-x-full group-hover/cta:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
+
+                  <PandaPawIcon className="w-4 h-4 text-emerald-400 group-hover/cta:scale-125 transition-transform duration-200" />
+                  <span>PROCURAR PAR DE CONVERSA AGORA</span>
+                  <svg className="w-4 h-4 fill-none stroke-current stroke-2 group-hover/cta:translate-x-1.5 transition-transform duration-200" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
+                </Button>
+              </div>
             </section>
 
             {/* SEÇÃO DE TÓPICOS EM DESTAQUE */}
-            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-8 shadow-xs flex flex-col gap-6">
+            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-8 shadow-2xs flex flex-col gap-6">
               <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-4">
                 <div>
                   <h2 className="text-lg font-black uppercase tracking-tight text-[#1C1917] flex items-center gap-2">
                     <span>Tópicos Recomendados de Hoje</span>
-                    <span className="text-xs">🎋</span>
+                    <BambooIcon className="w-3.5 h-3.5 text-emerald-600" />
                   </h2>
-                  <p className="text-xs text-[#78716C] font-medium">Salas com quebra-gelos práticos para guiar a conversa</p>
+                  <p className="text-xs text-[#78716C] font-medium">Salas temáticas com roteiros e perguntas para destravar a fala</p>
                 </div>
-                <span className="hidden sm:inline-block text-[10px] font-bold uppercase tracking-wider bg-[#FAF9F6] border border-[#E7E5E4] px-3 py-1.5 rounded-lg text-[#57534E]">
-                  Atualizado Diariamente
+                <span className="hidden sm:inline-block font-mono text-[10px] font-bold uppercase tracking-wider bg-[#FAF9F6] border border-[#E7E5E4] px-3 py-1.5 rounded-lg text-[#57534E]">
+                  TÓPICOS DIÁRIOS
                 </span>
               </div>
 
@@ -636,27 +690,27 @@ export const Dashboard: React.FC = memo(() => {
                     key={topic.id}
                     type="button"
                     onClick={() => handleTopicCardClick(topic)}
-                    className={`p-5 rounded-2xl border text-left flex flex-col justify-between gap-5 transition-all hover:-translate-y-1 cursor-pointer ${
+                    className={`p-5 rounded-2xl border text-left flex flex-col justify-between gap-5 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lg cursor-pointer group/topic ${
                       selectedTopic.id === topic.id 
-                        ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917] shadow-lg' 
+                        ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917] shadow-lg ring-2 ring-emerald-500/20' 
                         : 'bg-[#FAF9F6] text-[#1C1917] border-[#E7E5E4] hover:border-[#1C1917]'
                     }`}
                   >
                     <div className="flex flex-col gap-2">
-                      <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md w-fit ${
+                      <span className={`font-mono text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md w-fit transition-colors ${
                         selectedTopic.id === topic.id ? 'bg-[#292524] text-[#D6D3D1]' : 'bg-[#E7E5E4] text-[#57534E]'
                       }`}>
                         {topic.category}
                       </span>
-                      <h3 className="text-sm font-bold leading-snug">{topic.title}</h3>
+                      <h3 className="text-sm font-bold leading-snug group-hover/topic:text-emerald-600 transition-colors duration-200">{topic.title}</h3>
                       <p className={`text-xs line-clamp-2 mt-1 font-medium ${selectedTopic.id === topic.id ? 'text-[#A8A29E]' : 'text-[#78716C]'}`}>
                         "{topic.icebreaker}"
                       </p>
                     </div>
 
-                    <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider pt-3 border-t border-current/10">
-                      <span>Entrar no Tópico</span>
-                      <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
+                    <div className="flex items-center justify-between font-mono text-[11px] font-bold uppercase tracking-wider pt-3 border-t border-current/10">
+                      <span>ENTRAR NO TOPICO</span>
+                      <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-2 group-hover/topic:translate-x-1.5 transition-transform duration-200" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
                       </svg>
                     </div>
@@ -666,28 +720,29 @@ export const Dashboard: React.FC = memo(() => {
             </section>
 
             {/* PANDA SPEAKING TOOLKIT */}
-            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-7 shadow-xs flex flex-col gap-4">
+            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-7 shadow-2xs flex flex-col gap-4">
               <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm">🐾</span>
-                  <h3 className="text-xs font-black uppercase tracking-wider text-[#1C1917]">Panda Speaking Toolkit • Frases de Apoio</h3>
+                  <PandaPawIcon className="w-4 h-4 text-[#1C1917]" />
+                  <h3 className="text-xs font-black uppercase tracking-wider text-[#1C1917]">Frases de Apoio</h3>
                 </div>
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                  Saboreie a conversa com calma
+                <span className="font-mono text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1">
+                  <BambooIcon className="w-3 h-3 text-emerald-600" />
+                  SEMPRE USE FRASES NOVAS!
                 </span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="bg-[#FAF9F6] border border-[#E7E5E4] p-3.5 rounded-2xl flex flex-col gap-1">
-                  <span className="text-[10px] font-bold uppercase text-[#78716C]">Se não entender:</span>
+                <div className="bg-[#FAF9F6] border border-[#E7E5E4] p-3.5 rounded-2xl flex flex-col gap-1 hover:border-emerald-500/50 hover:bg-emerald-50/20 hover:-translate-y-0.5 transition-all duration-200">
+                  <span className="font-mono text-[10px] font-bold uppercase text-[#78716C]">Se não entender:</span>
                   <p className="text-xs font-bold text-[#1C1917]">"Could you rephrase that in other words?"</p>
                 </div>
-                <div className="bg-[#FAF9F6] border border-[#E7E5E4] p-3.5 rounded-2xl flex flex-col gap-1">
-                  <span className="text-[10px] font-bold uppercase text-[#78716C]">Para respirar e pensar:</span>
+                <div className="bg-[#FAF9F6] border border-[#E7E5E4] p-3.5 rounded-2xl flex flex-col gap-1 hover:border-emerald-500/50 hover:bg-emerald-50/20 hover:-translate-y-0.5 transition-all duration-200">
+                  <span className="font-mono text-[10px] font-bold uppercase text-[#78716C]">Para respirar e pensar:</span>
                   <p className="text-xs font-bold text-[#1C1917]">"That's a good question, let me think..."</p>
                 </div>
-                <div className="bg-[#FAF9F6] border border-[#E7E5E4] p-3.5 rounded-2xl flex flex-col gap-1">
-                  <span className="text-[10px] font-bold uppercase text-[#78716C]">Passar a fala:</span>
+                <div className="bg-[#FAF9F6] border border-[#E7E5E4] p-3.5 rounded-2xl flex flex-col gap-1 hover:border-emerald-500/50 hover:bg-emerald-50/20 hover:-translate-y-0.5 transition-all duration-200">
+                  <span className="font-mono text-[10px] font-bold uppercase text-[#78716C]">Passar a fala:</span>
                   <p className="text-xs font-bold text-[#1C1917]">"What about you? What's your take on this?"</p>
                 </div>
               </div>
@@ -695,7 +750,7 @@ export const Dashboard: React.FC = memo(() => {
 
             {/* CARDS DE CONFIANÇA & SEGURANÇA */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-5 flex items-start gap-4 shadow-xs">
+              <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-5 flex items-start gap-4 shadow-2xs hover:border-[#1C1917] transition-colors">
                 <div className="w-10 h-10 rounded-xl bg-[#FAF9F6] border border-[#E7E5E4] text-[#1C1917] flex items-center justify-center shrink-0">
                   <svg className="w-5 h-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.105-2.574-.305-3.8A11.983 11.983 0 0112 2.714z" /></svg>
                 </div>
@@ -705,9 +760,9 @@ export const Dashboard: React.FC = memo(() => {
                 </div>
               </div>
 
-              <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-5 flex items-start gap-4 shadow-xs">
+              <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-2xl p-5 flex items-start gap-4 shadow-2xs hover:border-[#1C1917] transition-colors">
                 <div className="w-10 h-10 rounded-xl bg-[#FAF9F6] border border-[#E7E5E4] text-[#1C1917] flex items-center justify-center shrink-0">
-                  <span className="text-lg">🎋</span>
+                  <BambooIcon className="w-5 h-5 text-emerald-700" />
                 </div>
                 <div className="flex flex-col gap-1">
                   <h3 className="text-xs font-black uppercase text-[#1C1917]">Cultura de Respeito</h3>
@@ -721,107 +776,118 @@ export const Dashboard: React.FC = memo(() => {
           {/* COLUNA DIREITA (4 COLS: STATS, PROGRESSO, AMIGOS & HISTÓRICO) */}
           <div className="lg:col-span-4 flex flex-col gap-6 lg:gap-8">
             
-            {/* CARDS DE MÉTRICAS RÁPIDAS COM DETALHES PANDA */}
+            {/* CARDS DE MÉTRICAS COM ÍCONES VETORIAIS */}
             <div className="grid grid-cols-3 gap-3">
               <button 
                 type="button" 
                 onClick={() => setActiveMetricModal('streak')} 
-                className="bg-[#FFFFFF] border border-[#E7E5E4] hover:border-[#1C1917] rounded-2xl p-4 flex flex-col items-center justify-center gap-1.5 transition-all shadow-xs group cursor-pointer"
+                className="bg-[#FFFFFF] border border-[#E7E5E4] hover:border-[#1C1917] hover:-translate-y-1 hover:shadow-md rounded-2xl p-4 flex flex-col items-center justify-center gap-1.5 transition-all duration-200 shadow-2xs group cursor-pointer active:scale-95"
               >
-                <span className="text-xl font-black text-[#1C1917] leading-none group-hover:scale-110 transition-transform flex items-center gap-1">
-                  {userMetrics.currentStreak} <span className="text-base">🔥</span>
-                </span>
-                <span className="text-[10px] font-bold text-[#78716C] uppercase tracking-wider">Ofensiva</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono text-xl font-black text-[#1C1917] leading-none group-hover:scale-110 transition-transform">
+                    {userMetrics.currentStreak}
+                  </span>
+                  <FlameIcon className="w-4 h-4 text-emerald-600 group-hover:scale-125 transition-transform" />
+                </div>
+                <span className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-wider">OFENSIVA</span>
               </button>
 
               <button 
                 type="button" 
                 onClick={() => setActiveMetricModal('minutes')} 
-                className="bg-[#FFFFFF] border border-[#E7E5E4] hover:border-[#1C1917] rounded-2xl p-4 flex flex-col items-center justify-center gap-1.5 transition-all shadow-xs group cursor-pointer"
+                className="bg-[#FFFFFF] border border-[#E7E5E4] hover:border-[#1C1917] hover:-translate-y-1 hover:shadow-md rounded-2xl p-4 flex flex-col items-center justify-center gap-1.5 transition-all duration-200 shadow-2xs group cursor-pointer active:scale-95"
               >
-                <span className="text-xl font-black text-[#1C1917] leading-none group-hover:scale-110 transition-transform">
-                  {userMetrics.totalMinutes}m
-                </span>
-                <span className="text-[10px] font-bold text-[#78716C] uppercase tracking-wider">Minutos</span>
+                <div className="flex items-center gap-1">
+                  <span className="font-mono text-xl font-black text-[#1C1917] leading-none group-hover:scale-110 transition-transform">
+                    {userMetrics.totalMinutes}m
+                  </span>
+                </div>
+                <span className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-wider">MINUTOS</span>
               </button>
 
               <button 
                 type="button" 
                 onClick={() => setActiveMetricModal('sessions')} 
-                className="bg-[#FFFFFF] border border-[#E7E5E4] hover:border-[#1C1917] rounded-2xl p-4 flex flex-col items-center justify-center gap-1.5 transition-all shadow-xs group cursor-pointer"
+                className="bg-[#FFFFFF] border border-[#E7E5E4] hover:border-[#1C1917] hover:-translate-y-1 hover:shadow-md rounded-2xl p-4 flex flex-col items-center justify-center gap-1.5 transition-all duration-200 shadow-2xs group cursor-pointer active:scale-95"
               >
-                <span className="text-xl font-black text-[#1C1917] leading-none group-hover:scale-110 transition-transform">
-                  {userMetrics.totalSessions}
-                </span>
-                <span className="text-[10px] font-bold text-[#78716C] uppercase tracking-wider">Sessões</span>
+                <div className="flex items-center gap-1">
+                  <span className="font-mono text-xl font-black text-[#1C1917] leading-none group-hover:scale-110 transition-transform">
+                    {userMetrics.totalSessions}
+                  </span>
+                </div>
+                <span className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-wider">SESSÕES</span>
               </button>
             </div>
 
-            {/* META SEMANAL COM CARIMBOS DE PATINHA DE PANDA */}
-            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-7 shadow-xs flex flex-col gap-4">
+            {/* META SEMANAL CARIMBADA COM PATINHA PANDA SVG */}
+            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-7 shadow-2xs flex flex-col gap-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-black uppercase tracking-wider text-[#1C1917] flex items-center gap-1.5">
-                  <span>Meta da Semana</span>
-                  <span className="text-xs">🐾</span>
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#1C1917] flex items-center gap-1.5">
+                  <PandaPawIcon className="w-3.5 h-3.5 text-[#1C1917]" />
+                  META SEMANAL
                 </span>
                 <button 
                   type="button" 
                   onClick={() => setActiveModal('goals')} 
-                  className="text-[10px] font-bold uppercase tracking-wider text-[#78716C] hover:text-[#1C1917] transition-colors cursor-pointer"
+                  className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#78716C] hover:text-[#1C1917] transition-colors cursor-pointer"
                 >
-                  Configurar →
+                  CONFIGURAR →
                 </button>
               </div>
 
               <div className="flex flex-col gap-2">
                 <div className="flex justify-between text-xs font-bold">
                   <span className="text-[#57534E]">{weeklyGoal.completed} de {weeklyGoal.target} conversas</span>
-                  <span className="text-[#1C1917] font-black">{goalPercentage}%</span>
+                  <span className="font-mono text-[#1C1917] font-black">{goalPercentage}%</span>
                 </div>
                 <div className="w-full h-2.5 bg-[#FAF9F6] border border-[#E7E5E4] rounded-full overflow-hidden p-0.5">
                   <div 
-                    className="h-full bg-emerald-600 rounded-full transition-all duration-500" 
+                    className="h-full bg-emerald-600 rounded-full transition-all duration-700 ease-out" 
                     style={{ width: `${goalPercentage}%` }} 
                   />
                 </div>
               </div>
 
-              {/* DIAS CARIMBADOS COM PATINHAS DE PANDA 🐾 */}
+              {/* DIAS CARIMBADOS COM PATINHA VETORIAL SVG */}
               <div className="grid grid-cols-7 gap-1.5 pt-2">
                 {(weeklyGoal.days || []).map((day, idx) => (
                   <div key={idx} className="flex flex-col items-center gap-1">
-                    <div className={`w-full aspect-square rounded-xl flex items-center justify-center text-xs font-bold transition-transform ${
+                    <div className={`w-full aspect-square rounded-xl flex items-center justify-center text-xs font-bold transition-all duration-200 cursor-default ${
                       day.completed 
-                        ? 'bg-[#1C1917] text-white shadow-xs scale-105' 
+                        ? 'bg-[#1C1917] text-white shadow-2xs hover:scale-120' 
                         : 'bg-[#FAF9F6] text-[#D6D3D1] border border-[#E7E5E4]'
                     }`}>
-                      {day.completed ? '🐾' : '•'}
+                      {day.completed ? (
+                        <PandaPawIcon className="w-4 h-4 text-emerald-400" />
+                      ) : (
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#D6D3D1]" />
+                      )}
                     </div>
-                    <span className="text-[10px] font-bold text-[#78716C] uppercase">{day.day[0]}</span>
+                    <span className="font-mono text-[10px] font-bold text-[#78716C] uppercase">{day.day[0]}</span>
                   </div>
                 ))}
               </div>
             </section>
 
             {/* AMIGOS & CONEXÕES DIRETAS */}
-            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 shadow-xs flex flex-col gap-3.5">
+            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 shadow-2xs flex flex-col gap-3.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-black uppercase tracking-wider text-[#1C1917] flex items-center gap-1.5">
-                  <span>Amigos de Prática</span>
-                  <span className="text-xs">🐾</span>
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#1C1917] flex items-center gap-1.5">
+                  <PandaPawIcon className="w-3.5 h-3.5 text-[#1C1917]" />
+                  AMIGOS
                 </span>
                 <button 
                   type="button" 
                   onClick={() => setIsFriendsOpen(true)}
-                  className="text-[10px] font-bold uppercase tracking-wider text-[#78716C] hover:text-[#1C1917] transition-colors cursor-pointer"
+                  className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#78716C] hover:text-[#1C1917] transition-colors cursor-pointer"
                 >
-                  Ver Todos ({friendsList.length}) →
+                  VER TODOS ({friendsList.length}) →
                 </button>
               </div>
 
               <div className="flex flex-col gap-2">
                 {friendsList.slice(0, 2).map((friend) => (
-                  <div key={friend.id} className="flex items-center justify-between p-2.5 bg-[#FAF9F6] border border-[#E7E5E4] rounded-2xl">
+                  <div key={friend.id} className="flex items-center justify-between p-2.5 bg-[#FAF9F6] border border-[#E7E5E4] hover:border-[#1C1917] rounded-2xl transition-all duration-200">
                     <div className="flex items-center gap-3">
                       <div className="relative w-8 h-8 rounded-xl overflow-hidden border border-[#D6D3D1]">
                         <img src={friend.avatar} alt={friend.name} className="w-full h-full object-cover" />
@@ -829,15 +895,15 @@ export const Dashboard: React.FC = memo(() => {
                       </div>
                       <div className="flex flex-col">
                         <span className="text-xs font-bold text-[#1C1917]">{friend.name}</span>
-                        <span className="text-[10px] text-[#78716C] font-semibold">{friend.level}</span>
+                        <span className="font-mono text-[10px] text-[#78716C] font-semibold">{friend.level}</span>
                       </div>
                     </div>
                     <button 
                       type="button" 
                       onClick={() => { setSelectedChatContact(friend); setIsDirectChatsOpen(true); }}
-                      className="px-3 py-1 bg-[#FFFFFF] border border-[#E7E5E4] hover:border-[#1C1917] text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer"
+                      className="px-3 py-1 bg-[#FFFFFF] border border-[#E7E5E4] hover:border-[#1C1917] hover:bg-[#1C1917] hover:text-white font-mono text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer active:scale-95"
                     >
-                      Conversar
+                      CHAT
                     </button>
                   </div>
                 ))}
@@ -846,10 +912,10 @@ export const Dashboard: React.FC = memo(() => {
 
             {/* ÚLTIMA SESSÃO DE CONVERSA */}
             {lastSessionFeedback ? (
-              <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-7 shadow-xs flex flex-col gap-4">
+              <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-7 shadow-2xs flex flex-col gap-4">
                 <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-3">
-                  <span className="text-xs font-black uppercase tracking-wider text-[#1C1917]">Última Sessão</span>
-                  <span className="text-[10px] font-bold text-[#78716C]">{lastSessionFeedback.date}</span>
+                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#1C1917]">LAST_SESSION</span>
+                  <span className="font-mono text-[10px] text-[#78716C]">{lastSessionFeedback.date}</span>
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -870,36 +936,44 @@ export const Dashboard: React.FC = memo(() => {
 
                 {lastSessionFeedback.vocabLearned && lastSessionFeedback.vocabLearned.length > 0 && (
                   <div className="flex flex-col gap-2">
-                    <span className="text-[10px] font-bold text-[#78716C] uppercase tracking-wider">Vocabulário Utilizado</span>
+                    <span className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-wider">VOCAB_LOGGED</span>
                     <div className="flex flex-wrap gap-1.5">
                       {lastSessionFeedback.vocabLearned.map((w, i) => (
-                        <span key={i} className="text-[10px] font-bold px-2 py-0.5 bg-[#FAF9F6] border border-[#E7E5E4] text-[#1C1917] rounded-md">{w}</span>
+                        <span key={i} className="font-mono text-[10px] font-bold px-2 py-0.5 bg-[#FAF9F6] border border-[#E7E5E4] text-[#1C1917] rounded-md hover:scale-105 transition-transform cursor-default">{w}</span>
                       ))}
                     </div>
                   </div>
                 )}
               </section>
             ) : (
-              <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 shadow-xs flex flex-col items-center justify-center text-center gap-2">
-                <div className="w-12 h-12 rounded-2xl bg-[#FAF9F6] border border-[#E7E5E4] flex items-center justify-center text-xl">
-                  🐼
+              <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 shadow-2xs flex flex-col items-center justify-center text-center gap-2.5">
+                <div className="w-12 h-12 rounded-2xl bg-[#FAF9F6] border border-dashed border-[#D6D3D1] flex items-center justify-center text-[#1C1917]">
+                  <PandaMascotIcon className="w-6 h-6 text-[#1C1917]" />
                 </div>
-                <span className="text-xs font-bold text-[#1C1917]">Pronto para a sua estreia?</span>
-                <p className="text-xs text-[#78716C] max-w-xs">Conecte-se com seu primeiro parceiro para desbloquear suas anotações e novos termos.</p>
+                <span className="text-xs font-bold text-[#1C1917]">Pronto para a estreia SideBySide?</span>
+                <p className="font-mono text-[11px] text-[#78716C] max-w-xs">Dois pandas aprendem melhor lado a lado. Entre na fila para registrar notas.</p>
               </section>
             )}
 
             {/* DICA DIÁRIA DE VOCABULÁRIO */}
             <section className="bg-[#FAF9F6] border border-[#E7E5E4] rounded-3xl p-6 flex flex-col gap-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-800 flex items-center gap-1">
-                  <span>🎋</span> Vocabulário em Destaque
+                <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#78716C] flex items-center gap-1.5">
+                  <BambooIcon className="w-3 h-3 text-emerald-600" />
+                  VOCABULARIO DO DIA
                 </span>
-                <button type="button" onClick={fetchDynamicVocab} className="text-[10px] font-bold text-[#1C1917] hover:underline uppercase cursor-pointer">Outra Palavra ↻</button>
+                <button 
+                  type="button" 
+                  onClick={fetchDynamicVocab} 
+                  className="font-mono text-[10px] font-bold text-[#1C1917] hover:text-emerald-700 uppercase cursor-pointer flex items-center gap-1 group/btn"
+                >
+                  <span>REFRESH</span>
+                  <span className="inline-block group-hover/btn:rotate-180 transition-transform duration-500">↻</span>
+                </button>
               </div>
               <div className="flex items-baseline gap-2 mt-1">
                 <span className="text-base font-black text-[#1C1917] capitalize">{vocabTip.word}</span>
-                {vocabTip.phonetic && <span className="text-xs font-semibold text-[#78716C] italic">{vocabTip.phonetic}</span>}
+                {vocabTip.phonetic && <span className="font-mono text-xs font-semibold text-[#78716C] italic">{vocabTip.phonetic}</span>}
               </div>
               <p className="text-xs text-[#57534E] font-medium leading-relaxed">{vocabTip.definition}</p>
             </section>
@@ -922,7 +996,7 @@ export const Dashboard: React.FC = memo(() => {
         <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-3">
-              <span className="text-[10px] font-black uppercase tracking-widest bg-[#FAF9F6] text-[#1C1917] px-2.5 py-1 rounded-lg border border-[#E7E5E4]">
+              <span className="font-mono text-[10px] font-bold uppercase tracking-widest bg-[#FAF9F6] text-[#1C1917] px-2.5 py-1 rounded-lg border border-[#E7E5E4]">
                 {(topicToJoin || selectedTopic)?.category}
               </span>
               <button type="button" onClick={() => setShowTopicConfirmModal(false)} className="text-sm font-bold text-[#78716C] hover:text-[#1C1917] cursor-pointer">✕</button>
@@ -932,60 +1006,74 @@ export const Dashboard: React.FC = memo(() => {
               <p className="text-xs text-[#57534E] font-medium leading-relaxed">Deseja entrar na sala de conversação com o roteiro deste tópico? O quebra-gelo inicial guiará o início da conversa.</p>
             </div>
             <div className="bg-[#FAF9F6] border border-[#E7E5E4] p-4 rounded-2xl flex flex-col gap-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#78716C]">Pergunta Quebra-gelo:</span>
+              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#78716C]">INITIAL_ICEBREAKER:</span>
               <p className="text-xs font-bold text-[#1C1917] italic">"{(topicToJoin || selectedTopic)?.icebreaker}"</p>
             </div>
             <div className="flex gap-3">
-              <button type="button" onClick={() => setShowTopicConfirmModal(false)} className="flex-1 py-3 bg-[#FAF9F6] hover:bg-[#E7E5E4] text-[#1C1917] font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer">Cancelar</button>
-              <button type="button" onClick={confirmJoinRoomWithTopic} className="flex-1 py-3 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md cursor-pointer">Entrar na Sala</button>
+              <button type="button" onClick={() => setShowTopicConfirmModal(false)} className="flex-1 py-3 bg-[#FAF9F6] hover:bg-[#E7E5E4] text-[#1C1917] font-mono font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer">CANCEL</button>
+              <button type="button" onClick={confirmJoinRoomWithTopic} className="flex-1 py-3 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-mono font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md cursor-pointer">JOIN_ROOM</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL DE BUSCA COM TEMÁTICA PANDA */}
+      {/* MODAL DE BUSCA COM ANIMAÇÃO RADAR & ÓRBITA DE PATINHAS EM SVG */}
       {isMatching && (
-        <div className="fixed inset-0 bg-[#1C1917]/75 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-8 sm:p-10 max-w-lg w-full shadow-2xl flex flex-col items-center gap-8 animate-in fade-in zoom-in-95 duration-150 relative overflow-hidden">
+        <div className="fixed inset-0 bg-[#1C1917]/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-8 sm:p-10 max-w-lg w-full shadow-2xl flex flex-col items-center gap-8 animate-in fade-in zoom-in-95 duration-200 relative overflow-hidden">
             
-            <div className="relative flex items-center justify-center">
-              {/* Anel giratório suave */}
-              <div className="w-28 h-28 rounded-full border-4 border-emerald-100 border-t-emerald-600 animate-spin" />
-              {/* Logo do panda no centro */}
-              <div className="w-18 h-18 rounded-2xl bg-[#FAF9F6] border border-[#E7E5E4] absolute flex items-center justify-center p-3 shadow-inner">
+            {/* Sonar Radar com Patinhas Vetoriais em Órbita */}
+            <div className="relative flex items-center justify-center w-36 h-36">
+              <div className="absolute inset-0 rounded-full border border-emerald-500/30 anim-radar" />
+              <div className="absolute -inset-3 rounded-full border border-emerald-400/20 anim-radar" style={{ animationDelay: '1s' }} />
+
+              {/* Órbita de Patinhas Vetoriais (SideBySide P2P) */}
+              <div className="absolute inset-0 rounded-full anim-orbit pointer-events-none">
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-2 text-emerald-600">
+                  <PandaPawIcon className="w-4 h-4" />
+                </div>
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-2 text-[#1C1917]">
+                  <PandaPawIcon className="w-4 h-4" />
+                </div>
+              </div>
+
+              {/* Logo Central */}
+              <div className="w-20 h-20 rounded-2xl bg-[#FAF9F6] border border-[#E7E5E4] flex items-center justify-center p-3 shadow-md z-10">
                 <img src="/images/logo.png" alt="SideBySide" className="w-full h-full object-contain" />
               </div>
             </div>
 
-            <div className="flex flex-col items-center text-center gap-2">
-              <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-widest text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full">
-                <span>🐾</span> Conectando Dois Pandas Lado a Lado
+            <div className="flex flex-col items-center text-center gap-2 z-10">
+              <div className="font-mono text-[10px] font-bold uppercase tracking-widest text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 flex items-center gap-1.5">
+                <PandaPawIcon className="w-3.5 h-3.5 text-emerald-700" />
+                <span>PAREAMENTO P2P // DOIS PANDAS LADO A LADO</span>
               </div>
               <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-[#1C1917]">Buscando Par de Conversa...</h3>
-              <p className="text-xs font-bold text-[#78716C]">Aguardando estudante do nível <span className="text-[#1C1917] underline">{userLevelDisplay}</span></p>
+              <p className="font-mono text-xs text-[#78716C]">Aguardando conexão com nível <span className="text-[#1C1917] underline">{userLevelDisplay}</span></p>
             </div>
 
-            <div className="w-full bg-[#FAF9F6] border border-[#E7E5E4] rounded-2xl p-5 flex flex-col gap-2.5 text-left">
+            <div className="w-full bg-[#FAF9F6] border border-[#E7E5E4] rounded-2xl p-5 flex flex-col gap-2.5 text-left z-10">
               <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-2.5">
-                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-800 flex items-center gap-1">
-                  <span>🎋</span> Vocabulário para Praticar
+                <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#78716C] flex items-center gap-1">
+                  <BambooIcon className="w-3.5 h-3.5 text-emerald-600" />
+                  VOCABULARIO_SUGERIDO
                 </span>
-                <button type="button" onClick={fetchDynamicVocab} className="text-[10px] font-bold text-[#1C1917] hover:underline uppercase cursor-pointer">Outra Palavra ↻</button>
+                <button type="button" onClick={fetchDynamicVocab} className="font-mono text-[10px] font-bold text-[#1C1917] hover:underline uppercase cursor-pointer">OUTRA PALAVRA ↻</button>
               </div>
               {isLoadingVocab ? (
-                <div className="py-3 text-center text-xs font-bold text-[#78716C] animate-pulse">Buscando vocabulário...</div>
+                <div className="py-3 text-center font-mono text-xs font-bold text-[#78716C] animate-pulse">CARREGANDO SUGESTÃO...</div>
               ) : (
                 <div className="flex flex-col gap-1">
                   <div className="flex items-baseline gap-2">
                     <span className="text-base font-black text-[#1C1917] capitalize">{vocabTip.word}</span>
-                    {vocabTip.phonetic && <span className="text-[10px] font-bold text-[#78716C] italic">{vocabTip.phonetic}</span>}
+                    {vocabTip.phonetic && <span className="font-mono text-[10px] text-[#78716C] italic">{vocabTip.phonetic}</span>}
                   </div>
                   <p className="text-xs font-medium text-[#57534E] leading-relaxed">{vocabTip.definition}</p>
                 </div>
               )}
             </div>
 
-            <button type="button" onClick={handleCancelMatch} className="w-full py-3.5 bg-[#FAF9F6] hover:bg-[#E7E5E4] border border-[#E7E5E4] text-[#1C1917] font-bold text-xs uppercase tracking-widest rounded-xl transition-all cursor-pointer">Cancelar Busca</button>
+            <button type="button" onClick={handleCancelMatch} className="w-full py-3.5 bg-[#FAF9F6] hover:bg-[#E7E5E4] border border-[#E7E5E4] text-[#1C1917] font-mono font-bold text-xs uppercase tracking-widest rounded-xl transition-all cursor-pointer active:scale-98 z-10">CANCELAR_BUSCA</button>
           </div>
         </div>
       )}
@@ -997,14 +1085,14 @@ export const Dashboard: React.FC = memo(() => {
             <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-4">
               <h3 className="text-base font-black uppercase tracking-tight text-[#1C1917] flex items-center gap-2">
                 <span>Meta Semanal de Prática</span>
-                <span className="text-sm">🐾</span>
+                <PandaPawIcon className="w-4 h-4 text-[#1C1917]" />
               </h3>
               <button type="button" onClick={() => setActiveModal(null)} className="text-[#78716C] hover:text-[#1C1917] text-sm font-bold cursor-pointer">✕</button>
             </div>
             <div className="flex flex-col gap-4">
               <div className="flex justify-between items-center text-xs font-bold text-[#1C1917]">
                 <span>Progresso Atual</span>
-                <span>{weeklyGoal.completed} de {weeklyGoal.target} conversas ({goalPercentage}%)</span>
+                <span className="font-mono">{weeklyGoal.completed} / {weeklyGoal.target} ({goalPercentage}%)</span>
               </div>
               <div className="w-full h-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-full overflow-hidden p-0.5">
                 <div className="h-full bg-emerald-600 rounded-full transition-all duration-500 ease-out" style={{ width: `${goalPercentage}%` }} />
@@ -1014,16 +1102,16 @@ export const Dashboard: React.FC = memo(() => {
                   <div key={index} className="flex flex-col items-center gap-2 group w-full">
                     <div className="relative w-full flex justify-center h-20 items-end">
                       <div className={`w-full rounded-md transition-all duration-300 ${item.min > 0 ? 'bg-[#1C1917] group-hover:bg-[#57534E]' : 'bg-[#E7E5E4]'}`} style={{ height: `${item.min === 0 ? 6 : (item.min / 40) * 100}%` }} />
-                      {item.min > 0 && <span className="absolute -top-6 text-[9px] font-black text-[#1C1917] opacity-0 group-hover:opacity-100 transition-opacity">{item.min}m</span>}
+                      {item.min > 0 && <span className="absolute -top-6 font-mono text-[9px] font-black text-[#1C1917] opacity-0 group-hover:opacity-100 transition-opacity">{item.min}m</span>}
                     </div>
-                    <span className="text-[10px] font-bold text-[#78716C] uppercase mt-1">{item.day}</span>
+                    <span className="font-mono text-[10px] font-bold text-[#78716C] uppercase mt-1">{item.day}</span>
                   </div>
                 ))}
               </div>
             </div>
             <div className="flex gap-2">
-              <Button variant="primary" onClick={() => { setActiveModal(null); navigate('/profile'); }} className="flex-1 py-3 text-xs font-bold uppercase tracking-widest bg-[#FAF9F6] border border-[#1C1917] text-[#1C1917] hover:bg-[#F5F5F4] rounded-xl cursor-pointer">Ajustar no Perfil</Button>
-              <Button variant="primary" onClick={() => setActiveModal(null)} className="flex-1 py-3 text-xs font-bold uppercase tracking-widest bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl cursor-pointer">Fechar</Button>
+              <Button variant="primary" onClick={() => { setActiveModal(null); navigate('/profile'); }} className="flex-1 py-3 font-mono text-xs font-bold uppercase tracking-widest bg-[#FAF9F6] border border-[#1C1917] text-[#1C1917] hover:bg-[#F5F5F4] rounded-xl cursor-pointer">AJUSTAR</Button>
+              <Button variant="primary" onClick={() => setActiveModal(null)} className="flex-1 py-3 font-mono text-xs font-bold uppercase tracking-widest bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl cursor-pointer">FECHAR</Button>
             </div>
           </div>
         </div>
@@ -1046,16 +1134,16 @@ export const Dashboard: React.FC = memo(() => {
             {reminderEnabled && (
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Horário Preferencial</label>
-                  <input type="time" value={reminderTime} onChange={(e) => setReminderTime(e.target.value)} className="px-4 py-2.5 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] w-full" />
+                  <label className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-wider">HORÁRIO_PREFERENCIAL</label>
+                  <input type="time" value={reminderTime} onChange={(e) => setReminderTime(e.target.value)} className="px-4 py-2.5 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl font-mono text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917] w-full" />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold text-[#78716C] uppercase tracking-wider">Dias Ativos</label>
+                  <label className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-wider">DIAS_ATIVOS</label>
                   <div className="flex gap-1 justify-between">
                     {WEEK_DAYS_LIST.map((day) => {
                       const isSelected = selectedDays.includes(day);
                       return (
-                        <button key={day} type="button" onClick={() => toggleDaySelection(day)} className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase border transition-all cursor-pointer ${isSelected ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] text-[#78716C] border-[#E7E5E4]'}`}>
+                        <button key={day} type="button" onClick={() => toggleDaySelection(day)} className={`flex-1 py-2 rounded-lg font-mono text-[10px] font-bold uppercase border transition-all cursor-pointer ${isSelected ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] text-[#78716C] border-[#E7E5E4]'}`}>
                           {day}
                         </button>
                       );
@@ -1065,8 +1153,8 @@ export const Dashboard: React.FC = memo(() => {
               </div>
             )}
             <div className="flex gap-2">
-              <Button variant="primary" onClick={() => { setActiveModal(null); navigate('/profile'); }} className="flex-1 py-3 text-xs font-bold uppercase tracking-widest bg-[#FAF9F6] border border-[#1C1917] text-[#1C1917] hover:bg-[#F5F5F4] rounded-xl cursor-pointer">Gerenciar no Perfil</Button>
-              <Button variant="primary" onClick={handleSaveReminders} className="flex-1 py-3 text-xs font-bold uppercase tracking-widest bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl cursor-pointer">Salvar Preferências</Button>
+              <Button variant="primary" onClick={() => { setActiveModal(null); navigate('/profile'); }} className="flex-1 py-3 font-mono text-xs font-bold uppercase tracking-widest bg-[#FAF9F6] border border-[#1C1917] text-[#1C1917] hover:bg-[#F5F5F4] rounded-xl cursor-pointer">PERFIL</Button>
+              <Button variant="primary" onClick={handleSaveReminders} className="flex-1 py-3 font-mono text-xs font-bold uppercase tracking-widest bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl cursor-pointer">SALVAR</Button>
             </div>
           </div>
         </div>
@@ -1077,10 +1165,10 @@ export const Dashboard: React.FC = memo(() => {
         <div className="fixed inset-0 bg-[#1C1917]/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150 max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-4">
-              <h3 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
-                {activeMetricModal === 'streak' && 'Histórico de Ofensiva'}
-                {activeMetricModal === 'minutes' && 'Minutos Praticados'}
-                {activeMetricModal === 'sessions' && 'Histórico de Sessões'}
+              <h3 className="font-mono text-xs font-bold uppercase tracking-tight text-[#1C1917]">
+                {activeMetricModal === 'streak' && 'HISTORICO_OFENSIVA'}
+                {activeMetricModal === 'minutes' && 'MINUTOS_PRATICADOS'}
+                {activeMetricModal === 'sessions' && 'HISTORICO_SESSOES'}
               </h3>
               <button type="button" onClick={() => setActiveMetricModal(null)} className="text-[#78716C] hover:text-[#1C1917] text-sm font-bold cursor-pointer">✕</button>
             </div>
@@ -1089,24 +1177,30 @@ export const Dashboard: React.FC = memo(() => {
               <div className="flex flex-col gap-6">
                 <div className="flex items-center justify-between bg-[#FAF9F6] p-4 rounded-2xl border border-[#E7E5E4]">
                   <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold text-[#78716C] uppercase tracking-wider">Sequência Máxima</span>
-                    <span className="text-xl font-black text-[#1C1917]">{userData?.maxStreak || 0} Dias</span>
+                    <span className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-wider">SEQUENCIA_MAXIMA</span>
+                    <span className="font-mono text-xl font-black text-[#1C1917]">{userData?.maxStreak || 0}D</span>
                   </div>
                   <div className="w-px h-8 bg-[#E7E5E4]" />
                   <div className="flex flex-col gap-1 text-right">
-                    <span className="text-[10px] font-bold text-[#78716C] uppercase tracking-wider">Sequência Atual</span>
-                    <span className="text-xl font-black text-emerald-600">{userMetrics.currentStreak} Dias 🔥</span>
+                    <span className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-wider">SEQUENCIA_ATUAL</span>
+                    <span className="font-mono text-xl font-black text-emerald-600 flex items-center gap-1 justify-end">
+                      {userMetrics.currentStreak}D <FlameIcon className="w-4 h-4 text-emerald-600" />
+                    </span>
                   </div>
                 </div>
                 <div className="flex flex-col gap-3">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-[#1C1917]">Últimos 7 dias</span>
+                  <span className="font-mono text-[10px] font-black uppercase tracking-widest text-[#1C1917]">ULTIMOS_7_DIAS</span>
                   <div className="grid grid-cols-7 gap-2">
                     {(weeklyGoal.days || []).map((item, index: number) => (
                       <div key={index} className="flex flex-col items-center gap-1.5">
-                        <div className={`w-10 h-10 rounded-xl border flex items-center justify-center font-bold text-xs transition-colors ${item.completed ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4]'}`}>
-                          {item.completed ? '🐾' : '•'}
+                        <div className={`w-10 h-10 rounded-xl border flex items-center justify-center font-bold text-xs transition-colors ${item.completed ? 'bg-[#1C1917] text-white border-[#1C1917]' : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4]'}`}>
+                          {item.completed ? (
+                            <PandaPawIcon className="w-4 h-4 text-emerald-400" />
+                          ) : (
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#D6D3D1]" />
+                          )}
                         </div>
-                        <span className="text-[10px] font-bold text-[#78716C] uppercase">{item.day}</span>
+                        <span className="font-mono text-[10px] font-bold text-[#78716C] uppercase">{item.day}</span>
                       </div>
                     ))}
                   </div>
@@ -1118,24 +1212,24 @@ export const Dashboard: React.FC = memo(() => {
               <div className="flex flex-col gap-6">
                 <div className="flex items-center justify-between bg-[#FAF9F6] p-4 rounded-2xl border border-[#E7E5E4]">
                   <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold text-[#78716C] uppercase tracking-wider">Total na Semana</span>
-                    <span className="text-xl font-black text-[#1C1917]">{userMetrics.totalMinutes} min</span>
+                    <span className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-wider">TOTAL_NA_SEMANA</span>
+                    <span className="font-mono text-xl font-black text-[#1C1917]">{userMetrics.totalMinutes} min</span>
                   </div>
                   <div className="w-px h-8 bg-[#E7E5E4]" />
                   <div className="flex flex-col gap-1 text-right">
-                    <span className="text-[10px] font-bold text-[#78716C] uppercase tracking-wider">Média por Sessão</span>
-                    <span className="text-xl font-black text-[#1C1917]">{userMetrics.totalSessions > 0 ? Math.round(userMetrics.totalMinutes / userMetrics.totalSessions) : 0} min</span>
+                    <span className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-wider">MEDIA_POR_SESSAO</span>
+                    <span className="font-mono text-xl font-black text-[#1C1917]">{userMetrics.totalSessions > 0 ? Math.round(userMetrics.totalMinutes / userMetrics.totalSessions) : 0} min</span>
                   </div>
                 </div>
                 <div className="flex flex-col gap-3">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-[#1C1917]">Distribuição Semanal</span>
+                  <span className="font-mono text-[10px] font-black uppercase tracking-widest text-[#1C1917]">DISTRIBUICAO_SEMANAL</span>
                   <div className="flex items-end justify-between h-28 pt-4 border-b border-[#E7E5E4]">
                     {(weeklyGoal.days || []).map((item, index: number) => (
                       <div key={index} className="flex flex-col items-center gap-1.5">
                         <div className={`w-9 h-9 rounded-xl border flex items-center justify-center font-bold text-xs transition-colors ${item.completed ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4]'}`}>
-                          {item.completed ? <span className="text-xs">🐾</span> : '•'}
+                          {item.completed ? <PandaPawIcon className="w-3.5 h-3.5 text-emerald-400" /> : <span className="w-1.5 h-1.5 rounded-full bg-[#D6D3D1]" />}
                         </div>
-                        <span className="text-[10px] font-bold text-[#78716C] uppercase">{item.day}</span>
+                        <span className="font-mono text-[10px] font-bold text-[#78716C] uppercase">{item.day}</span>
                       </div>
                     ))}
                   </div>
@@ -1146,8 +1240,8 @@ export const Dashboard: React.FC = memo(() => {
             {activeMetricModal === 'sessions' && (
               <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-[#1C1917]">Sessões Recentes</span>
-                  <span className="text-[10px] font-bold text-[#78716C] uppercase">Total: {userMetrics.totalSessions}</span>
+                  <span className="font-mono text-[10px] font-black uppercase tracking-widest text-[#1C1917]">SESSOES_RECENTES</span>
+                  <span className="font-mono text-[10px] font-bold text-[#78716C] uppercase">TOTAL: {userMetrics.totalSessions}</span>
                 </div>
                 <div className="flex flex-col gap-2.5 max-h-60 overflow-y-auto">
                   {mockSessionsHistory.length > 0 ? (
@@ -1156,32 +1250,32 @@ export const Dashboard: React.FC = memo(() => {
                         <div className="flex justify-between items-start">
                           <div className="flex flex-col">
                             <span className="text-xs font-black text-[#1C1917] uppercase">{session.partner}</span>
-                            <span className="text-[10px] font-bold text-[#78716C]">{session.date}</span>
+                            <span className="font-mono text-[10px] font-bold text-[#78716C]">{session.date}</span>
                           </div>
                           <div className="flex items-center gap-1 bg-[#FFFFFF] border border-[#E7E5E4] px-2 py-0.5 rounded-lg">
-                            <span className="text-[10px] font-black text-amber-500">{'★'.repeat(session.rating)}</span>
+                            <span className="font-mono text-[10px] font-bold text-[#1C1917]">★ {session.rating}.0</span>
                           </div>
                         </div>
                         <div className="flex items-center gap-3 pt-2 border-t border-[#E7E5E4]">
                           <div className="flex items-center gap-1">
-                            <span className="text-[10px] font-bold text-[#A8A29E] uppercase">Duração:</span>
-                            <span className="text-[10px] font-black text-[#1C1917]">{session.duration} min</span>
+                            <span className="font-mono text-[10px] font-bold text-[#A8A29E] uppercase">DUR:</span>
+                            <span className="font-mono text-[10px] font-black text-[#1C1917]">{session.duration} min</span>
                           </div>
                           <span className="text-[10px] text-[#E7E5E4]">|</span>
                           <div className="flex items-center gap-1 truncate">
-                            <span className="text-[10px] font-bold text-[#A8A29E] uppercase">Tópico:</span>
+                            <span className="font-mono text-[10px] font-bold text-[#A8A29E] uppercase">TOPICO:</span>
                             <span className="text-[10px] font-black text-[#1C1917] truncate">{session.topic}</span>
                           </div>
                         </div>
                       </div>
                     ))
                   ) : (
-                    <div className="py-8 text-center text-xs font-bold text-[#78716C] uppercase">Nenhuma sessão registrada no histórico ainda.</div>
+                    <div className="py-8 text-center font-mono text-xs font-bold text-[#78716C] uppercase">NENHUMA SESSÃO REGISTRADA NO HISTÓRICO</div>
                   )}
                 </div>
               </div>
             )}
-            <Button variant="primary" onClick={() => setActiveMetricModal(null)} className="w-full py-3 text-xs font-bold uppercase tracking-widest bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl cursor-pointer">Fechar Visualização</Button>
+            <Button variant="primary" onClick={() => setActiveMetricModal(null)} className="w-full py-3 font-mono text-xs font-bold uppercase tracking-widest bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl cursor-pointer">FECHAR</Button>
           </div>
         </div>
       )}
