@@ -4,10 +4,6 @@ import { Button } from '../components/ui/Button';
 import { BADGES_CATALOG } from '../data/badgesData';
 import { api } from '../services/api';
 
-/* =========================================================
-   ÍCONES VETORIAIS EXCLUSIVOS SIDEBYSIDE
-   ========================================================= */
-
 const PandaPawIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
     <ellipse cx="12" cy="15.8" rx="4.6" ry="3.8" />
@@ -93,7 +89,6 @@ export const Profile: React.FC = () => {
   const [followerPos, setFollowerPos] = useState({ x: -100, y: -100 });
   const [cursorOpacity, setCursorOpacity] = useState(1);
 
-  // Inicializa imediatamente com dados reais do cache local
   const initialUser = useMemo(() => getStoredUser() || {}, []);
 
   const [name, setName] = useState(initialUser.name || initialUser.fullName || '');
@@ -123,11 +118,9 @@ export const Profile: React.FC = () => {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Estados de cópia e aviso sutil de tópicos
   const [copiedTag, setCopiedTag] = useState(false);
   const [topicLimitWarning, setTopicLimitWarning] = useState(false);
 
-  // Estados de Segurança
   const [emailCodeSent, setEmailCodeSent] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [isEmailCodeVerified, setIsEmailCodeVerified] = useState(false);
@@ -141,12 +134,10 @@ export const Profile: React.FC = () => {
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
   const [agreeDeleteTerms, setAgreeDeleteTerms] = useState(false);
 
-  // Disponibilidade
   const timeSlots = ['Manhã (08h - 12h)', 'Tarde (12h - 18h)', 'Noite (18h - 22h)'];
   const weekDays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
   const [selectedAvailability, setSelectedAvailability] = useState<string[]>(initialUser.availability || []);
 
-  // Seguidor do Cursor
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       setMousePos({ x: e.clientX, y: e.clientY });
@@ -182,7 +173,6 @@ export const Profile: React.FC = () => {
     return () => cancelAnimationFrame(animationFrameId);
   }, [mousePos]);
 
-  // Carrega dados reais do usuário da API
   const fetchProfile = useCallback(async () => {
     try {
       let res;
@@ -254,7 +244,6 @@ export const Profile: React.FC = () => {
     { category: 'Sociedade & Atualidades', items: ['Economia', 'Meio Ambiente', 'Psicologia', 'História', 'Filosofia', 'Moda'] },
   ];
 
-  // Alterna tópico com aviso sutil ao ultrapassar 5
   const toggleInterest = (interest: string) => {
     if (selectedInterests.includes(interest)) {
       setSelectedInterests(selectedInterests.filter((i) => i !== interest));
@@ -291,7 +280,6 @@ export const Profile: React.FC = () => {
     }
   };
 
-  // Copia a Tag do Usuário com feedback
   const handleCopyTag = () => {
     if (!tag) return;
     navigator.clipboard.writeText(tag);
@@ -299,7 +287,6 @@ export const Profile: React.FC = () => {
     setTimeout(() => setCopiedTag(false), 2000);
   };
 
-  // Salva os dados na API e no localStorage
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setIsSaving(true);
@@ -442,25 +429,23 @@ export const Profile: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col font-sans selection:bg-[#1C1917] selection:text-[#FAF9F6] relative overflow-x-hidden">
       
-      {/* CURSOR FOLLOWER */}
       <div
         className="pointer-events-none fixed z-50 w-3.5 h-3.5 rounded-full bg-[#1C1917] transition-opacity duration-300 ease-out -translate-x-1/2 -translate-y-1/2 hidden md:block ring-2 ring-emerald-500/20"
         style={{ left: `${followerPos.x}px`, top: `${followerPos.y}px`, opacity: cursorOpacity }}
       />
 
-      {/* HEADER NAS EXTREMIDADES */}
-      <header className="bg-[#FFFFFF]/95 backdrop-blur-md border-b border-[#E7E5E4] px-6 sm:px-10 lg:px-14 py-3 flex items-center justify-between sticky top-0 z-30 shadow-2xs">
-        <div className="flex items-center gap-3.5 cursor-pointer group" onClick={() => navigate('/dashboard')}>
+      <header className="bg-[#FFFFFF]/95 backdrop-blur-md border-b border-[#E7E5E4] px-6 sm:px-10 lg:px-14 py-2.5 flex items-center justify-between sticky top-0 z-30 shadow-2xs">
+        <div className="flex items-center gap-3.5 cursor-pointer group text-left outline-none shrink-0" onClick={() => navigate('/dashboard')}>
           <img 
             src="/images/logo.png" 
             alt="SideBySide" 
-            className="h-10 sm:h-12 w-auto object-contain transition-transform duration-200 group-hover:scale-105" 
+            className="h-10 w-auto object-contain transition-transform duration-300 group-hover:scale-105 group-hover:rotate-3" 
           />
           <div className="flex flex-col">
-            <span className="text-lg font-black tracking-tight text-[#1C1917] uppercase leading-none">SideBySide</span>
-            <span className="text-[9px] font-bold tracking-widest text-[#78716C] uppercase mt-0.5 flex items-center gap-1">
-              <BambooIcon className="w-2.5 h-2.5 text-emerald-600" />
-              Versão 1.0.0
+            <span className="text-lg font-black tracking-tight text-[#1C1917] uppercase leading-none font-sans">SIDEBYSIDE</span>
+            <span className="font-mono text-[9px] font-bold tracking-widest text-[#78716C] uppercase mt-0.5 flex items-center gap-1.5">
+              <BambooIcon className="w-3 h-3 text-emerald-600" />
+              <span>PERFIL DO USUÁRIO</span>
             </span>
           </div>
         </div>
@@ -468,21 +453,18 @@ export const Profile: React.FC = () => {
         <button
           type="button"
           onClick={() => navigate('/dashboard')}
-          className="px-4 py-2 bg-[#FAF9F6] hover:bg-[#F5F5F4] border border-[#E7E5E4] hover:border-[#1C1917] text-[#1C1917] text-xs font-bold uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 shadow-2xs cursor-pointer active:scale-95"
+          className="px-5 py-2.5 bg-[#FAF9F6] hover:bg-[#F5F5F4] border border-[#E7E5E4] hover:border-[#1C1917] text-[#1C1917] font-mono text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 shadow-2xs cursor-pointer active:scale-95"
         >
-          <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-[2.5]" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 fill-none stroke-current stroke-[2.5]" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
           </svg>
-          Voltar ao Painel
+          <span className="hidden sm:inline">Voltar ao Painel</span>
         </button>
       </header>
 
       <main className="flex-1 max-w-5xl w-full mx-auto p-6 lg:p-8 flex flex-col gap-6">
         
-        {/* CARD HERO DO PERFIL (MAIOR RESPIRO ENTRE FOTO E DADOS • APENAS NOME, EMAIL E NÍVEL) */}
-        <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-8 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 relative overflow-hidden">
-          
-          {/* Marca d'água vetorial de bambu */}
+        <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 relative overflow-hidden">
           <div className="pointer-events-none absolute -bottom-10 -right-6 text-[#1C1917] opacity-[0.03] select-none">
             <svg className="w-64 h-64 fill-current" viewBox="0 0 200 200">
               <path d="M40 180 C40 120 70 80 120 40 C100 80 110 140 140 180 Z" />
@@ -492,8 +474,7 @@ export const Profile: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-6 sm:gap-7 relative z-10">
-            {/* FOTO TRAVADA E SEGURA CONTRA BUGS DE FULLSCREEN */}
-            <div className="relative group w-20 h-20 min-w-[80px] min-h-[80px] max-w-[80px] max-h-[80px] rounded-2xl overflow-hidden border border-[#D6D3D1] bg-[#F5F5F4] shrink-0 shadow-2xs flex items-center justify-center">
+            <div className="relative group w-20 h-20 min-w-[80px] min-h-[80px] max-w-[80px] max-h-[80px] rounded-2xl overflow-hidden border-2 border-[#1C1917] bg-[#F5F5F4] shrink-0 shadow-[4px_4px_0px_0px_#1C1917] flex items-center justify-center transition-all">
               <img 
                 src={avatarUrl || '/images/default-avatar.png'} 
                 alt={name || 'Avatar'} 
@@ -507,18 +488,17 @@ export const Profile: React.FC = () => {
               </label>
             </div>
 
-            {/* DADOS DO TOPO: APENAS NOME, NÍVEL E EMAIL */}
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center gap-3 flex-wrap">
                 <h1 className="text-xl sm:text-2xl font-black uppercase text-[#1C1917] leading-none">
                   {name || 'Seu Nome'}
                 </h1>
-                <span className="px-2.5 py-1 bg-[#1C1917] text-[#FAF9F6] font-bold text-[10px] rounded-lg uppercase flex items-center gap-1.5 shadow-2xs">
+                <span className="px-2.5 py-1 bg-[#1C1917] text-[#FAF9F6] font-mono font-bold text-[10px] rounded-lg uppercase flex items-center gap-1.5 shadow-2xs tracking-widest border border-[#1C1917]">
                   <PandaPawIcon className="w-2.5 h-2.5 text-emerald-400" />
                   {cefrLevel}
                 </span>
               </div>
-              <span className="text-xs text-[#78716C] font-medium tracking-wide">{email}</span>
+              <span className="font-mono text-[11px] font-bold text-[#78716C] tracking-widest uppercase">{email}</span>
             </div>
           </div>
 
@@ -526,33 +506,32 @@ export const Profile: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowPublicPreview(true)}
-              className="py-2.5 px-4 bg-[#FAF9F6] hover:bg-[#F5F5F4] border border-[#E7E5E4] hover:border-[#1C1917] text-[#1C1917] text-xs font-bold uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 cursor-pointer"
+              className="py-3 px-5 bg-[#FAF9F6] hover:bg-[#F5F5F4] border border-[#E7E5E4] hover:border-[#1C1917] text-[#1C1917] font-mono text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-2xs active:scale-95"
             >
               <svg className="w-4 h-4 stroke-current fill-none stroke-2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-              Ver Perfil Público
+              <span className="hidden sm:inline">Perfil Público</span>
             </button>
 
-            <Button
-              variant="primary"
-              onClick={() => handleSubmit()}
+            <button
+              type="button"
+              onClick={(e) => handleSubmit(e)}
               disabled={isSaving}
-              className="py-2.5 px-5 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+              className="py-3 px-6 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-mono text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-2 border border-[#1C1917] active:scale-95 disabled:opacity-50"
             >
-              <PandaPawIcon className="w-3.5 h-3.5 text-emerald-400" />
-              {isSaving ? 'Salvando...' : 'Salvar Perfil'}
-            </Button>
+              <PandaPawIcon className="w-4 h-4 text-emerald-400" />
+              {isSaving ? 'SALVANDO...' : 'SALVAR PERFIL'}
+            </button>
           </div>
         </section>
 
-        {/* NAVEGAÇÃO ENTRE ABAS */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 bg-[#FFFFFF] border border-[#E7E5E4] p-1.5 rounded-2xl text-xs font-bold uppercase tracking-wider shadow-2xs">
+        <div className="grid grid-cols-2 sm:grid-cols-4 bg-[#FAF9F6] border border-[#E7E5E4] p-1.5 rounded-2xl font-mono text-[10px] font-bold uppercase tracking-widest shadow-2xs">
           <button
             type="button"
             onClick={() => setActiveTab('general')}
-            className={`py-3 rounded-xl transition-all cursor-pointer ${
+            className={`py-3.5 rounded-xl transition-all cursor-pointer ${
               activeTab === 'general' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-2xs' : 'text-[#78716C] hover:text-[#1C1917]'
             }`}
           >
@@ -561,7 +540,7 @@ export const Profile: React.FC = () => {
           <button
             type="button"
             onClick={() => setActiveTab('social')}
-            className={`py-3 rounded-xl transition-all cursor-pointer ${
+            className={`py-3.5 rounded-xl transition-all cursor-pointer ${
               activeTab === 'social' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-2xs' : 'text-[#78716C] hover:text-[#1C1917]'
             }`}
           >
@@ -570,7 +549,7 @@ export const Profile: React.FC = () => {
           <button
             type="button"
             onClick={() => setActiveTab('stats')}
-            className={`py-3 rounded-xl transition-all cursor-pointer ${
+            className={`py-3.5 rounded-xl transition-all cursor-pointer ${
               activeTab === 'stats' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-2xs' : 'text-[#78716C] hover:text-[#1C1917]'
             }`}
           >
@@ -579,7 +558,7 @@ export const Profile: React.FC = () => {
           <button
             type="button"
             onClick={() => setActiveTab('security')}
-            className={`py-3 rounded-xl transition-all cursor-pointer ${
+            className={`py-3.5 rounded-xl transition-all cursor-pointer ${
               activeTab === 'security' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-2xs' : 'text-[#78716C] hover:text-[#1C1917]'
             }`}
           >
@@ -588,85 +567,83 @@ export const Profile: React.FC = () => {
         </div>
 
         {saveSuccess && (
-          <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-500 text-emerald-800 text-xs font-bold flex items-center gap-2.5 animate-in fade-in duration-150 shadow-2xs">
+          <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-500 text-emerald-800 font-mono text-[10px] font-bold uppercase tracking-widest flex items-center gap-2.5 animate-in fade-in duration-150 shadow-2xs">
             <CheckIcon className="w-4 h-4 text-emerald-600" />
             <span>Perfil atualizado com sucesso e sincronizado no sistema!</span>
           </div>
         )}
 
-        {/* ABA: GERAL & BIO */}
         {activeTab === 'general' && (
           <div className="flex flex-col gap-6 animate-in fade-in duration-150">
-            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-8 shadow-xs flex flex-col gap-6">
-              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917] border-b border-[#E7E5E4] pb-3 flex items-center gap-2">
+            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
+              <h2 className="text-sm font-black uppercase tracking-tight text-[#1C1917] border-b border-[#E7E5E4] pb-3 flex items-center gap-2">
                 <BambooIcon className="w-4 h-4 text-emerald-600" />
                 Informações Da Conta
               </h2>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-[#1C1917] uppercase tracking-wider">Nome Completo</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="flex flex-col gap-2">
+                  <label className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-widest">Nome Completo</label>
                   <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Seu nome..."
-                    className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+                    className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl font-mono text-[11px] font-bold text-[#1C1917] outline-none focus:border-[#1C1917] transition-colors shadow-2xs"
                   />
                 </div>
 
-                {/* CAMPO DE USUÁRIO E TAG COM BOTÃO DE COPIAR */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-[#1C1917] uppercase tracking-wider">Seu Usuário e Tag</label>
+                <div className="flex flex-col gap-2">
+                  <label className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-widest">Seu Usuário e Tag</label>
                   <div className="flex items-center gap-2">
                     <input
                       type="text"
                       value={tag}
                       disabled
-                      className="flex-1 px-4 py-3 bg-[#F5F5F4] border border-[#E7E5E4] rounded-xl font-mono text-xs font-bold text-[#78716C] cursor-not-allowed outline-none select-all"
+                      className="flex-1 px-4 py-3 bg-[#F5F5F4] border border-[#E7E5E4] rounded-xl font-mono text-[11px] font-bold text-[#A8A29E] cursor-not-allowed outline-none select-all shadow-2xs"
                     />
                     <button
                       type="button"
                       onClick={handleCopyTag}
-                      className="px-3.5 py-3 bg-[#FAF9F6] hover:bg-[#F5F5F4] border border-[#E7E5E4] hover:border-[#1C1917] text-[#1C1917] text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shrink-0 active:scale-95"
+                      className="px-4 py-3 bg-[#FAF9F6] hover:bg-[#F5F5F4] border border-[#E7E5E4] hover:border-[#1C1917] text-[#1C1917] font-mono text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 cursor-pointer shrink-0 active:scale-95 shadow-2xs"
                       title="Copiar tag para a área de transferência"
                     >
                       {copiedTag ? (
                         <>
-                          <CheckIcon className="w-3.5 h-3.5 text-emerald-600" />
-                          <span className="text-emerald-700 font-bold">Copiado</span>
+                          <CheckIcon className="w-4 h-4 text-emerald-600" />
+                          <span className="text-emerald-700">COPIADO</span>
                         </>
                       ) : (
                         <>
-                          <svg className="w-3.5 h-3.5 stroke-current fill-none stroke-2" viewBox="0 0 24 24">
+                          <svg className="w-4 h-4 stroke-current fill-none stroke-2" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H9.75" />
                           </svg>
-                          <span>Copiar</span>
+                          <span>COPIAR</span>
                         </>
                       )}
                     </button>
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-[#1C1917] uppercase tracking-wider">E-mail Cadastrado</label>
+                <div className="flex flex-col gap-2">
+                  <label className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-widest">E-mail Cadastrado</label>
                   <input
                     type="email"
                     value={email}
                     disabled
-                    className="px-4 py-3 bg-[#F5F5F4] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#78716C] cursor-not-allowed outline-none select-none"
+                    className="px-4 py-3 bg-[#F5F5F4] border border-[#E7E5E4] rounded-xl font-mono text-[11px] font-bold text-[#A8A29E] cursor-not-allowed outline-none select-none shadow-2xs"
                   />
                 </div>
 
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-2">
                   <div className="flex justify-between items-center">
-                    <label className="text-xs font-bold text-[#1C1917] uppercase tracking-wider">Idade</label>
+                    <label className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-widest">Idade</label>
                     <button
                       type="button"
                       onClick={() => setShowAgeInProfile(!showAgeInProfile)}
-                      className="text-[10px] font-bold uppercase text-[#78716C] hover:text-[#1C1917] flex items-center gap-1.5 bg-[#FAF9F6] px-2 py-0.5 rounded border border-[#E7E5E4] cursor-pointer"
+                      className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#78716C] hover:text-[#1C1917] flex items-center gap-1.5 bg-[#FAF9F6] px-2.5 py-1 rounded border border-[#E7E5E4] cursor-pointer shadow-2xs"
                     >
-                      {showAgeInProfile ? 'Visível no Perfil' : 'Oculta'}
+                      {showAgeInProfile ? 'VISÍVEL NO PERFIL' : 'OCULTA'}
                     </button>
                   </div>
                   <input
@@ -676,58 +653,57 @@ export const Profile: React.FC = () => {
                     value={age}
                     onChange={(e) => setAge(e.target.value)}
                     placeholder="Ex: 24"
-                    className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+                    className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl font-mono text-[11px] font-bold text-[#1C1917] outline-none focus:border-[#1C1917] transition-colors shadow-2xs"
                   />
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-[#1C1917] uppercase tracking-wider">Gênero</label>
+                <div className="flex flex-col gap-2">
+                  <label className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-widest">Gênero</label>
                   <select
                     value={gender}
                     onChange={(e) => setGender(e.target.value)}
-                    className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+                    className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl font-mono text-[11px] font-bold text-[#1C1917] outline-none focus:border-[#1C1917] transition-colors shadow-2xs appearance-none"
                   >
-                    <option value="Masculino">Masculino</option>
-                    <option value="Feminino">Feminino</option>
-                    <option value="Não-binário">Não-binário</option>
-                    <option value="Prefiro não dizer">Prefiro não dizer</option>
+                    <option value="Masculino">MASCULINO</option>
+                    <option value="Feminino">FEMININO</option>
+                    <option value="Não-binário">NÃO-BINÁRIO</option>
+                    <option value="Prefiro não dizer">PREFIRO NÃO DIZER</option>
                   </select>
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-[#1C1917] uppercase tracking-wider">Pronomes</label>
+                <div className="flex flex-col gap-2">
+                  <label className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-widest">Pronomes</label>
                   <select
                     value={pronouns}
                     onChange={(e) => setPronouns(e.target.value)}
-                    className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+                    className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl font-mono text-[11px] font-bold text-[#1C1917] outline-none focus:border-[#1C1917] transition-colors shadow-2xs appearance-none"
                   >
-                    <option value="ele/dele (he/him)">ele/dele (he/him)</option>
-                    <option value="ela/dela (she/her)">ela/dela (she/her)</option>
-                    <option value="elu/delu (they/them)">elu/delu (they/them)</option>
-                    <option value="Qualquer pronome (any pronouns)">Qualquer pronome (any pronouns)</option>
+                    <option value="ele/dele (he/him)">ELE/DELE (HE/HIM)</option>
+                    <option value="ela/dela (she/her)">ELA/DELA (SHE/HER)</option>
+                    <option value="elu/delu (they/them)">ELU/DELU (THEY/THEM)</option>
+                    <option value="Qualquer pronome (any pronouns)">QUALQUER PRONOME (ANY PRONOUNS)</option>
                   </select>
                 </div>
               </div>
 
-              <div className="flex flex-col gap-1.5 pt-2">
-                <label className="text-xs font-bold text-[#1C1917] uppercase tracking-wider">Biografia</label>
+              <div className="flex flex-col gap-2 pt-3 border-t border-[#E7E5E4]">
+                <label className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-widest">Biografia</label>
                 <textarea
                   rows={3}
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
                   placeholder="Compartilhe seus objetivos de aprendizado, rotina e o que gosta de conversar..."
-                  className="w-full p-3.5 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-medium text-[#1C1917] outline-none focus:border-[#1C1917] resize-none"
+                  className="w-full p-4 bg-[#FAF9F6] border border-[#E7E5E4] rounded-2xl font-mono text-[11px] font-bold text-[#1C1917] outline-none focus:border-[#1C1917] resize-none transition-colors shadow-2xs"
                 />
               </div>
 
-              {/* TÓPICOS DE INTERESSE COM AVISO SUTIL DE LIMITE */}
-              <div className="flex flex-col gap-3 pt-2 border-t border-[#E7E5E4]">
+              <div className="flex flex-col gap-3 pt-3 border-t border-[#E7E5E4]">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
-                    <label className="text-xs font-bold text-[#1C1917] uppercase tracking-wider">
+                    <label className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-widest">
                       Tópicos de Interesse
                     </label>
-                    <span className="text-[10px] font-bold uppercase bg-[#1C1917] text-[#FAF9F6] px-2 py-0.5 rounded">
+                    <span className="font-mono text-[9px] font-bold uppercase tracking-widest bg-[#1C1917] text-[#FAF9F6] px-2 py-0.5 rounded shadow-2xs border border-[#1C1917]">
                       {selectedInterests.length}/5
                     </span>
                   </div>
@@ -735,17 +711,16 @@ export const Profile: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setShowTopicsModal(true)}
-                    className="text-xs font-bold uppercase text-[#1C1917] hover:underline flex items-center gap-1 cursor-pointer"
+                    className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#1C1917] hover:underline flex items-center gap-1 cursor-pointer"
                   >
-                    + Explorar Tópicos
+                    + EXPLORAR TÓPICOS
                   </button>
                 </div>
 
-                {/* AVISO SUTIL QUANDO O USUÁRIO TENTA ESCOLHER MAIS DE 5 */}
                 {topicLimitWarning && (
-                  <div className="text-[11px] font-medium text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl animate-in fade-in duration-200 flex items-center gap-2 w-fit">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                    <span>Limite atingido: você pode selecionar no máximo 5 tópicos de interesse.</span>
+                  <div className="font-mono text-[10px] font-bold tracking-widest uppercase text-amber-800 bg-amber-50 border border-amber-200 px-3 py-2 rounded-xl animate-in fade-in duration-200 flex items-center gap-2 w-fit shadow-2xs">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                    <span>LIMITE ATINGIDO: MÁXIMO 5 TÓPICOS.</span>
                   </div>
                 )}
 
@@ -755,7 +730,7 @@ export const Profile: React.FC = () => {
                       key={interest}
                       type="button"
                       onClick={() => toggleInterest(interest)}
-                      className="px-3 py-1.5 rounded-xl border text-xs font-bold transition-all bg-[#1C1917] text-[#FAF9F6] border-[#1C1917] flex items-center gap-1.5 shadow-2xs cursor-pointer hover:bg-red-950"
+                      className="px-3 py-2 rounded-xl border-2 font-mono text-[10px] font-bold uppercase tracking-widest transition-all bg-[#1C1917] text-[#FAF9F6] border-[#1C1917] flex items-center gap-1.5 shadow-[2px_2px_0px_0px_#1C1917] cursor-pointer hover:bg-[#FAF9F6] hover:text-[#1C1917]"
                     >
                       <span>{interest}</span>
                       <span className="text-[10px] opacity-70">✕</span>
@@ -766,22 +741,22 @@ export const Profile: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setShowTopicsModal(true)}
-                      className="px-3 py-1.5 rounded-xl border border-dashed border-[#1C1917] text-xs font-bold text-[#1C1917] hover:bg-[#F5F5F4] transition-all cursor-pointer"
+                      className="px-4 py-2 rounded-xl border border-dashed border-[#1C1917] font-mono text-[10px] font-bold uppercase tracking-widest text-[#1C1917] hover:bg-[#F5F5F4] transition-all cursor-pointer shadow-2xs"
                     >
-                      + Adicionar Tópicos
+                      + ADICIONAR TÓPICOS
                     </button>
                   )}
                 </div>
               </div>
             </section>
 
-            {/* SELEÇÃO DO NÍVEL CEFR */}
-            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-8 shadow-xs flex flex-col gap-4">
-              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917] border-b border-[#E7E5E4] pb-3">
+            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col gap-4">
+              <h2 className="text-sm font-black uppercase tracking-tight text-[#1C1917] border-b border-[#E7E5E4] pb-3 flex items-center gap-2">
+                <BambooIcon className="w-4 h-4 text-emerald-600" />
                 Nível de Fluência Atual (CEFR)
               </h2>
 
-              <div className="grid grid-cols-1 gap-2.5">
+              <div className="grid grid-cols-1 gap-3">
                 {cefrLevelsInfo.map((item) => {
                   const isSelected = cefrLevel === item.code;
                   return (
@@ -789,26 +764,26 @@ export const Profile: React.FC = () => {
                       key={item.code}
                       type="button"
                       onClick={() => setCefrLevel(item.code)}
-                      className={`p-4 rounded-2xl border text-left flex items-center justify-between gap-4 transition-all cursor-pointer ${
+                      className={`p-4 rounded-2xl border-2 text-left flex items-center justify-between gap-4 transition-all cursor-pointer ${
                         isSelected
-                          ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917] shadow-xs'
+                          ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917] shadow-[4px_4px_0px_0px_#1C1917]'
                           : 'bg-[#FAF9F6] text-[#1C1917] border-[#E7E5E4] hover:border-[#1C1917]'
                       }`}
                     >
-                      <div className="flex items-center gap-3.5">
-                        <span className={`w-9 h-9 rounded-xl font-mono font-bold text-xs flex items-center justify-center border ${
+                      <div className="flex items-center gap-4">
+                        <span className={`w-10 h-10 rounded-xl font-mono font-black text-sm flex items-center justify-center border-2 ${
                           isSelected ? 'bg-[#FAF9F6] text-[#1C1917] border-[#FAF9F6]' : 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]'
                         }`}>
                           {item.code}
                         </span>
-                        <div className="flex flex-col">
-                          <span className="text-xs font-bold uppercase">{item.label}</span>
-                          <span className={`text-[11px] font-medium ${isSelected ? 'text-[#D6D3D1]' : 'text-[#78716C]'}`}>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-xs font-black uppercase tracking-widest">{item.label}</span>
+                          <span className={`font-mono text-[10px] font-bold tracking-wider ${isSelected ? 'text-[#D6D3D1]' : 'text-[#78716C]'}`}>
                             {item.desc}
                           </span>
                         </div>
                       </div>
-                      {isSelected && <CheckIcon className="w-4 h-4 text-emerald-400" />}
+                      {isSelected && <CheckIcon className="w-5 h-5 text-emerald-400" />}
                     </button>
                   );
                 })}
@@ -817,29 +792,29 @@ export const Profile: React.FC = () => {
           </div>
         )}
 
-        {/* ABA: AGENDA & AMIGOS REAIS */}
         {activeTab === 'social' && (
           <div className="flex flex-col gap-6 animate-in fade-in duration-150">
-            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-8 shadow-xs flex flex-col gap-6">
+            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
               <div className="flex justify-between items-center border-b border-[#E7E5E4] pb-3">
                 <div>
-                  <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
+                  <h2 className="text-sm font-black uppercase tracking-tight text-[#1C1917] flex items-center gap-2">
+                    <BambooIcon className="w-4 h-4 text-emerald-600" />
                     Horários de Preferência
                   </h2>
-                  <p className="text-xs text-[#78716C]">Indique quando você costuma estar online para praticar</p>
+                  <p className="font-mono text-[10px] font-bold tracking-widest uppercase text-[#78716C] mt-1">Indique quando você costuma estar online</p>
                 </div>
               </div>
 
               <div className="overflow-x-auto">
-                <div className="min-w-[480px] flex flex-col gap-2">
-                  <div className="grid grid-cols-8 gap-2 text-center text-[10px] font-bold uppercase text-[#1C1917] pb-1 border-b border-[#E7E5E4]">
-                    <span>Turno</span>
+                <div className="min-w-[480px] flex flex-col gap-3">
+                  <div className="grid grid-cols-8 gap-2 text-center font-mono text-[10px] font-bold uppercase tracking-widest text-[#1C1917] pb-2 border-b border-[#E7E5E4]">
+                    <span>TURNO</span>
                     {weekDays.map((day) => <span key={day}>{day}</span>)}
                   </div>
 
                   {timeSlots.map((slot) => (
                     <div key={slot} className="grid grid-cols-8 gap-2 items-center">
-                      <span className="text-[10px] font-bold text-[#1C1917] uppercase">{slot.split(' ')[0]}</span>
+                      <span className="font-mono text-[9px] font-bold text-[#78716C] uppercase tracking-widest">{slot.split(' ')[0]}</span>
                       {weekDays.map((day) => {
                         const slotKey = `${day}-${slot}`;
                         const isSelected = selectedAvailability.includes(slotKey);
@@ -848,8 +823,8 @@ export const Profile: React.FC = () => {
                             key={slotKey}
                             type="button"
                             onClick={() => toggleAvailabilitySlot(slotKey)}
-                            className={`py-2 rounded-xl border text-[10px] font-bold uppercase transition-all cursor-pointer ${
-                              isSelected ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4] hover:border-[#1C1917]'
+                            className={`py-2.5 rounded-xl border-2 font-mono text-[11px] font-bold uppercase transition-all cursor-pointer ${
+                              isSelected ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917] shadow-[2px_2px_0px_0px_#1C1917]' : 'bg-[#FAF9F6] text-[#A8A29E] border-[#E7E5E4] hover:border-[#1C1917]'
                             }`}
                           >
                             {isSelected ? '✓' : '+'}
@@ -862,56 +837,57 @@ export const Profile: React.FC = () => {
               </div>
             </section>
 
-            {/* LISTA REAL DE AMIGOS */}
-            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-8 shadow-xs flex flex-col gap-4">
+            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col gap-5">
               <div className="flex justify-between items-center border-b border-[#E7E5E4] pb-3">
-                <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917] flex items-center gap-2">
+                <h2 className="text-sm font-black uppercase tracking-tight text-[#1C1917] flex items-center gap-2">
                   <PandaPawIcon className="w-4 h-4 text-[#1C1917]" />
                   Amigos de Conversa ({realFriends.length})
                 </h2>
               </div>
 
               {realFriends.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {realFriends.map((friend) => (
-                    <div key={friend.id} className="bg-[#FAF9F6] border border-[#E7E5E4] rounded-2xl p-4 flex items-center justify-between gap-3">
+                    <div key={friend.id} className="bg-[#FAF9F6] border-2 border-[#E7E5E4] hover:border-[#1C1917] transition-colors rounded-2xl p-4 flex items-center justify-between gap-3 shadow-2xs">
                       <div className="flex items-center gap-3">
-                        <img src={friend.avatar || '/images/default-avatar.png'} alt={friend.name} className="w-10 h-10 rounded-xl object-cover border border-[#D6D3D1]" />
-                        <div className="flex flex-col">
-                          <span className="text-xs font-bold text-[#1C1917]">{friend.name}</span>
-                          <span className="font-mono text-[10px] text-[#78716C]">{friend.tag || friend.level}</span>
+                        <img src={friend.avatar || '/images/default-avatar.png'} alt={friend.name} className="w-12 h-12 rounded-xl object-cover border-2 border-[#1C1917]" />
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-xs font-black uppercase tracking-tight text-[#1C1917]">{friend.name}</span>
+                          <span className="font-mono text-[9px] font-bold tracking-widest uppercase text-[#78716C]">{friend.tag || friend.level}</span>
                         </div>
                       </div>
-                      <span className={`w-2 h-2 rounded-full ${friend.isOnline ? 'bg-emerald-500' : 'bg-stone-300'}`} />
+                      <span className={`w-3 h-3 rounded-full border border-white ${friend.isOnline ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-[#D6D3D1]'}`} title={friend.isOnline ? "Online" : "Offline"} />
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="p-8 text-center flex flex-col items-center gap-2 border border-dashed border-[#E7E5E4] rounded-2xl bg-[#FAF9F6]">
-                  <PandaMascotIcon className="w-8 h-8 text-[#78716C]" />
-                  <span className="text-xs font-bold text-[#1C1917]">Nenhum amigo adicionado ainda</span>
-                  <p className="text-xs text-[#78716C] max-w-sm">Conecte-se em conversas pelo painel para enviar solicitações de amizade e salvar parceiros de treino.</p>
+                <div className="p-8 text-center flex flex-col items-center gap-3 border-2 border-dashed border-[#E7E5E4] rounded-3xl bg-[#FAF9F6]">
+                  <PandaMascotIcon className="w-10 h-10 text-[#A8A29E]" />
+                  <span className="font-mono text-[11px] font-bold uppercase tracking-widest text-[#1C1917]">NENHUM AMIGO ADICIONADO</span>
+                  <p className="text-xs text-[#78716C] max-w-sm font-medium">Conecte-se em conversas pelo painel para enviar solicitações de amizade e salvar parceiros de treino.</p>
                 </div>
               )}
             </section>
           </div>
         )}
 
-        {/* ABA: METAS & BADGES */}
         {activeTab === 'stats' && (
           <div className="flex flex-col gap-6 animate-in fade-in duration-150">
-            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-8 shadow-xs flex flex-col gap-6">
+            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
               <div className="flex justify-between items-center border-b border-[#E7E5E4] pb-3">
                 <div>
-                  <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917]">
+                  <h2 className="text-sm font-black uppercase tracking-tight text-[#1C1917] flex items-center gap-2">
+                    <BambooIcon className="w-4 h-4 text-emerald-600" />
                     Meta Semanal de Prática
                   </h2>
-                  <p className="text-xs text-[#78716C]">Defina quantas conversas você quer realizar a cada 7 dias</p>
+                  <p className="font-mono text-[10px] font-bold tracking-widest uppercase text-[#78716C] mt-1">Defina quantas conversas realizar a cada 7 dias</p>
                 </div>
-                <span className="text-xs font-bold text-[#1C1917]">{weeklyGoalCompleted}/{weeklyGoalTarget} Concluídas</span>
+                <span className="font-mono text-[10px] font-bold uppercase tracking-widest bg-[#1C1917] text-[#FAF9F6] px-3 py-1.5 rounded-lg border border-[#1C1917]">
+                  {weeklyGoalCompleted}/{weeklyGoalTarget} CONCLUÍDAS
+                </span>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[3, 5, 7].map((num) => (
                   <button
                     key={num}
@@ -920,47 +896,46 @@ export const Profile: React.FC = () => {
                       setWeeklyGoalTarget(num);
                       handleSubmit();
                     }}
-                    className={`py-3 rounded-xl border font-bold text-xs uppercase cursor-pointer transition-all ${
-                      weeklyGoalTarget === num ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]' : 'bg-[#FAF9F6] border-[#E7E5E4] hover:border-[#1C1917]'
+                    className={`py-4 rounded-2xl border-2 font-mono font-bold text-[10px] uppercase tracking-widest cursor-pointer transition-all ${
+                      weeklyGoalTarget === num ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917] shadow-[4px_4px_0px_0px_#1C1917]' : 'bg-[#FAF9F6] text-[#78716C] border-[#E7E5E4] hover:border-[#1C1917] hover:text-[#1C1917]'
                     }`}
                   >
-                    {num} Sessões por Semana
+                    {num} SESSÕES/SEMANA
                   </button>
                 ))}
               </div>
 
-              <div className="flex flex-col gap-2">
-                <div className="flex justify-between text-xs font-bold text-[#57534E]">
-                  <span>Progresso Atual</span>
-                  <span className="font-mono text-[#1C1917] font-bold">{goalProgressPercentage}%</span>
+              <div className="flex flex-col gap-3 pt-2">
+                <div className="flex justify-between font-mono text-[10px] font-bold uppercase tracking-widest text-[#78716C]">
+                  <span>PROGRESSO ATUAL</span>
+                  <span className="text-[#1C1917]">{goalProgressPercentage}%</span>
                 </div>
-                <div className="w-full h-3 bg-[#FAF9F6] rounded-full overflow-hidden p-0.5 border border-[#E7E5E4]">
-                  <div className="h-full bg-emerald-600 rounded-full transition-all duration-500" style={{ width: `${goalProgressPercentage}%` }} />
+                <div className="w-full h-4 bg-[#FAF9F6] rounded-full overflow-hidden p-0.5 border-2 border-[#1C1917]">
+                  <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${goalProgressPercentage}%` }} />
                 </div>
               </div>
             </section>
 
-            {/* CONQUISTAS / BADGES REAIS */}
-            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-8 shadow-xs flex flex-col gap-4">
-              <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917] border-b border-[#E7E5E4] pb-3 flex items-center gap-2">
-                <BambooIcon className="w-4 h-4 text-emerald-600" />
+            <section className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col gap-5">
+              <h2 className="text-sm font-black uppercase tracking-tight text-[#1C1917] border-b border-[#E7E5E4] pb-3 flex items-center gap-2">
+                <PandaPawIcon className="w-4 h-4 text-[#1C1917]" />
                 Conquistas & Badges da Conta
               </h2>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {BADGES_CATALOG.map((badge) => (
                   <div 
                     key={badge.id} 
-                    className={`p-3.5 rounded-2xl border flex items-center gap-3.5 transition-all ${
-                      badge.unlocked ? 'bg-[#FAF9F6] border-[#1C1917]' : 'bg-[#F5F5F4]/50 border-[#E7E5E4] opacity-50'
+                    className={`p-4 rounded-2xl border-2 flex items-center gap-4 transition-all shadow-2xs ${
+                      badge.unlocked ? 'bg-[#FAF9F6] border-[#1C1917]' : 'bg-[#F5F5F4]/50 border-[#E7E5E4] opacity-60'
                     }`}
                   >
-                    <div className="w-10 h-10 rounded-xl bg-[#FFFFFF] border border-[#E7E5E4] flex items-center justify-center shrink-0">
-                      <PandaPawIcon className={`w-5 h-5 ${badge.unlocked ? 'text-[#1C1917]' : 'text-[#A8A29E]'}`} />
+                    <div className="w-12 h-12 rounded-xl bg-[#FFFFFF] border-2 border-[#E7E5E4] flex items-center justify-center shrink-0">
+                      <PandaPawIcon className={`w-6 h-6 ${badge.unlocked ? 'text-[#1C1917]' : 'text-[#A8A29E]'}`} />
                     </div>
-                    <div className="flex flex-col">
-                      <span className="text-xs font-bold text-[#1C1917] uppercase">{badge.title}</span>
-                      <span className="text-[11px] text-[#78716C]">{badge.desc}</span>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-xs font-black uppercase tracking-tight text-[#1C1917]">{badge.title}</span>
+                      <span className="font-mono text-[9px] font-bold tracking-widest uppercase text-[#78716C]">{badge.description}</span>
                     </div>
                   </div>
                 ))}
@@ -969,39 +944,38 @@ export const Profile: React.FC = () => {
           </div>
         )}
 
-        {/* ABA: SEGURANÇA */}
         {activeTab === 'security' && (
           <div className="flex flex-col gap-6 animate-in fade-in duration-150">
-            <form onSubmit={handlePasswordChange} className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-8 shadow-xs flex flex-col gap-5">
-              <div className="flex flex-col gap-1 border-b border-[#E7E5E4] pb-3">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded border border-emerald-200 w-fit">
-                  Segurança da Conta
+            <form onSubmit={handlePasswordChange} className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
+              <div className="flex flex-col gap-2 border-b border-[#E7E5E4] pb-3">
+                <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-emerald-800 bg-emerald-50 px-3 py-1 rounded-md border border-emerald-200 w-fit">
+                  SEGURANÇA DA CONTA
                 </span>
-                <h2 className="text-base font-black uppercase tracking-tight text-[#1C1917] mt-1">
+                <h2 className="text-sm font-black uppercase tracking-tight text-[#1C1917]">
                   Alterar Senha de Acesso
                 </h2>
               </div>
 
-              {passwordError && <div className="p-3 rounded-xl bg-red-50 border border-red-300 text-red-700 text-xs font-bold">{passwordError}</div>}
-              {passwordSuccess && <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-bold">{passwordSuccess}</div>}
+              {passwordError && <div className="p-4 rounded-xl bg-red-50 border border-red-300 text-red-700 font-mono text-[10px] font-bold uppercase tracking-widest shadow-2xs">{passwordError}</div>}
+              {passwordSuccess && <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 font-mono text-[10px] font-bold uppercase tracking-widest shadow-2xs">{passwordSuccess}</div>}
 
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold text-[#1C1917] uppercase tracking-wider flex items-center gap-2">
-                  1. Solicitar Código para: <span className="font-mono text-[#78716C]">{email}</span>
+              <div className="flex flex-col gap-3">
+                <label className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-widest flex items-center gap-2">
+                  1. SOLICITAR CÓDIGO PARA: <span className="text-[#1C1917]">{email}</span>
                 </label>
 
                 {!emailCodeSent ? (
                   <button
                     type="button"
                     onClick={handleSendEmailCode}
-                    className="py-3 px-5 bg-[#1C1917] text-[#FAF9F6] font-bold text-xs uppercase rounded-xl border border-[#1C1917] hover:bg-[#292524] transition-all w-fit cursor-pointer"
+                    className="py-3.5 px-6 bg-[#1C1917] text-[#FAF9F6] font-mono font-bold text-[10px] uppercase tracking-widest rounded-xl border border-[#1C1917] hover:bg-[#292524] transition-all w-fit cursor-pointer shadow-2xs active:scale-95"
                   >
-                    Enviar Código de Confirmação por E-mail
+                    ENVIAR CÓDIGO DE CONFIRMAÇÃO
                   </button>
                 ) : (
-                  <div className="flex flex-col gap-2 pt-1">
-                    <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 p-2.5 rounded-xl border border-emerald-200 flex items-center gap-2">
-                      <CheckIcon className="w-4 h-4 text-emerald-600" /> Código enviado para sua caixa de entrada.
+                  <div className="flex flex-col gap-3 pt-1">
+                    <span className="font-mono text-[10px] font-bold tracking-widest uppercase text-emerald-800 bg-emerald-50 p-3 rounded-xl border border-emerald-200 flex items-center gap-2 shadow-2xs">
+                      <CheckIcon className="w-4 h-4 text-emerald-600" /> CÓDIGO ENVIADO PARA A CAIXA DE ENTRADA.
                     </span>
 
                     <div className="flex gap-2">
@@ -1012,15 +986,15 @@ export const Profile: React.FC = () => {
                         placeholder="Código de 6 dígitos..."
                         value={verificationCode}
                         onChange={(e) => setVerificationCode(e.target.value)}
-                        className="flex-1 px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl font-mono text-xs font-bold outline-none focus:border-[#1C1917] disabled:opacity-75"
+                        className="flex-1 px-4 py-3.5 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl font-mono text-[11px] font-bold outline-none focus:border-[#1C1917] disabled:opacity-75 shadow-2xs transition-colors"
                       />
                       {!isEmailCodeVerified ? (
                         <button
                           type="button"
                           onClick={handleVerifyEmailCode}
-                          className="px-5 py-3 bg-[#1C1917] text-[#FAF9F6] font-bold text-xs uppercase rounded-xl border border-[#1C1917] hover:bg-[#292524] transition-all cursor-pointer"
+                          className="px-6 py-3.5 bg-[#1C1917] text-[#FAF9F6] font-mono font-bold text-[10px] uppercase tracking-widest rounded-xl border border-[#1C1917] hover:bg-[#292524] transition-all cursor-pointer shadow-2xs active:scale-95"
                         >
-                          Validar Código
+                          VALIDAR CÓDIGO
                         </button>
                       ) : (
                         <button
@@ -1029,9 +1003,9 @@ export const Profile: React.FC = () => {
                             setIsEmailCodeVerified(false);
                             setVerificationCode('');
                           }}
-                          className="px-4 py-3 bg-[#FAF9F6] text-[#78716C] hover:text-[#1C1917] font-bold text-xs uppercase rounded-xl border border-[#E7E5E4] cursor-pointer"
+                          className="px-6 py-3.5 bg-[#FAF9F6] text-[#78716C] hover:text-[#1C1917] font-mono font-bold text-[10px] uppercase tracking-widest rounded-xl border border-[#E7E5E4] hover:border-[#1C1917] cursor-pointer shadow-2xs transition-colors"
                         >
-                          Alterar
+                          ALTERAR
                         </button>
                       )}
                     </div>
@@ -1040,120 +1014,113 @@ export const Profile: React.FC = () => {
               </div>
 
               {isEmailCodeVerified && (
-                <div className="flex flex-col gap-3 pt-2 animate-in fade-in slide-in-from-top-4 duration-300 border-t border-[#E7E5E4]">
-                  <label className="text-xs font-bold text-[#1C1917] uppercase tracking-wider">
-                    2. Digite e Confirme a Nova Senha
+                <div className="flex flex-col gap-4 pt-3 animate-in fade-in slide-in-from-top-4 duration-300 border-t border-[#E7E5E4]">
+                  <label className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-widest">
+                    2. DIGITE E CONFIRME A NOVA SENHA
                   </label>
                   <input
                     type="password"
                     placeholder="Nova Senha (Mínimo 6 caracteres)"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold outline-none focus:border-[#1C1917]"
+                    className="px-4 py-3.5 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl font-mono text-[11px] font-bold outline-none focus:border-[#1C1917] shadow-2xs transition-colors"
                   />
                   <input
                     type="password"
                     placeholder="Confirmar Nova Senha"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold outline-none focus:border-[#1C1917]"
+                    className="px-4 py-3.5 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl font-mono text-[11px] font-bold outline-none focus:border-[#1C1917] shadow-2xs transition-colors"
                   />
 
-                  <Button
+                  <button
                     type="submit"
-                    variant="primary"
-                    className="py-3.5 text-xs font-bold uppercase tracking-wider bg-[#1C1917] text-[#FAF9F6] rounded-xl mt-2 cursor-pointer"
+                    className="py-4 font-mono text-[10px] font-bold uppercase tracking-widest bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] rounded-xl mt-2 cursor-pointer shadow-xs border border-[#1C1917] active:scale-95 transition-all"
                   >
-                    Salvar Nova Senha
-                  </Button>
+                    SALVAR NOVA SENHA
+                  </button>
                 </div>
               )}
             </form>
 
-            <section className="bg-[#FFFFFF] border border-red-200 rounded-3xl p-6 sm:p-8 shadow-xs flex flex-col gap-3">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-red-600 bg-red-50 px-2.5 py-0.5 rounded border border-red-200 w-fit">
-                Zona Crítica • Irreversível
+            <section className="bg-[#FFFFFF] border-2 border-red-200 rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col gap-4">
+              <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-red-600 bg-red-50 px-3 py-1 rounded-md border border-red-200 w-fit">
+                ZONA CRÍTICA • IRREVERSÍVEL
               </span>
-              <h2 className="text-base font-black uppercase text-red-600">Exclusão Definitiva da Conta</h2>
-              <p className="text-xs text-[#57534E] font-medium">Ação irreversível de remoção permanente de todos os seus dados cadastrais, histórico e amizades.</p>
+              <h2 className="text-sm font-black uppercase tracking-tight text-red-600">Exclusão Definitiva da Conta</h2>
+              <p className="text-xs text-[#57534E] font-medium leading-relaxed">Ação irreversível de remoção permanente de todos os seus dados cadastrais, histórico de conversas e amizades formadas.</p>
               <button
                 type="button"
                 onClick={() => setShowDeleteModal(true)}
-                className="w-fit px-5 py-2.5 bg-red-50 text-red-600 border border-red-300 text-xs font-bold uppercase rounded-xl hover:bg-red-600 hover:text-white transition-all mt-1 cursor-pointer"
+                className="w-fit px-6 py-3 bg-red-50 text-red-600 border border-red-300 font-mono text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-red-600 hover:text-white transition-all mt-2 cursor-pointer shadow-2xs active:scale-95"
               >
-                Excluir Conta Permanentemente
+                EXCLUIR CONTA PERMANENTEMENTE
               </button>
             </section>
           </div>
         )}
       </main>
 
-      {/* MODAL DE EXCLUSÃO */}
+      {/* MODAL DE EXCLUSÃO (PANDA STYLE - MATCHING ROOM EXIT MODAL) */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-[#FFFFFF] border border-red-300 rounded-3xl p-6 sm:p-8 max-w-md w-full flex flex-col gap-5 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-red-200 pb-3">
-              <h3 className="text-base font-black uppercase text-red-600">
-                Confirmar Exclusão
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowDeleteModal(false)}
-                className="text-sm font-bold text-[#78716C] hover:text-[#1C1917]"
-              >
-                ✕
-              </button>
+        <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-[110] flex items-center justify-center p-4">
+          <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-8 max-w-sm w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-6 text-center animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-16 h-16 rounded-2xl bg-red-50 border-2 border-red-200 text-red-600 flex items-center justify-center mx-auto shadow-2xs">
+              <PandaMascotIcon className="w-8 h-8" />
+            </div>
+            <div className="flex flex-col gap-2">
+              <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#FAF9F6] bg-red-600 px-3 py-1 rounded-lg w-fit mx-auto border border-red-700">EXCLUSÃO DEFINITIVA</span>
+              <h3 className="text-xl font-black uppercase text-[#1C1917] mt-1">Apagar Tudo?</h3>
+              <p className="text-xs text-[#57534E] font-medium leading-relaxed">
+                Esta ação removerá permanentemente seu histórico, badges, amizades e estatísticas. Não pode ser desfeita.
+              </p>
             </div>
 
-            <p className="text-xs text-[#57534E] font-medium leading-relaxed">
-              Esta ação removerá permanentemente seu histórico de conversas, badges, amizades e estatísticas.
-            </p>
-
-            <div className="flex flex-col gap-3 border-t border-[#E7E5E4] pt-4">
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px] font-bold text-[#1C1917] uppercase">1. Digite sua Senha Atual *</label>
+            <div className="flex flex-col gap-4 border-t border-[#E7E5E4] pt-4 text-left">
+              <div className="flex flex-col gap-2">
+                <label className="font-mono text-[9px] font-bold text-[#78716C] uppercase tracking-widest">1. SUA SENHA ATUAL *</label>
                 <input
                   type="password"
                   value={deletePasswordConfirm}
                   onChange={(e) => setDeletePasswordConfirm(e.target.value)}
                   placeholder="Sua senha..."
-                  className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-red-600"
+                  className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl font-mono text-[11px] font-bold text-[#1C1917] outline-none focus:border-red-600 shadow-2xs transition-colors"
                 />
               </div>
 
-              <label className="flex items-start gap-2.5 cursor-pointer bg-[#FAF9F6] p-3 rounded-xl border border-[#E7E5E4]">
+              <label className="flex items-start gap-3 cursor-pointer bg-[#FAF9F6] p-4 rounded-xl border border-[#E7E5E4] shadow-2xs">
                 <input
                   type="checkbox"
                   checked={agreeDeleteTerms}
                   onChange={(e) => setAgreeDeleteTerms(e.target.checked)}
                   className="mt-0.5 rounded border-[#1C1917] text-red-600 focus:ring-red-600"
                 />
-                <span className="text-[11px] font-bold text-[#1C1917] leading-snug">
-                  Estou ciente de que a remoção é irreversível e não poderei recuperar este perfil.
+                <span className="font-mono text-[9px] font-bold text-[#1C1917] leading-relaxed uppercase tracking-widest">
+                  ESTOU CIENTE DE QUE A REMOÇÃO É IRREVERSÍVEL.
                 </span>
               </label>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px] font-bold text-[#1C1917] uppercase">
-                  2. Digite "EXCLUIR PERMANENTEMENTE" *
+              <div className="flex flex-col gap-2">
+                <label className="font-mono text-[9px] font-bold text-[#78716C] uppercase tracking-widest">
+                  2. DIGITE "EXCLUIR PERMANENTEMENTE" *
                 </label>
                 <input
                   type="text"
                   value={deleteConfirmationText}
                   onChange={(e) => setDeleteConfirmationText(e.target.value)}
                   placeholder="EXCLUIR PERMANENTEMENTE"
-                  className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-red-600"
+                  className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl font-mono text-[11px] font-bold text-[#1C1917] outline-none focus:border-red-600 shadow-2xs transition-colors"
                 />
               </div>
             </div>
 
-            <div className="flex gap-2 pt-2">
+            <div className="flex flex-col gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setShowDeleteModal(false)}
-                className="flex-1 py-3 bg-[#FAF9F6] border border-[#E7E5E4] text-xs font-bold uppercase rounded-xl cursor-pointer"
+                className="w-full py-3.5 bg-[#FAF9F6] border-2 border-[#1C1917] text-[#1C1917] font-mono text-[11px] font-bold uppercase tracking-widest rounded-xl hover:bg-[#E7E5E4] transition-all shadow-2xs cursor-pointer active:scale-95"
               >
-                Cancelar
+                CANCELAR E VOLTAR
               </button>
               <button
                 type="button"
@@ -1163,26 +1130,26 @@ export const Profile: React.FC = () => {
                   deleteConfirmationText !== 'EXCLUIR PERMANENTEMENTE'
                 }
                 onClick={handleDeleteAccount}
-                className="flex-1 py-3 bg-red-600 text-white text-xs font-bold uppercase rounded-xl border border-red-600 disabled:opacity-40 disabled:cursor-not-allowed shadow-xs cursor-pointer"
+                className="w-full py-3.5 bg-red-600 text-white font-mono text-[11px] font-bold uppercase tracking-widest rounded-xl border-2 border-[#1C1917] hover:bg-red-700 transition-all shadow-2xs cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                Apagar Conta
+                SIM, APAGAR CONTA
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL: EXPLORAR TÓPICOS COM AVISO SUTIL INTEGRADO */}
+      {/* MODAL: EXPLORAR TÓPICOS (PANDA STYLE) */}
       {showTopicsModal && (
-        <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150 max-h-[85vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+          <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150 max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-3">
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-black uppercase text-[#1C1917] flex items-center gap-1.5">
+                <h3 className="text-sm font-black uppercase text-[#1C1917] flex items-center gap-2">
                   <BambooIcon className="w-4 h-4 text-emerald-600" />
-                  Explorar Tópicos
+                  EXPLORAR TÓPICOS
                 </h3>
-                <span className="text-[10px] font-bold uppercase bg-[#1C1917] text-[#FAF9F6] px-2 py-0.5 rounded">
+                <span className="font-mono text-[10px] font-bold uppercase tracking-widest bg-[#1C1917] text-[#FAF9F6] px-2.5 py-0.5 rounded shadow-2xs border border-[#1C1917]">
                   {selectedInterests.length}/5
                 </span>
               </div>
@@ -1200,18 +1167,17 @@ export const Profile: React.FC = () => {
               placeholder="Buscar assunto ou tecnologia..."
               value={topicSearch}
               onChange={(e) => setTopicSearch(e.target.value)}
-              className="px-4 py-3 bg-[#FAF9F6] border border-[#E7E5E4] rounded-xl text-xs font-bold text-[#1C1917] outline-none focus:border-[#1C1917]"
+              className="px-4 py-3.5 bg-[#FAF9F6] border-2 border-[#E7E5E4] rounded-xl font-mono text-[11px] font-bold text-[#1C1917] outline-none focus:border-[#1C1917] shadow-2xs transition-colors"
             />
 
-            {/* AVISO SUTIL DENTRO DO MODAL */}
             {topicLimitWarning && (
-              <div className="text-[11px] font-medium text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl animate-in fade-in duration-200 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                <span>Você só pode selecionar até 5 tópicos de interesse.</span>
+              <div className="font-mono text-[10px] font-bold tracking-widest uppercase text-amber-800 bg-amber-50 border border-amber-200 px-4 py-3 rounded-xl animate-in fade-in duration-200 flex items-center gap-2 shadow-2xs">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
+                <span>LIMITE ATINGIDO: MÁXIMO 5 TÓPICOS PERMITIDOS.</span>
               </div>
             )}
 
-            <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-6">
               {topicsLibrary.map((cat) => {
                 const filteredItems = cat.items.filter((item) =>
                   item.toLowerCase().includes(topicSearch.toLowerCase())
@@ -1219,11 +1185,11 @@ export const Profile: React.FC = () => {
                 if (filteredItems.length === 0) return null;
 
                 return (
-                  <div key={cat.category} className="flex flex-col gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#78716C]">
+                  <div key={cat.category} className="flex flex-col gap-3">
+                    <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#78716C] border-b border-[#E7E5E4] pb-1.5">
                       {cat.category}
                     </span>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-2">
                       {filteredItems.map((item) => {
                         const isSelected = selectedInterests.includes(item);
                         return (
@@ -1231,10 +1197,10 @@ export const Profile: React.FC = () => {
                             key={item}
                             type="button"
                             onClick={() => toggleInterest(item)}
-                            className={`px-3.5 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                            className={`px-4 py-2.5 rounded-xl border-2 font-mono text-[10px] font-bold uppercase tracking-widest transition-all cursor-pointer shadow-2xs active:scale-95 ${
                               isSelected
-                                ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917]'
-                                : 'bg-[#FAF9F6] text-[#78716C] border-[#E7E5E4] hover:border-[#1C1917]'
+                                ? 'bg-[#1C1917] text-[#FAF9F6] border-[#1C1917] shadow-[2px_2px_0px_0px_#1C1917]'
+                                : 'bg-[#FAF9F6] text-[#78716C] border-[#E7E5E4] hover:border-[#1C1917] hover:text-[#1C1917]'
                             }`}
                           >
                             {isSelected ? `✓ ${item}` : `+ ${item}`}
@@ -1253,21 +1219,21 @@ export const Profile: React.FC = () => {
                 setShowTopicsModal(false);
                 handleSubmit();
               }}
-              className="w-full py-3.5 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] text-xs font-bold uppercase tracking-widest rounded-xl transition-all cursor-pointer"
+              className="w-full py-4 mt-2 bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F6] font-mono text-[11px] font-bold uppercase tracking-widest rounded-xl transition-all cursor-pointer shadow-xs border border-[#1C1917] active:scale-95"
             >
-              Concluir Seleção ({selectedInterests.length}/5)
+              CONCLUIR SELEÇÃO ({selectedInterests.length}/5)
             </button>
           </div>
         </div>
       )}
 
-      {/* PREVIEW PÚBLICO REAL */}
+      {/* PREVIEW PÚBLICO REAL (PANDA STYLE) */}
       {showPublicPreview && (
-        <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-[#1C1917]/70 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+          <div className="bg-[#FFFFFF] border-2 border-[#1C1917] rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-[8px_8px_0px_0px_#1C1917] flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-3">
-              <span className="text-[10px] font-bold uppercase tracking-widest bg-[#FAF9F6] border border-[#E7E5E4] text-[#1C1917] px-2.5 py-1 rounded-lg">
-                Como os Outros Te Veem
+              <span className="font-mono text-[9px] font-bold uppercase tracking-widest bg-[#FAF9F6] border border-[#E7E5E4] text-[#1C1917] px-3 py-1.5 rounded-lg shadow-2xs">
+                VISÃO DO PERFIL PÚBLICO
               </span>
               <button
                 type="button"
@@ -1278,9 +1244,8 @@ export const Profile: React.FC = () => {
               </button>
             </div>
 
-            <div className="flex flex-col items-center text-center gap-3">
-              {/* AVATAR DO MODAL COM TAMANHO RIGIDAMENTE TRAVADO */}
-              <div className="w-24 h-24 min-w-[96px] min-h-[96px] max-w-[96px] max-h-[96px] rounded-2xl overflow-hidden border border-[#D6D3D1] bg-[#F5F5F4] shadow-2xs flex items-center justify-center shrink-0">
+            <div className="flex flex-col items-center text-center gap-4">
+              <div className="w-28 h-28 min-w-[112px] min-h-[112px] rounded-3xl overflow-hidden border-2 border-[#1C1917] bg-[#F5F5F4] shadow-[4px_4px_0px_0px_#1C1917] flex items-center justify-center shrink-0">
                 <img 
                   src={avatarUrl || '/images/default-avatar.png'} 
                   alt={name || 'Avatar'} 
@@ -1288,69 +1253,67 @@ export const Profile: React.FC = () => {
                 />
               </div>
 
-              <div className="flex flex-col items-center gap-1">
-                <div className="flex items-center gap-2 flex-wrap justify-center">
-                  <h3 className="text-lg font-black uppercase text-[#1C1917]">{name || 'Estudante'}</h3>
-                  <span className="font-mono text-xs text-[#78716C] bg-[#FAF9F6] px-2 py-0.5 rounded border border-[#E7E5E4]">{tag}</span>
-                  <span className="px-2 py-0.5 bg-[#1C1917] text-[#FAF9F6] text-[10px] font-bold rounded uppercase">
+              <div className="flex flex-col items-center gap-1.5 mt-2">
+                <div className="flex items-center gap-2.5 flex-wrap justify-center">
+                  <h3 className="text-xl font-black uppercase text-[#1C1917]">{name || 'Estudante'}</h3>
+                  <span className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-widest bg-[#FAF9F6] px-2.5 py-1 rounded border border-[#E7E5E4] shadow-2xs">{tag}</span>
+                  <span className="px-2.5 py-1 bg-[#1C1917] text-[#FAF9F6] font-mono text-[10px] font-bold rounded uppercase tracking-widest border border-[#1C1917] shadow-2xs">
                     {cefrLevel}
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2 text-xs font-bold text-[#78716C]">
-                  {showAgeInProfile && age && <span>{age} anos •</span>}
+                <div className="flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#78716C] mt-1">
+                  {showAgeInProfile && age && <span>{age} ANOS •</span>}
                   <span>{gender}</span>
                   <span>•</span>
-                  <span className="italic">{pronouns}</span>
+                  <span>{pronouns}</span>
                 </div>
                 
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1">
-                    <ShieldIcon className="w-3 h-3 text-emerald-600" /> Reputação: {reputationScore}%
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200 flex items-center gap-1.5 shadow-2xs">
+                    <ShieldIcon className="w-3.5 h-3.5 text-emerald-600" /> REPUTAÇÃO: {reputationScore}%
                   </span>
-                  <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1">
-                    <FlameIcon className="w-3 h-3 text-emerald-600" /> {currentStreak} Dias
+                  <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200 flex items-center gap-1.5 shadow-2xs">
+                    <FlameIcon className="w-3.5 h-3.5 text-emerald-600" /> STREAK: {currentStreak} DIAS
                   </span>
                 </div>
               </div>
 
-              <p className="text-xs text-[#57534E] font-medium leading-relaxed italic bg-[#FAF9F6] p-3.5 rounded-2xl border border-[#E7E5E4] w-full text-left">
+              <p className="text-xs text-[#1C1917] font-bold leading-relaxed bg-[#FAF9F6] p-4 rounded-2xl border-2 border-[#E7E5E4] w-full text-left shadow-2xs">
                 "{bio || 'Nenhuma biografia adicionada ainda.'}"
               </p>
 
-              {/* AVALIAÇÕES REAIS (SEM FAKES) */}
-              <div className="flex flex-col gap-2 w-full pt-1 text-left border-t border-[#E7E5E4] mt-1">
-                <span className="text-[10px] font-bold uppercase text-[#78716C] tracking-wider">
-                  Avaliações Recebidas ({receivedFeedback.length})
+              <div className="flex flex-col gap-3 w-full pt-2 text-left border-t border-[#E7E5E4] mt-1">
+                <span className="font-mono text-[10px] font-bold uppercase text-[#78716C] tracking-widest">
+                  AVALIAÇÕES RECEBIDAS ({receivedFeedback.length})
                 </span>
                 {receivedFeedback.length > 0 ? (
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-3">
                     {receivedFeedback.map((fb) => (
-                      <div key={fb.id} className="bg-[#FAF9F6] p-3 rounded-2xl border border-[#E7E5E4] flex flex-col gap-1">
+                      <div key={fb.id} className="bg-[#FAF9F6] p-4 rounded-2xl border-2 border-[#E7E5E4] flex flex-col gap-1.5 shadow-2xs">
                         <div className="flex justify-between items-center">
-                          <span className="text-xs font-bold text-[#1C1917]">{fb.author}</span>
-                          <span className="font-mono text-[10px] text-[#A8A29E]">{fb.date}</span>
+                          <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#1C1917]">{fb.author}</span>
+                          <span className="font-mono text-[9px] font-bold text-[#A8A29E] tracking-widest">{fb.date}</span>
                         </div>
-                        <p className="text-xs text-[#57534E] font-medium italic">"{fb.comment}"</p>
+                        <p className="text-xs text-[#57534E] font-bold">"{fb.comment}"</p>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="p-3 bg-[#FAF9F6] rounded-xl border border-dashed border-[#E7E5E4] text-center text-xs text-[#78716C]">
-                    Nenhuma avaliação pública registrada até o momento.
+                  <div className="p-4 bg-[#FAF9F6] rounded-2xl border-2 border-dashed border-[#E7E5E4] text-center font-mono text-[10px] font-bold uppercase tracking-widest text-[#78716C]">
+                    NENHUMA AVALIAÇÃO PÚBLICA REGISTRADA.
                   </div>
                 )}
               </div>
 
-              {/* INTERESSES REAIS */}
               {selectedInterests.length > 0 && (
-                <div className="flex flex-col gap-1.5 w-full pt-1 text-left border-t border-[#E7E5E4]">
-                  <span className="text-[10px] font-bold uppercase text-[#78716C]">
-                    Tópicos de Interesse
+                <div className="flex flex-col gap-2.5 w-full pt-2 text-left border-t border-[#E7E5E4]">
+                  <span className="font-mono text-[10px] font-bold uppercase text-[#78716C] tracking-widest">
+                    TÓPICOS DE INTERESSE
                   </span>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-2">
                     {selectedInterests.map((interest) => (
-                      <span key={interest} className="text-[10px] font-bold px-2.5 py-1 bg-[#FAF9F6] border border-[#E7E5E4] text-[#1C1917] rounded-lg">
+                      <span key={interest} className="font-mono text-[9px] font-bold uppercase tracking-widest px-3 py-1.5 bg-[#FAF9F6] border-2 border-[#E7E5E4] text-[#1C1917] rounded-xl shadow-2xs">
                         {interest}
                       </span>
                     ))}
@@ -1362,9 +1325,9 @@ export const Profile: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowPublicPreview(false)}
-              className="w-full py-3 bg-[#FAF9F6] hover:bg-[#F5F5F4] border border-[#E7E5E4] text-[#1C1917] text-xs font-bold uppercase tracking-widest rounded-xl transition-all cursor-pointer"
+              className="w-full py-3.5 bg-[#FAF9F6] hover:bg-[#F5F5F4] border-2 border-[#1C1917] text-[#1C1917] font-mono text-[11px] font-bold uppercase tracking-widest rounded-xl transition-all cursor-pointer shadow-2xs active:scale-95 mt-2"
             >
-              Fechar Visualização
+              FECHAR VISUALIZAÇÃO
             </button>
           </div>
         </div>
