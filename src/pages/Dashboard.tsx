@@ -719,7 +719,7 @@ export const Dashboard: React.FC = memo(() => {
                   <div className="grid grid-cols-2 bg-[#FAF9F6] p-1.5 rounded-xl border border-[#E7E5E4] text-xs font-bold">
                     <button 
                       type="button" 
-                      onClick={() => { setMediaMode('video'); showToast('Modo Vídeo + Áudio selecionado', 'info'); }} 
+                      onClick={() => { setMediaMode('video'); }} 
                       className={`py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer ${mediaMode === 'video' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-2xs' : 'text-[#78716C] hover:text-[#1C1917]'}`}
                     >
                       <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" /></svg>
@@ -727,7 +727,7 @@ export const Dashboard: React.FC = memo(() => {
                     </button>
                     <button 
                       type="button" 
-                      onClick={() => { setMediaMode('audio'); showToast('Modo Apenas Áudio selecionado', 'info'); }} 
+                      onClick={() => { setMediaMode('audio'); }} 
                       className={`py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer ${mediaMode === 'audio' ? 'bg-[#1C1917] text-[#FAF9F6] shadow-2xs' : 'text-[#78716C] hover:text-[#1C1917]'}`}
                     >
                       <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 003-3V4.5a3 3 0 00-3-3 3 3 0 00-3 3v8.25a3 3 0 003 3z" /></svg>
@@ -1034,7 +1034,7 @@ export const Dashboard: React.FC = memo(() => {
 
                 {lastSessionFeedback.vocabLearned && lastSessionFeedback.vocabLearned.length > 0 && (
                   <div className="flex flex-col gap-2">
-                    <span className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-wider">VOCAB_LOGGED</span>
+                    <span className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-wider">VOCAB LOGGED</span>
                     <div className="flex flex-wrap gap-1.5">
                       {lastSessionFeedback.vocabLearned.map((w, i) => (
                         <span key={i} className="font-mono text-[10px] font-bold px-2 py-0.5 bg-[#FAF9F6] border border-[#E7E5E4] text-[#1C1917] rounded-md hover:scale-105 transition-transform cursor-default">{w}</span>
@@ -1264,9 +1264,9 @@ export const Dashboard: React.FC = memo(() => {
           <div className="bg-[#FFFFFF] border border-[#E7E5E4] rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150 max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-4">
               <h3 className="font-mono text-xs font-bold uppercase tracking-tight text-[#1C1917]">
-                {activeMetricModal === 'streak' && 'HISTORICO_OFENSIVA'}
-                {activeMetricModal === 'minutes' && 'MINUTOS_PRATICADOS'}
-                {activeMetricModal === 'sessions' && 'HISTORICO_SESSOES'}
+                {activeMetricModal === 'streak' && 'HISTORICO DE OFENSIVA'}
+                {activeMetricModal === 'minutes' && 'MINUTOS PRATICADOS'}
+                {activeMetricModal === 'sessions' && 'HISTORICO DE SESSOES'}
               </h3>
               <button type="button" onClick={() => setActiveMetricModal(null)} className="text-[#78716C] hover:text-[#1C1917] text-sm font-bold cursor-pointer">✕</button>
             </div>
@@ -1275,19 +1275,19 @@ export const Dashboard: React.FC = memo(() => {
               <div className="flex flex-col gap-6">
                 <div className="flex items-center justify-between bg-[#FAF9F6] p-4 rounded-2xl border border-[#E7E5E4]">
                   <div className="flex flex-col gap-1">
-                    <span className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-wider">SEQUENCIA_MAXIMA</span>
+                    <span className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-wider">SEQUENCIA MAXIMA</span>
                     <span className="font-mono text-xl font-black text-[#1C1917]">{activeUser?.maxStreak || 0}D</span>
                   </div>
                   <div className="w-px h-8 bg-[#E7E5E4]" />
                   <div className="flex flex-col gap-1 text-right">
-                    <span className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-wider">SEQUENCIA_ATUAL</span>
+                    <span className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-wider">SEQUENCIA ATUAL</span>
                     <span className="font-mono text-xl font-black text-emerald-600 flex items-center gap-1 justify-end">
                       {userMetrics.currentStreak}D <FlameIcon className="w-4 h-4 text-emerald-600" />
                     </span>
                   </div>
                 </div>
                 <div className="flex flex-col gap-3">
-                  <span className="font-mono text-[10px] font-black uppercase tracking-widest text-[#1C1917]">ULTIMOS_7_DIAS</span>
+                  <span className="font-mono text-[10px] font-black uppercase tracking-widest text-[#1C1917]">ULTIMOS 7 DIAS</span>
                   <div className="grid grid-cols-7 gap-2">
                     {(weeklyGoal.days || []).map((item, index: number) => (
                       <div key={index} className="flex flex-col items-center gap-1.5">
@@ -1310,7 +1310,7 @@ export const Dashboard: React.FC = memo(() => {
               <div className="flex flex-col gap-6">
                 <div className="flex items-center justify-between bg-[#FAF9F6] p-4 rounded-2xl border border-[#E7E5E4]">
                   <div className="flex flex-col gap-1">
-                    <span className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-wider">TOTAL_NA_SEMANA</span>
+                    <span className="font-mono text-[10px] font-bold text-[#78716C] uppercase tracking-wider">TOTAL NA SEMANA</span>
                     <span className="font-mono text-xl font-black text-[#1C1917]">{userMetrics.totalMinutes} min</span>
                   </div>
                   <div className="w-px h-8 bg-[#E7E5E4]" />
@@ -1320,7 +1320,7 @@ export const Dashboard: React.FC = memo(() => {
                   </div>
                 </div>
                 <div className="flex flex-col gap-3">
-                  <span className="font-mono text-[10px] font-black uppercase tracking-widest text-[#1C1917]">DISTRIBUICAO_SEMANAL</span>
+                  <span className="font-mono text-[10px] font-black uppercase tracking-widest text-[#1C1917]">DISTRIBUICAO SEMANAL</span>
                   <div className="flex items-end justify-between h-28 pt-4 border-b border-[#E7E5E4]">
                     {(weeklyGoal.days || []).map((item, index: number) => (
                       <div key={index} className="flex flex-col items-center gap-1.5">
@@ -1338,7 +1338,7 @@ export const Dashboard: React.FC = memo(() => {
             {activeMetricModal === 'sessions' && (
               <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-[10px] font-black uppercase tracking-widest text-[#1C1917]">SESSOES_RECENTES</span>
+                  <span className="font-mono text-[10px] font-black uppercase tracking-widest text-[#1C1917]">SESSOES RECENTES</span>
                   <span className="font-mono text-[10px] font-bold text-[#78716C] uppercase">TOTAL: {userMetrics.totalSessions}</span>
                 </div>
                 <div className="flex flex-col gap-2.5 max-h-60 overflow-y-auto">
