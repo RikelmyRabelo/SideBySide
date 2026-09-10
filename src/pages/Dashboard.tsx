@@ -455,7 +455,6 @@ export const Dashboard: React.FC = memo(() => {
 
   const startMatchingFlow = useCallback(() => {
     setIsMatching(false);
-    showToast('Abrindo a fila de pareamento...', 'info');
     navigate('/room');
   }, [showToast, navigate]);
 

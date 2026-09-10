@@ -879,7 +879,7 @@ app.post('/api/friends/request', authenticateToken, async (req: Request, res: Re
     });
 
     if (existing) {
-      return res.status(400).json({ error: 'Já existe uma relação entre esses usuários.' });
+      return res.status(400).json({ error: 'Já existe uma relação de amizade ou solicitação pendente entre vocês.' });
     }
 
     const friendRelation = await prisma.friendRelation.create({
